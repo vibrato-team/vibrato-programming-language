@@ -100,6 +100,37 @@ En el ejemplo se declara una variable `x` que es un sample de una melodía de re
 
 ## Instrucciones
 
+### Asignación
+```vibrato
+variable <-> expresion
+```
+Ejecutar esta instrucción tiene el efecto de evaluar la expresión del lado derecho y almacenarla en la variable del lado izquierdo.
+
+### Bloque
+Un bloque es una instrucción que tiene dentro una secuencia de instrucciones finalizadas por `|`.
+```
+{
+    <instrucción_0>|
+    <instrucción_1>|
+    ...
+    <instrucción_n>|
+}
+```
+
+### Entrada
+```vibrato
+record (var_0, var_1, ..., var_n)
+```
+Permite obtener datos escritos por el usuario vía entrada estándar, almacenando los valores en cada una de las variables pasadas a `record`. Los valores se obtienen de los tokens de la línea ingresada por el usuario.
+
+Esta instrucción funciona únicamente con variables de tipo whole, half, quarter, eight, 32th y 64th.
+
+#### Salida
+```vibrato
+play (var_0, var_1, ..., var_n)
+```
+Imprime en salida estándar las variables pasadas a `play` separadas por un espacio. 
+
 ## Reglas de alcance
 
 ## Sintaxis
@@ -111,7 +142,7 @@ Los identificadores no pueden comenzar por un dígito y son sensibles a mayúscu
 ### Rests (Silencios)
 Los silencios son líneas o bloques de texto que son ignoradas durante la ejecución y sirven para documentar el código fuente. A cada silencio se le asocia una figura musical para especificar la duración del mismo. Los distintos tipos de silencios son:
 
-#### Líneas
+#### De una línea
 - Silencio de redonda
 ```
 - blablabla
@@ -127,7 +158,7 @@ Los silencios son líneas o bloques de texto que son ignoradas durante la ejecuc
 ~ blablabla
 ```
 
-#### Bloques
+#### De varias líneas
 - Silencio de corchea
 ```
 */ blablabla
