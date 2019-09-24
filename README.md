@@ -65,7 +65,7 @@ x0: quarter <-> x1 * x2 + 4
 ```
 
 ### 32th (Fusa)
-Son las notas que duran un treintavo de compás completo y sus valores son numeros reales **presicion simple**, su rango va desde [-1,79·10308, 1,79·10308]. Ocupan 8 bytes.
+Son las notas que duran un treintavo de compás completo y sus valores son numeros reales **presicion simple**, cuyo rango es ±1.18×10^−38 to ±3.4×10^38. Ocupan 4 bytes.
 Ejemplo:
 ```vibrato
 f0: 32th <-> 3.0|
@@ -73,7 +73,7 @@ f1: 32th <-> 3.141592
 ```
 
 ### 64th (Semifusa)
-Son las notas que duran un treintavo de compás completo y sus valores son numeros reales **presicion doble**, su rango va desde [-1,79·10308, 1,79·10308]. Ocupan 16 bytes.
+Son las notas que duran un treintavo de compás completo y sus valores son numeros reales **presicion doble**, cuyo rango es ±2.23×10^−308 to ±1.80×10^308. Ocupan 8 bytes.
 Ejemplo:
 ```vibrato
 sf0: 64th <-> 3.0|
