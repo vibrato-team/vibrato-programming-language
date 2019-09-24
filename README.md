@@ -125,7 +125,7 @@ Permite obtener datos escritos por el usuario vía entrada estándar, almacenand
 
 Esta instrucción funciona únicamente con variables de tipo whole, half, quarter, eight, 32th y 64th.
 
-#### Salida
+### Salida
 ```vibrato
 play (var_0, var_1, ..., var_n)
 ```
