@@ -10,6 +10,7 @@ Lenguaje de programación imperativo basado en teoría musical.
     4. [32th (Fusa)](#32th-fusa)
     5. [64th (Semifusa)](#64th-semifusa)
     6. [Melodies (Melodías)](#melodies-melodías)
+    7. [Sample](#sample)
 3. [Instrucciones](#instrucciones)
 4. [Reglas de alcance](#reglas-de-alcance)
 5. [Sintaxis](#sintaxis)
@@ -20,7 +21,8 @@ Lenguaje de programación imperativo basado en teoría musical.
     5. [Legato](#legato)
 6. [Ejemplos](#ejemplos)
 7. [Extras](#extras)
-    1. [Generación de archivo MIDI](#generación-de-archivo-midi)
+    1. [Arpeggio](#arpeggio)
+    2. [Generación de archivo MIDI](#generación-de-archivo-midi)
 
 ## Programa (ejemplo)
 ```vibrato
