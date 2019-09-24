@@ -24,10 +24,14 @@ Lenguaje de programación imperativo basado en teoría musical.
     1. [Arpeggio](#arpeggio)
     2. [Generación de archivo MIDI](#generación-de-archivo-midi)
 
+___
+_Recomendado utilizar la fuente [Fira Code](https://github.com/tonsky/FiraCode) para una mejor experiencia al programar en Vibrato._
+___
+
 ## Programa (ejemplo)
 ```vibrato
 main() {
-    play ("Hello World!")
+    |> ("Hello World!")
 }
 ```
 
@@ -35,8 +39,8 @@ main() {
 main() {
     n: quarter|
     m: quarter|
-    record (n, m)|
-    play (n * m)
+     (n, m)|
+    |> (n * m)
 }
 ```
 
@@ -88,12 +92,12 @@ sf1: 64th <-> 1.6180339887
 ```
 
 ### Melodies (Melodías)
-Una `Melody` es un arreglo de notas de una misma figura musical (blanca, redonda, negra, etc.) consecutivas en memoria. Recibe como parametro entre `< >` el tipo de figura musical único que aceptará. Se puede declarar un tamaño inicial de la melodía mediante la sintaxis `Melody<tipo> (n)`, donde `n` es una expresión aritmética de tipo `quarter` o `eighth`. Los literales de melodías son de la forma `[valor_0, valor_1, ..., valor_n]` o `"c_0c_1...c_n"` si es de blancas.
+Una `Melody` es un arreglo de notas de una misma figura musical (blanca, redonda, negra, etc.) consecutivas en memoria. Recibe como parametro entre `< >` el tipo de figura musical único que aceptará. Los literales de melodías son de la forma `[valor_0, valor_1, ..., valor_n]`,`"c_0c_1...c_n"` si es de blancas o `Melody<tipo>(tamano_inicial)` para declarar una melodía con un tamaño inicial.
 
 Ejemplo:
 ```vibrato
 arr: Melody<quarter> <-> [1, 2, 3, 4]|
-brr: Melody<32th> <-> [0.5, 0.4, 0.3]|
+brr: Melody<half> <-> "abcdefg"|
 crr: Melody<whole> <-> Melody<whole> (4)
 ```
 
@@ -130,17 +134,17 @@ Un bloque es una instrucción que tiene dentro una secuencia de instrucciones fi
 
 ### Entrada
 ```vibrato
-record (var_0, var_1, ..., var_n)
+@ (var_0, var_1, ..., var_n)
 ```
-Permite obtener datos escritos por el usuario vía entrada estándar, almacenando los valores en cada una de las variables pasadas a `record`. Los valores se obtienen de los tokens de la línea ingresada por el usuario.
+Permite obtener datos escritos por el usuario vía entrada estándar, almacenando los valores en cada una de las variables pasadas a la instrucción de record, denotada por `@`. Los valores se obtienen de los tokens de la línea ingresada por el usuario.
 
 Esta instrucción funciona únicamente con variables de tipo whole, half, quarter, eight, 32th y 64th.
 
 ### Salida
 ```vibrato
-play (var_0, var_1, ..., var_n)
+|> (var_0, var_1, ..., var_n)
 ```
-Imprime en salida estándar las variables pasadas a `play` separadas por un espacio. 
+Imprime en salida estándar las variables pasadas a la instrucción de play, denotada por `|>`, separadas por un espacio. 
 
 
 ### Condicional if / else
@@ -155,7 +159,7 @@ else <instrucción_1>
 La iteracion determinada va a repetir un bloque de instrucciones segun la cantidad de `repeticiones`. 
 ```
 loop {
-    play("Hard Rock Sofa!")
+    |>("Hard Rock Sofa!")
 } x (repeticiones)
 ```
 `repeticiones` siempre va a ser una expresion aritmetica
@@ -164,13 +168,22 @@ loop {
 La iteracion indeterminada va a repetir un bloque de instrucciones mientras `condicion` sea `maj`, en caso contrario, se termina el ciclo. 
 ```
 loop(condicion){
-    play("Hard Rock Sofa!")
+    |>("Hard Rock Sofa!")
 }
 ```
 `condicion` siempre va a ser una expresion de tipo `whole`.
 
-### Stop y Resume
-Sirven para detener explícitamente las iteraciones de un ciclo o pasar a la siguiente iteración sin ejecutar el resto del código en el bloque.
+### Stop y Next
+Sirven para detener explícitamente las iteraciones de un ciclo o pasar a la siguiente iteración sin ejecutar el resto del código en el bloque. La instrucción de stop se denota por el token `|]` y la instrucción de next se denota por el token `>>`.
+```
+loop {
+    if (b0) {
+        >>
+    } else {
+        |]
+    }
+} x (10)
+```
 
 ### Sostenidos y Bemoles
 Esta intrucción va en forma sufija. Los Sostenidos `#` suman una unidad a la variable en uso. 
@@ -178,9 +191,9 @@ Por otro lado los Bemoles `&` restan una unidad a la variable en uso.
 ```vibrato
 sb: quarter <-> 1
 sb#
-play(sb)
+|>(sb)
 sb&
-play(sb)
+|>(sb)
 ```
 ```
 2
@@ -210,13 +223,19 @@ track intro'(foo: whole) {
 ```
 Para hacer el llamado a una funcion, se debe hacer de la siguiente forma:
 ```vibrato
-play <nombre_track> track with (lista_parametros)
+|> <nombre_track> track with (lista_parametros)
+```
+Ejemplo:
+```
+|> intro track with (a0, "the weeknd")|
 ```
 
 ### New y Free
 Se puede reservar o liberar memoria dinamicamente según la necesidad de programador. Existen las palabras reservadas `new` y `free`.
 
-Para usar `new` debes indicarle un literal de `chord` o `Melody` o algo de la forma `tipo_escalar(expresión)`, donde `tipo_escalar` es un tipo escalar (negra, blanca, etc.) y la expresión será para inicializar la variable. Para `free` debes usar el identificador de un `sample`.
+Para usar `new` debes indicarle un literal de `chord` o `Melody` o algo de la forma `tipo_escalar(expresión)`, donde `tipo_escalar` es un tipo escalar (negra, blanca, etc.) y la expresión será para inicializar la variable. `new` retorna una expresión de tipo `sample`.
+
+Para `free` debes usar el identificador de un `sample`.
 
 ## Reglas de alcance
 
@@ -224,18 +243,18 @@ Para utilizar una variable debe estar previamente declarada en el bloque en el q
 ```
 ra: quarter <-> 1
 ra2: quarter <-> 2
-play(ra + ra2)
+|>(ra + ra2)
 ```
 
 Si se declara una variable con un mismo de una variable externa al bloque en uso, esta esconde la variable externa hasta el final del bloque
 ```
 ra: quarter <-> 1
 {
-    ra: quarter <-> 0
-    ra#
-    play(ra)
+    ra: quarter <-> 0|
+    ra#|
+    |>(ra)
 } x (3)
-play(ra)
+|>(ra)
 ```
 
 Imprime:
@@ -272,10 +291,6 @@ Los silencios son líneas o bloques de texto que son ignoradas durante la ejecuc
 ~ blablabla
 ```
 
-
-
-
-## Sintaxis 
 #### De varias líneas
 - Silencio de corchea
 ```
@@ -331,7 +346,7 @@ crr: Melody<Melody<whole>> <-> arr <|> brr|    -- crr = [[maj, min], [maj, maj, 
 - length: El operador unario prefijo `length` permite obtener la longitud de una melodía, retornando un valor de tipo `quarter`.
 Ejemplo:
 ```vibrato
-play (length ['a', 'b', 'c'])|
+|> (length ['a', 'b', 'c'])|
 ```
 Imprime
 ```
@@ -386,8 +401,8 @@ El programador tendrá acceso a las siguientes funciones _built-in_:
 
 ### `to_ascii` y `from_ascii`
 ```vibrato
-play (to_ascii('A'))|
-play (from_ascii(66))
+|> (to_ascii('A'))|
+|> (from_ascii(66))
 ```
 Imprime
 ```
@@ -450,7 +465,8 @@ main() {
     n1: quarter|
     mrr: Melody<32th> <-> new Melody<32th>(10)|
 
-    record (n0, n1)|
+    @ (n0, n1)|
+    
     i: quarter <-> 0|
     loop {
         mrr[i] <-> n0 mod 10|
