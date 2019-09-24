@@ -58,10 +58,17 @@ c1: half <-> '~'
 ```
 
 ### Quarter (Negra)
-Son las notas que duran un cuarto de compás y sus valores pertenecen al rango [-2^31, 2^31 - 1] de los enteros. Soporta los operadores aritméticos `+`, `-`, `*`, `/` y `mod`.
+Son las notas que duran un cuarto de compás y sus valores pertenecen al rango [-2^31, 2^31 - 1] de los enteros complemento a 2. Soporta los operadores aritméticos `+`, `-`, `*`, `/` y `mod`.
 Ejemplo:
 ```vibrato
 x0: quarter <-> x1 * x2 + 4
+```
+
+### Eighth (Corchea)
+Son las notas que duran un octavo de compás y sus valores pertenecen al rango [-2^63, 2^63 - 1] de los enteros complemento a 2. Soporta los operadores aritméticos `+`, `-`, `*`, `/` y `mod`.
+Ejemplo:
+```vibrato
+x0: quarter <-> 100000000000
 ```
 
 ### 32th (Fusa)
