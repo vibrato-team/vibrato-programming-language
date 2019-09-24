@@ -274,7 +274,7 @@ ___
 Como MVP se podría ignorar todo tipo de iteraciones, _jumps_ y valores de expresiones en tiempo de compilación. Se le asigna unos pitch aleatorios a las variables y se lee de arriba hacia abajo siguiendo las demás reglas mencionadas abajo.
 ___
 
-Al compilar un programa pasandole el flag `--midi` o `-m` al compilador Tremolo, se generará un archivo `.midi` con una _pieza musical_ inspirada en el código fuente. La figura musical y valor de cada variable y comentario ayudarán a componer dicha pieza. 
+Al compilar un programa pasandole el flag `--midi` o `-m` al compilador, se generará un archivo `.midi` con una _pieza musical_ inspirada en el código fuente. La figura musical y valor de cada variable y comentario ayudarán a componer dicha pieza. 
 
 Por ahora se tienen en mente un enfoque para la creación de la pieza musical que consiste en una especia de "interpretación simplista y aleatoria" del código fuente.
 
