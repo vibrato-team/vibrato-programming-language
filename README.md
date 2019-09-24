@@ -4,6 +4,12 @@ Lenguaje de programación imperativo basado en teoría musical.
 ## Índice
 1. [Programa (ejemplo)](#programa-ejemplo)
 2. [Expresiones y tipos de datos](#expresiones-y-tipos-de-datos)
+    1. [Whole (Redonda)](#whole-redonda)
+    2. [Half (Blanca)](#half-blanca)
+    3. [Quarter (Negra)](#quarter-negra)
+    4. [32th (Fusa)](#32th-fusa)
+    5. [64th (Semifusa)](#64th-semifusa)
+    6. [Melodies (Melodías)](#melodies-melodías)
 3. [Instrucciones](#instrucciones)
 4. [Reglas de alcance](#reglas-de-alcance)
 5. [Sintaxis](#sintaxis)
@@ -34,7 +40,7 @@ main() {
 
 ## Expresiones y tipos de datos
 ### Whole (Redonda)
-Son las notas que duran un compás completo y pueden tener los valores `maj` o `min`. Soporta los operadores lógicos `or` y `and`.
+Son las notas que duran un compás completo y pueden tener los valores `maj` o `min`. Soporta los operadores lógicos.
 Ejemplo:
 ```vibrato
 b0: whole <-> maj|
@@ -73,12 +79,22 @@ sf1: 64th <-> 1.6180339887
 ```
 
 ### Melodies (Melodías)
-Una `Melody` es una lista consecutiva en memoria de notas de una misma figura musical (blanca, redonda, negra, etc.). Recibe como parametro entre `<` y `>` el tipo de figura musical único que aceptará.
+Una `Melody` es un arreglo de notas de una misma figura musical (blanca, redonda, negra, etc.) consecutivas en memoria. Recibe como parametro entre `< >` el tipo de figura musical único que aceptará. Se puede declarar un tamaño inicial de la melodía mediante la sintaxis `Melody<tipo> (n)`, donde `n` es una expresión aritmética de tipo `quarter` o `eighth`.
+
 Ejemplo:
 ```vibrato
 arr: Melody<quarter> <-> [1, 2, 3, 4]|
-brr: Melody<32th> <-> [0.5, 0.4, 0.3]
+brr: Melody<32th> <-> [0.5, 0.4, 0.3]|
+crr: Melody<whole> <-> Melody<whole> (4)
 ```
+
+### Sample
+Un sample es una variable que apunta o referencia a otra variable almacenando su dirección de memoria. Si la variable `x` apunta a la variable `y`, se dice que "`x` es un sample de `y`" o "`x` _samplea_ a `y`".
+Ejemplo:
+```vibrato
+x: sample<Melody<whole>> <-> new Melody<whole> (n) |
+```
+En el ejemplo se declara una variable `x` que es un sample de una melodía de redondas de tamaño `n`.
 
 ## Instrucciones
 
