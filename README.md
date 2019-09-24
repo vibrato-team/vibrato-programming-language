@@ -72,7 +72,7 @@ x0: quarter <-> 100000000000
 ```
 
 ### 32th (Fusa)
-Son las notas que duran un treintavo de compás completo y sus valores son numeros reales **presicion simple**, cuyo rango es ±1.18×10^−38 to ±3.4×10^38. Ocupan 4 bytes.
+Son las notas que duran un treintavo de compás completo y sus valores son numeros reales **precision simple**, cuyo rango es ±1.18×10^−38 to ±3.4×10^38. Ocupan 4 bytes.
 Ejemplo:
 ```vibrato
 f0: 32th <-> 3.0|
@@ -80,7 +80,7 @@ f1: 32th <-> 3.141592
 ```
 
 ### 64th (Semifusa)
-Son las notas que duran un treintavo de compás completo y sus valores son numeros reales **presicion doble**, cuyo rango es ±2.23×10^−308 to ±1.80×10^308. Ocupan 8 bytes.
+Son las notas que duran un treintavo de compás completo y sus valores son numeros reales **precision doble**, cuyo rango es ±2.23×10^−308 to ±1.80×10^308. Ocupan 8 bytes.
 Ejemplo:
 ```vibrato
 sf0: 64th <-> 3.0|
@@ -173,8 +173,23 @@ loop(condicion){
 ```
 `condicion` siempre va a ser una expresion booleana
 
-### stop y resume
+### Stop y Resume
 Sirven para detener explícitamente un las iteraciones de un ciclo o pasar a la siguiente iteración sin ejecutar el resto del código en el bloque.
+
+### Sostenidos y Bemoles
+Esta intruccion va en forma sufija. Los Sostenidos `#` suma una unidad al a la variable en uso. 
+Por otro lado los Bemoles `?` resta una unidad a la variable en uso.
+```vibrato
+sb: quarter <-> 1
+sb#
+play(sb)
+sb?
+play(sb)
+```
+```
+2
+1
+```
 
 ### Funciones
 Se pueden crear funciones para mejor manejo y mas facil entendimiento del mismo, de una forma modular y sencilla. 
