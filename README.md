@@ -79,7 +79,7 @@ sf1: 64th <-> 1.6180339887
 ```
 
 ### Melodies (Melodías)
-Una `Melody` es un arreglo de notas de una misma figura musical (blanca, redonda, negra, etc.) consecutivas en memoria. Recibe como parametro entre `< >` el tipo de figura musical único que aceptará. Se puede declarar un tamaño inicial de la melodía mediante la sintaxis `Melody<tipo> (n)`, donde `n` es una expresión aritmética de tipo `quarter` o `eighth`.
+Una `Melody` es un arreglo de notas de una misma figura musical (blanca, redonda, negra, etc.) consecutivas en memoria. Recibe como parametro entre `< >` el tipo de figura musical único que aceptará. Se puede declarar un tamaño inicial de la melodía mediante la sintaxis `Melody<tipo> (n)`, donde `n` es una expresión aritmética de tipo `quarter` o `eighth`. Los literales de melodías son de la forma `[valor_0, valor_1, ..., valor_n]` o `"c_0c_1...c_n"` si es de blancas.
 
 Ejemplo:
 ```vibrato
@@ -213,6 +213,27 @@ legato Identificador {
 ## Ejemplos
 
 ## Extras
+
+### Arpeggio
+Una variable de tipo `Arpeggio<tipo_0>`, donde `tipo_0` es un tipo cualquiera, es un diccionario que mapea `Melody<half>` a `tipo_0`. La sintaxis para **crear** un arpeggio sería así:
+```vibrato
+dict: Arpeggio<quarter> <-> {
+    "abc" -> 0|
+    "efg" -> n|
+    ...
+}
+```
+
+A un arpeggio se le pueden agregar nuevos pares dinámicamente de la siquiente manera:
+```vibrato
+dict <~> ("v1br4t0", 140)|
+dict <~> ("tr3m0l0", 300)
+```
+
+Para acceder a un valor se hace de la siguiente manera:
+```vibrato
+x: quarter <-> dict["efg"]
+```
 
 ### Generación de archivo MIDI
 ___
