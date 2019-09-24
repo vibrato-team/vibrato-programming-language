@@ -75,9 +75,50 @@ Los identificadores no pueden comenzar por un dígito y son sensibles a mayúscu
 
 ## Intrucciones
 
+### Asignacion
+
+
+### Bloque de codigo
+
+### Condicional if / else
+
+### Iteracion determinada
+
+### Iteracion indeterminada
+
+### IO
+
 ## Reglas de alcance
 
+Para utilizar una variable debe estar previamente declarada en el bloque en el que se este trabajando. No es posible anidar funciones.
+```
+ra: quarter <-> 1
+ra2: quarter <-> 2
+play(ra + ra2)
+```
+
+Si se declara una variable con un mismo de una variable externa al bloque en uso, esta esconde la variable externa hasta el final del bloque
+```
+ra: quarter <-> 1
+{
+    ra: quarter <-> 0
+    ra#
+    play(ra)
+} x (3)
+play(ra)
+```
+
+Imprime:
+```
+1
+2
+3
+
+1
+```
+
 ## Precedencia de operadores
+
 
 ## Sintaxis 
 
