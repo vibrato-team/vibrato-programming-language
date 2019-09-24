@@ -118,7 +118,7 @@ variable <-> expresion
 Ejecutar esta instrucción tiene el efecto de evaluar la expresión del lado derecho y almacenarla en la variable del lado izquierdo.
 
 ### Bloque
-Un bloque es una instrucción que tiene dentro una secuencia de instrucciones finalizadas por `|`.
+Un bloque es una instrucción que tiene dentro una secuencia de instrucciones finalizadas por `|`. El `|` es opcional para la última instrucción del bloque.
 ```
 {
     <instrucción_0>|
@@ -144,46 +144,42 @@ Imprime en salida estándar las variables pasadas a `play` separadas por un espa
 
 
 ### Condicional if / else
-La instruccion condicional if/else verifica una condicion y ejecuta instruccion_0 si condicion es True, de lo contrario ejecuta la instruccion_1. 
+La instruccion condicional if/else verifica una condicion y ejecuta `instruccion_0` si condicion es `maj`, de lo contrario ejecuta `instruccion_1`. 
 ```vibrato
-if(Condicion){
-    <instrucción_0>
-} 
-else{
-    <instrucción_1>
-}
+if(Condicion) <instrucción_0>
+else <instrucción_1>
 ```
-`Condicion` siempre va a ser una expresion booleana.
+`Condicion` siempre va a ser una expresión de tipo `whole`.
 
 ### Iteracion determinada
 La iteracion determinada va a repetir un bloque de instrucciones segun la cantidad de `repeticiones`. 
 ```
-{
+loop {
     play("Hard Rock Sofa!")
 } x (repeticiones)
 ```
 `repeticiones` siempre va a ser una expresion aritmetica
 
 ### Iteracion indeterminada
-La iteracion indeterminada va a repetir un bloque de instrucciones mientras `condicion` sea True, en caso contrario, se termina el ciclo. 
+La iteracion indeterminada va a repetir un bloque de instrucciones mientras `condicion` sea `maj`, en caso contrario, se termina el ciclo. 
 ```
 loop(condicion){
     play("Hard Rock Sofa!")
 }
 ```
-`condicion` siempre va a ser una expresion booleana
+`condicion` siempre va a ser una expresion de tipo `whole`.
 
 ### Stop y Resume
-Sirven para detener explícitamente un las iteraciones de un ciclo o pasar a la siguiente iteración sin ejecutar el resto del código en el bloque.
+Sirven para detener explícitamente las iteraciones de un ciclo o pasar a la siguiente iteración sin ejecutar el resto del código en el bloque.
 
 ### Sostenidos y Bemoles
-Esta intruccion va en forma sufija. Los Sostenidos `#` suma una unidad al a la variable en uso. 
-Por otro lado los Bemoles `?` resta una unidad a la variable en uso.
+Esta intrucción va en forma sufija. Los Sostenidos `#` suman una unidad a la variable en uso. 
+Por otro lado los Bemoles `&` restan una unidad a la variable en uso.
 ```vibrato
 sb: quarter <-> 1
 sb#
 play(sb)
-sb?
+sb&
 play(sb)
 ```
 ```
@@ -191,8 +187,8 @@ play(sb)
 1
 ```
 
-### Funciones
-Se pueden crear funciones para mejor manejo y mas facil entendimiento del mismo, de una forma modular y sencilla. 
+### Tracks
+Se pueden crear funciones para mejor manejo y mas facil entendimiento del mismo, de una forma modular y sencilla. A las funciones se les conoce como tracks en Vibrato. 
 
 Se declaran de la siguiente manera
 ```vibrato
@@ -200,7 +196,7 @@ track <nombre_track>(lista_parametros): <tipo_dato_retorno> {
     ...
 }
 ```
-donde `track` es la palabra reservada para declarar una funcion, seguido de un nombre valido para las funciones(iguales a los identificadores de variables). Luego la lista de parametros (lista_parametros), donde primero el nombre del parametro seguido de su tipo de dato, queda de la forma `foo: quarter, bar: half`.  Por ultimo el tipo de dato que va a retornar la funcion, puede retornar nada.
+donde `track` es la palabra reservada para declarar una funcion, seguido de un identificador válido. Luego la lista de parametros `(lista_parametros)`, pasando primero el nombre del parametro seguido de su tipo de dato, quedando de la forma `foo: quarter, bar: half`.  Por ultimo el tipo de dato que va a retornar la funcion. Si no se especifica un tipo de retorno el track es un procedimiento.
 
 Dentro de las llaves tenemos las instrucciones que van a ser ejecutas tal cual como un Bloque. Siempre debe llevar la palabra reservada `||` al final de la expresion a retornar, o solo en una linea nueva en caso de no retornar nada.
 
@@ -218,9 +214,9 @@ play <nombre_track> track with (lista_parametros)
 ```
 
 ### New y Free
-Se puede reservar o liberar memoria dinamicamente segun la necesidad de programador. Existen las palabras reservadas `new` y `free`.
+Se puede reservar o liberar memoria dinamicamente según la necesidad de programador. Existen las palabras reservadas `new` y `free`.
 
-Para usar new debes indicarle un literal de `chord` o `Melody` o algo de la forma `tipo_escalar(expresión)`, donde `tipo_escalar` es un tipo escalar (negra, blanca, etc.) y la expresión será para inicializar la variable. Para free debes usar el id del sample.
+Para usar `new` debes indicarle un literal de `chord` o `Melody` o algo de la forma `tipo_escalar(expresión)`, donde `tipo_escalar` es un tipo escalar (negra, blanca, etc.) y la expresión será para inicializar la variable. Para `free` debes usar el identificador de un `sample`.
 
 ## Reglas de alcance
 
@@ -255,7 +251,7 @@ Imprime:
 ### Identificadores
 Un identificador de variable es una cadena de caracteres de cualquier longitud compuesta únicamente de las letras desde la `A` hasta la `Z` (mayúsculas o minúsculas), los dígitos del `0` al `9`, y el caracter `_`. Puede tener al final cero o más `'`.
 
-Los identificadores no pueden comenzar por un dígito y son sensibles a mayúsculas: la variable `var` es diferente a la variable `Var`, que a su vez son distintas a la variable `VAR`.
+Los identificadores no pueden comenzar por un dígito y son sensibles a mayúsculas.
 
 ### Rests (Silencios)
 Los silencios son líneas o bloques de texto que son ignoradas durante la ejecución y sirven para documentar el código fuente. A cada silencio se le asocia una figura musical para especificar la duración del mismo. Los distintos tipos de silencios son:
@@ -319,11 +315,31 @@ Los operadores de cada tipo se muestran en orden descendente de precedencia.
 - Disyunción `or`
 
 #### De comparación
-- Igual a `=`, Distinto a `\=`
+- Igual a `=`, Distinto a `/=`
 - Menor que `<`, Mayor que `>`, Menor o igual que `<=`, Mayor o igual que `>=`
 
+#### Para melodías
+- concat: El operador binario infijo `<|>`, también llamado _concat_, recibe dos melodías del mismo tipo y las concatena en la primera dimensión.
+Ejemplo:
+```vibrato
+arr: Melody<Melody<whole>> <-> [[maj, min], [maj, maj, min], [min]]|
+brr: Melody<Melody<whole>> <-> [[min, min, min, min], [maj]]|
+
+crr: Melody<Melody<whole>> <-> arr <|> brr|    -- crr = [[maj, min], [maj, maj, min], [min], [min, min, min, min], [maj]]
+```
+
+- length: El operador unario prefijo `length` permite obtener la longitud de una melodía, retornando un valor de tipo `quarter`.
+Ejemplo:
+```vibrato
+play (length ['a', 'b', 'c'])|
+```
+Imprime
+```
+3
+```
+
 #### Precedencia de operadores
-El orden de evaluación de operaciones en Vibrato es: operadores sobre bool, operadores comparativos, operadores aritméticos, unarias, respetando el orden de precedencia de cada operador en cada una de ellas
+El orden de evaluación de operaciones en Vibrato es: operadores sobre bool, operadores comparativos, operadores aritméticos, unarias, `length`, respetando el orden de precedencia de cada operador en cada una de ellas
 
 ### Chords (Acordes)
 Un acorde es una estructura de datos que se utiliza para organizar y almacenar distintos tipos de datos. La estructura general es la siguiente:
@@ -365,6 +381,20 @@ legato Identificador {
 }
 ```
 
+## Preludio
+El programador tendrá acceso a las siguientes funciones _built-in_:
+
+### `to_ascii` y `from_ascii`
+```vibrato
+play (to_ascii('A'))|
+play (from_ascii(66))
+```
+Imprime
+```
+65
+B
+```
+
 ## Ejemplos
 
 ## Extras
@@ -403,7 +433,7 @@ Las **reglas** a seguir para generar el MIDI son tentativamente las siguientes:
 - la figura musical determinará la duración de la nota y el valor se mapeará a un _pitch_
 - si la variable no se le puede determinar un valor en tiempo de compilación, se escogerá un pitch aleatorio
 - se ignorará la semántica de los ifs y se procesarán todas las instrucciones dentro de un `if` como si estuviesen fuera del mismo
-- para los `loop` y `{}x(<expresión dinámica>)` se repetirá el contenido 2 veces, pero si el valor de la expresión es posible de determinar en tiempo de compilación dicho valor será el número de veces que se repetirá el contenido.
+- para los `loop` se repetirá el contenido 2 veces, pero si el valor de la expresión es posible de determinar en tiempo de compilación dicho valor será el número de veces que se repetirá el contenido.
 - si una instrucción utiliza una expresión cuyo valor se conoce en tiempo de compilación, ese valor será el pitch. Si no se conoce su valor, tendrá un pitch aleatorio.
 - si la instrucción es una asignación, solo sonará el lado derecho.
 - el procesamiento o interpretación del código será comenzando desde la primera línea hasta la última.
@@ -422,7 +452,7 @@ main() {
 
     record (n0, n1)|
     i: quarter <-> 0|
-    {
+    loop {
         mrr[i] <-> n0 mod 10|
         n0 <-> n0*n1|
         i#|                 ~ Aumentar indice en uno
