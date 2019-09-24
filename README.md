@@ -164,6 +164,9 @@ loop(condicion){
 ```
 `condicion` siempre va a ser una expresion booleana
 
+### stop y resume
+Sirven para detener explícitamente un las iteraciones de un ciclo o pasar a la siguiente iteración sin ejecutar el resto del código en el bloque.
+
 ### Funciones
 Se pueden crear funciones para mejor manejo y mas facil entendimiento del mismo, de una forma modular y sencilla. 
 
@@ -181,19 +184,19 @@ Dentro de las llaves tenemos las instrucciones que van a ser ejecutas tal cual c
 track intro(): whole {
     Maj ||
 }
-track intro'(foo: whole): {
+track intro'(foo: whole) {
     ||
 }
 ```
 Para hacer el llamado a una funcion, se debe hacer de la siguiente forma:
 ```vibrato
-make <nombre_track> track with (lista_parametros)
+play <nombre_track> track with (lista_parametros)
 ```
 
 ### New y Free
 Se puede reservar o liberar memoria dinamicamente segun la necesidad de programador. Existen las palabras reservadas `new` y `free`.
 
-Para usar new debes indicarle el numero de bytes a reservar, mientras que para free debes usar el id al bloque de memoria.
+Para usar new debes indicarle un literal de `chord` o `Melody` o algo de la forma `tipo_escalar(expresión)`, donde `tipo_escalar` es un tipo escalar (negra, blanca, etc.) y la expresión será para inicializar la variable. Para free debes usar el id del sample.
 
 ## Reglas de alcance
 
