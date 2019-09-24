@@ -105,6 +105,8 @@ x: sample<Melody<whole>> <-> new Melody<whole> (n) |
 ```
 En el ejemplo se declara una variable `x` que es un sample de una melodía de redondas de tamaño `n`.
 
+Para dereferenciar se usa el operador unario sufijo `!`.
+
 
 
 ## Instrucciones
@@ -302,7 +304,7 @@ Los operadores de cada tipo se muestran en orden descendente de precedencia.
 - Disyunción `or`
 
 #### De comparación
-- Igual a `=`, Distinto a `!=`
+- Igual a `=`, Distinto a `\=`
 - Menor que `<`, Mayor que `>`, Menor o igual que `<=`, Mayor o igual que `>=`
 
 #### Precedencia de operadores
