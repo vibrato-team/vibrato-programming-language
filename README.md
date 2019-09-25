@@ -30,13 +30,13 @@ ___
 
 ## Programa (ejemplo)
 ```vibrato
-main() {
+moderato() {
     |> ("Hello World!")
 }
 ```
 
 ```vibrato
-main() {
+moderato() {
     n: quarter|
     m: quarter|
      (n, m)|
@@ -223,11 +223,11 @@ track intro'(foo: whole) {
 ```
 Para hacer el llamado a una funcion, se debe hacer de la siguiente forma:
 ```vibrato
-|> <nombre_track> track with (lista_parametros)
+|> <nombre_track> with (lista_parametros)
 ```
 Ejemplo:
 ```
-|> intro track with (a0, "the weeknd")|
+|> intro with (a0, "the weeknd")|
 ```
 
 ### New y Free
@@ -460,7 +460,7 @@ Por ejemplo, si se compila con `--midi` el programa
 **/ Este es un ejemplo ilustrativo,
 útil para demostrar la importancia de la elección de las figuras musicales. /**
 
-main() {
+moderato() {
     n0: quarter|
     n1: quarter|
     mrr: Melody<32th> <-> new Melody<32th>(10)|

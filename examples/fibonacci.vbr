@@ -1,0 +1,26 @@
+**/
+    Fibonacci iterativo.
+/**
+
+track fibo(n: quarter): quarter {
+    n0: quarter <-> 1| -- fibonacci de 0
+    n1: quarter <-> 1| -- fibonacci de 1
+
+    if (n = 0) n0 ||
+    if (n = 1) n1 ||
+
+    loop {
+        aux: quarter <-> n1|
+        n1 <-> n0 + n1|
+        n0 <-> aux|
+    } x (n - 1)
+
+    n1||
+}
+
+moderato() {
+    n: quarter|
+    |> ("Ingrese un entero:")|
+    @ (n)|
+    |> ("Fibonacci de", n, "es", |> fibo with (n))
+}
