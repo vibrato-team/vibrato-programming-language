@@ -12,17 +12,29 @@ Lenguaje de programación imperativo basado en teoría musical.
     6. [Melodies (Melodías)](#melodies-melodías)
     7. [Sample](#sample)
 3. [Instrucciones](#instrucciones)
+    1. [Asignación](#asignación)
+    2. [Bloque](#bloque)
+    3. [Entrada](#entrada)
+    4. [Salida](#salida)
+    5. [Condicional if/else](#condicional-if--else)
+    6. [Iteración determinada](#iteración-determinada)
+    7. [Iteración indeterminada](#iteración-indeterminada)
+    8. [Stop y Next](#stop-y-next)
+    9. [Sostenidos y Bemoles](#sostenidos-y-bemoles)
+    10. [Tracks](#tracks)
+    11. [New y Free](#new-y-free)
 4. [Reglas de alcance](#reglas-de-alcance)
 5. [Sintaxis](#sintaxis)
     1. [Identificadores](#identificadores) 
     2. [Rests (Silencios)](#rests-silencios)
-    3. [Operadores](#operadores)
-    4. [Chords (Acordes)](#chords-acordes)
-    5. [Legato](#legato)
+    3. [Chords (Acordes)](#chords-acordes)
+    4. [Legato](#legato)
+    5. [Operadores](#operadores)
 6. [Ejemplos](#ejemplos)
 7. [Extras](#extras)
-    1. [Arpeggio](#arpeggio)
-    2. [Generación de archivo MIDI](#generación-de-archivo-midi)
+    1. [Sobrecarga de funciones](#sobrecarga-de-funciones)
+    2. [Arpeggio](#arpeggio)
+    3. [Generación de archivo MIDI](#generación-de-archivo-midi)
 
 ___
 _Recomendado utilizar la fuente [Fira Code](https://github.com/tonsky/FiraCode) para una mejor experiencia al programar en Vibrato._
@@ -46,7 +58,7 @@ moderato() {
 
 ## Expresiones y tipos de datos
 ### Whole (Redonda)
-Son las notas que duran un compás completo y pueden tener los valores `maj` o `min`. Soporta los operadores lógicos.
+Son las notas que duran un compás completo y pueden tener los valores `maj` o `min`. Soporta los operadores lógicos. Valor default: `min`.
 Ejemplo:
 ```vibrato
 b0: whole <-> maj|
@@ -54,7 +66,7 @@ b1: whole <-> min or b0
 ```
 
 ### Half (Blanca)
-Son las notas que duran medio compás y sus valores pertenecen al conjunto de caracteres ASCII. Ocupan 1 Byte.
+Son las notas que duran medio compás y sus valores pertenecen al conjunto de caracteres ASCII. Ocupan 1 Byte. Valor default: `\0`.
 Ejemplo:
 ```vibrato
 c0: half <-> 'z'|
@@ -62,21 +74,21 @@ c1: half <-> '~'
 ```
 
 ### Quarter (Negra)
-Son las notas que duran un cuarto de compás y sus valores pertenecen al rango [-2^31, 2^31 - 1] de los enteros complemento a 2. Soporta los operadores aritméticos `+`, `-`, `*`, `/` y `mod`.
+Son las notas que duran un cuarto de compás y sus valores pertenecen al rango [-2^31, 2^31 - 1] de los enteros complemento a 2. Soporta los operadores aritméticos `+`, `-`, `*`, `/` y `mod`. Valor default: `0`.
 Ejemplo:
 ```vibrato
 x0: quarter <-> x1 * x2 + 4
 ```
 
 ### Eighth (Corchea)
-Son las notas que duran un octavo de compás y sus valores pertenecen al rango [-2^63, 2^63 - 1] de los enteros complemento a 2. Soporta los operadores aritméticos `+`, `-`, `*`, `/` y `mod`.
+Son las notas que duran un octavo de compás y sus valores pertenecen al rango [-2^63, 2^63 - 1] de los enteros complemento a 2. Soporta los operadores aritméticos `+`, `-`, `*`, `/` y `mod`. Valor default: `0`.
 Ejemplo:
 ```vibrato
 x0: quarter <-> 100000000000
 ```
 
 ### 32th (Fusa)
-Son las notas que duran un treintavo de compás completo y sus valores son numeros reales **precision simple**, cuyo rango es ±1.18×10^−38 to ±3.4×10^38. Ocupan 4 bytes.
+Son las notas que duran un treintavo de compás completo y sus valores son numeros reales **precision simple**, cuyo rango es ±1.18×10^−38 to ±3.4×10^38. Ocupan 4 bytes. Valor default: `0.0`.
 Ejemplo:
 ```vibrato
 f0: 32th <-> 3.0|
@@ -84,7 +96,7 @@ f1: 32th <-> 3.141592
 ```
 
 ### 64th (Semifusa)
-Son las notas que duran un treintavo de compás completo y sus valores son numeros reales **precision doble**, cuyo rango es ±2.23×10^−308 to ±1.80×10^308. Ocupan 8 bytes.
+Son las notas que duran un treintavo de compás completo y sus valores son numeros reales **precision doble**, cuyo rango es ±2.23×10^−308 to ±1.80×10^308. Ocupan 8 bytes. Valor default: `0.0`.
 Ejemplo:
 ```vibrato
 sf0: 64th <-> 3.0|
@@ -92,7 +104,7 @@ sf1: 64th <-> 1.6180339887
 ```
 
 ### Melodies (Melodías)
-Una `Melody` es un arreglo de notas de una misma figura musical (blanca, redonda, negra, etc.) consecutivas en memoria. Recibe como parametro entre `< >` el tipo de figura musical único que aceptará. Los literales de melodías son de la forma `[valor_0, valor_1, ..., valor_n]`,`"c_0c_1...c_n"` si es de blancas o `Melody<tipo>(tamano_inicial)` para declarar una melodía con un tamaño inicial.
+Una `Melody` es un arreglo de notas de una misma figura musical (blanca, redonda, negra, etc.) consecutivas en memoria. Recibe como parametro entre `< >` el tipo de figura musical único que aceptará. Los literales de melodías son de la forma `[valor_0, valor_1, ..., valor_n]`,`"c_0c_1...c_n"` si es de blancas o `Melody<tipo>(tamano_inicial)` para declarar una melodía con un tamaño inicial. Valor default: `[]`.
 
 Ejemplo:
 ```vibrato
@@ -101,8 +113,10 @@ brr: Melody<half> <-> "abcdefg"|
 crr: Melody<whole> <-> Melody<whole> (4)
 ```
 
+Los valores dentro de los literales creados con la última sintaxis serán los default en caso de existir un valor default para el tipo.
+
 ### Sample
-Un sample es una variable que apunta o referencia a otra variable almacenando su dirección de memoria. Si la variable `x` apunta a la variable `y`, se dice que "`x` es un sample de `y`" o "`x` _samplea_ a `y`".
+Un sample es una variable que apunta o referencia a otra variable almacenando su dirección de memoria. Si la variable `x` apunta a la variable `y`, se dice que "`x` es un sample de `y`" o "`x` _samplea_ a `y`". Valor default: el token `TT`, también llamado _TriTono_ (equivale al `NULL` en C).
 Ejemplo:
 ```vibrato
 x: sample<Melody<whole>> <-> new Melody<whole> (n) |
@@ -155,7 +169,7 @@ else <instrucción_1>
 ```
 `Condicion` siempre va a ser una expresión de tipo `whole`.
 
-### Iteracion determinada
+### Iteración determinada
 La iteracion determinada va a repetir un bloque de instrucciones segun la cantidad de `repeticiones`. 
 ```
 loop {
@@ -164,7 +178,7 @@ loop {
 ```
 `repeticiones` siempre va a ser una expresion aritmetica
 
-### Iteracion indeterminada
+### Iteración indeterminada
 La iteracion indeterminada va a repetir un bloque de instrucciones mientras `condicion` sea `maj`, en caso contrario, se termina el ciclo. 
 ```
 loop(condicion){
@@ -209,13 +223,15 @@ track <nombre_track>(lista_parametros): <tipo_dato_retorno> {
     ...
 }
 ```
-donde `track` es la palabra reservada para declarar una funcion, seguido de un identificador válido. Luego la lista de parametros `(lista_parametros)`, pasando primero el nombre del parametro seguido de su tipo de dato, quedando de la forma `foo: quarter, bar: half`.  Por ultimo el tipo de dato que va a retornar la funcion. Si no se especifica un tipo de retorno el track es un procedimiento.
+donde `track` es la palabra reservada para declarar una funcion, seguido de un identificador válido. Luego la lista de parametros `(lista_parametros)`, pasando primero el nombre del parametro seguido de su tipo de dato, quedando de la forma `foo: quarter, bar: half`. Si al tipo se le arregla el prefijo `>`, el argumento se pasará por referencia. Por ejemplo `track f(x: quarter, y_ref: >quarter)`. 
+
+Por último el tipo de dato que va a retornar la función. Si no se especifica un tipo de retorno el track es un procedimiento.
 
 Dentro de las llaves tenemos las instrucciones que van a ser ejecutas tal cual como un Bloque. Siempre debe llevar la palabra reservada `||` al final de la expresion a retornar, o solo en una linea nueva en caso de no retornar nada.
 
 ```vibrato
 track intro(): whole {
-    Maj ||
+    maj ||
 }
 track intro'(foo: whole) {
     ||
@@ -236,6 +252,16 @@ Se puede reservar o liberar memoria dinamicamente según la necesidad de program
 Para usar `new` debes indicarle un literal de `chord` o `Melody` o algo de la forma `tipo_escalar(expresión)`, donde `tipo_escalar` es un tipo escalar (negra, blanca, etc.) y la expresión será para inicializar la variable. `new` retorna una expresión de tipo `sample`.
 
 Para `free` debes usar el identificador de un `sample`.
+
+Ejemplo:
+```vibrato
+ptr: sample<Melody<quarter>>|
+n: quarter|
+@ (n)|
+ptr <-> new Melody<quarter> (n)|
+...
+free ptr|
+```
 
 ## Reglas de alcance
 
@@ -276,10 +302,6 @@ Los identificadores no pueden comenzar por un dígito y son sensibles a mayúscu
 Los silencios son líneas o bloques de texto que son ignoradas durante la ejecución y sirven para documentar el código fuente. A cada silencio se le asocia una figura musical para especificar la duración del mismo. Los distintos tipos de silencios son:
 
 #### De una línea
-- Silencio de redonda
-```
-- blablabla
-```
 
 - Silencio de blanca
 ```
@@ -316,6 +338,51 @@ blablabal /***
 blabalbalbla /****
 ```
 
+### Chords (Acordes)
+Un acorde es una estructura de datos que se utiliza para organizar y almacenar distintos tipos de datos. La estructura general es la siguiente:
+
+```vibrato
+chord Identificador {
+    id_1: tipo_1|
+    id_2: tipo_2|
+    ...
+    id_n: tipo_n
+}
+```
+
+Para un literal de acorde se usa la siguiente sintaxis:
+```vibrato
+Identificador (parametro_1, parametro_2, ... parametro_n)
+```
+Por ejemplo:
+```vibrato
+x <-> Sol (3.0, 'c', c0)|
+```
+donde `x` es una variable de tipo `Sol`, `c0` es una variable de tipo caracter y `Sol` está definido así:
+```vibrato
+chord Sol {
+    x: 64th|
+    y: half|
+    z: half
+}
+```
+
+Para acceder a un atributo de un acorde se usa el `.` al estilo C. Ejemplo:
+```vibrato
+val: 64th <-> sol.x|
+```
+
+### Legato
+Un legato es una estructura de datos que se utiliza para almacenar uno de los tipos de datos presentes en la misma. La estructura general es la siguiente:
+```vibrato
+legato Identificador {
+    id_1: tipo_1|
+    id_2: tipo_2|
+    ...
+    id_n: tipo_n
+}
+```
+
 ### Operadores
 Los operadores de cada tipo se muestran en orden descendente de precedencia.
 #### Aritméticos
@@ -334,15 +401,6 @@ Los operadores de cada tipo se muestran en orden descendente de precedencia.
 - Menor que `<`, Mayor que `>`, Menor o igual que `<=`, Mayor o igual que `>=`
 
 #### Para melodías
-- concat: El operador binario infijo `<|>`, también llamado _concat_, recibe dos melodías del mismo tipo y las concatena en la primera dimensión.
-Ejemplo:
-```vibrato
-arr: Melody<Melody<whole>> <-> [[maj, min], [maj, maj, min], [min]]|
-brr: Melody<Melody<whole>> <-> [[min, min, min, min], [maj]]|
-
-crr: Melody<Melody<whole>> <-> arr <|> brr|    -- crr = [[maj, min], [maj, maj, min], [min], [min, min, min, min], [maj]]
-```
-
 - length: El operador unario prefijo `length` permite obtener la longitud de una melodía, retornando un valor de tipo `quarter`.
 Ejemplo:
 ```vibrato
@@ -353,48 +411,25 @@ Imprime
 3
 ```
 
+- indexación:
+```
+val: whole <-> melodia[idx]|
+```
+
+- concat: El operador binario infijo `<|>`, también llamado _concat_, recibe dos melodías del mismo tipo y las concatena en la primera dimensión.
+Ejemplo:
+```vibrato
+arr: Melody<Melody<whole>> <-> [[maj, min], [maj, maj, min], [min]]|
+brr: Melody<Melody<whole>> <-> [[min, min, min, min], [maj]]|
+
+crr: Melody<Melody<whole>> <-> arr <|> brr|    -- crr = [[maj, min], [maj, maj, min], [min], [min, min, min, min], [maj]]
+```
+
+#### Para acordes
+- Acceder atributo: `acorde.atributo`
+
 #### Precedencia de operadores
-El orden de evaluación de operaciones en Vibrato es: operadores sobre bool, operadores comparativos, operadores aritméticos, unarias, `length`, respetando el orden de precedencia de cada operador en cada una de ellas
-
-### Chords (Acordes)
-Un acorde es una estructura de datos que se utiliza para organizar y almacenar distintos tipos de datos. La estructura general es la siguiente:
-
-```vibrato
-chord Identificador {
-    id_1: tipo_1|
-    id_2: tipo_2|
-    ...
-    id_n: tipo_n
-}
-```
-
-Para "instanciar" un acorde se usa la siguiente sintaxis:
-```vibrato
-Identificador (parametro_1, parametro_2, ... parametro_n)
-```
-Por ejemplo:
-```vibrato
-x <-> Sol (3.0, 'c', c0)|
-```
-donde `x` es una variable de tipo `Sol`, `c0` es una variable de tipo caracter y `Sol` está definido así:
-```vibrato
-chord Sol {
-    x: 64th|
-    y: half|
-    z: half
-}
-```
-
-### Legato
-Un legato es una estructura de datos que se utiliza para almacenar uno de los tipos de datos presentes en la misma. La estructura general es la siguiente:
-```vibrato
-legato Identificador {
-    id_1: tipo_1|
-    id_2: tipo_2|
-    ...
-    id_n: tipo_n
-}
-```
+El orden de evaluación de operaciones en Vibrato es: dereferencia, acceder atributo de acorde, operadores sobre bool, operadores comparativos, operadores aritméticos, operadores unarios restantes, operadores sobre melodías restantes, respetando el orden de precedencia de cada operador en cada una de ellas
 
 ## Preludio
 El programador tendrá acceso a las siguientes funciones _built-in_:
@@ -415,6 +450,9 @@ Ver carpeta [examples](https://github.com/vibrato-team/vibrato-programming-langu
 
 ## Extras
 
+### Sobrecarga de funciones
+Se podrá declarar más de una función con mismo identificador pero distintos argumentos.
+
 ### Arpeggio
 Una variable de tipo `Arpeggio<tipo_0>`, donde `tipo_0` es un tipo cualquiera, es un diccionario que mapea `Melody<half>` a `tipo_0`. La sintaxis para **crear** un arpeggio sería así:
 ```vibrato
@@ -434,7 +472,7 @@ dict <~> ("tr3m0l0", 300)
 Para acceder a un valor se hace de la siguiente manera:
 ```vibrato
 x: quarter <-> dict["efg"]
-```
+``` 
 
 ### Generación de archivo MIDI
 ___
