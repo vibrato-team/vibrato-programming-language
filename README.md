@@ -170,13 +170,25 @@ else <instrucción_1>
 `Condicion` siempre va a ser una expresión de tipo `whole`.
 
 ### Iteración determinada
-La iteracion determinada va a repetir un bloque de instrucciones segun la cantidad de `repeticiones`. 
+La iteracion determinada va a repetir un bloque segun el inicio, fin y salto. Inicio y salto son opcionales. luego de `loop` se debe indicar el nombre de la variable de iteracion, seguido de `:` y el tipo de dato, que en este caso solo de tipo entero, es decir, `quarter` y `eight`, por default agarra tipo `quarter`.
 ```
-loop {
+loop <id>:<tipo> {
     |>("Hard Rock Sofa!")
-} x (repeticiones)
+} in (inicio, fin, salto)
 ```
-`repeticiones` siempre va a ser una expresion aritmetica
+`inicio, fin y salto` siempre van a ser expresiones aritmeticas.
+`fin` es exclusivo, por ejemplo:
+```vibrato
+loop x {
+    |>(x)
+} in (1,5,1)
+```
+```
+1
+2
+3
+4
+```
 
 ### Iteración indeterminada
 La iteracion indeterminada va a repetir un bloque de instrucciones mientras `condicion` sea `maj`, en caso contrario, se termina el ciclo. 
@@ -239,11 +251,11 @@ track intro'(foo: whole) {
 ```
 Para hacer el llamado a una funcion, se debe hacer de la siguiente forma:
 ```vibrato
-|> <nombre_track> with (lista_parametros)
+play <nombre_track> with (lista_parametros)
 ```
 Ejemplo:
 ```
-|> intro with (a0, "the weeknd")|
+play intro with (a0, "the weeknd")|
 ```
 
 ### New y Free
@@ -275,19 +287,17 @@ ra2: quarter <-> 2
 Si se declara una variable con un mismo de una variable externa al bloque en uso, esta esconde la variable externa hasta el final del bloque
 ```
 ra: quarter <-> 1
-{
-    ra: quarter <-> 0|
-    ra#|
+loop ra:quarter {
     |>(ra)
-} x (3)
+} in (3)
 |>(ra)
 ```
 
 Imprime:
 ```
+0
 1
 2
-3
 
 1
 ```
@@ -401,28 +411,9 @@ Los operadores de cada tipo se muestran en orden descendente de precedencia.
 - Menor que `<`, Mayor que `>`, Menor o igual que `<=`, Mayor o igual que `>=`
 
 #### Para melodías
-- length: El operador unario prefijo `length` permite obtener la longitud de una melodía, retornando un valor de tipo `quarter`.
-Ejemplo:
-```vibrato
-|> (length ['a', 'b', 'c'])|
-```
-Imprime
-```
-3
-```
-
 - indexación:
 ```
 val: whole <-> melodia[idx]|
-```
-
-- concat: El operador binario infijo `<|>`, también llamado _concat_, recibe dos melodías del mismo tipo y las concatena en la primera dimensión.
-Ejemplo:
-```vibrato
-arr: Melody<Melody<whole>> <-> [[maj, min], [maj, maj, min], [min]]|
-brr: Melody<Melody<whole>> <-> [[min, min, min, min], [maj]]|
-
-crr: Melody<Melody<whole>> <-> arr <|> brr|    -- crr = [[maj, min], [maj, maj, min], [min], [min, min, min, min], [maj]]
 ```
 
 #### Para acordes
@@ -444,7 +435,25 @@ Imprime
 65
 B
 ```
+### length 
+El operador unario prefijo `length` permite obtener la longitud de una melodía, retornando un valor de tipo `quarter`.
+Ejemplo:
+```vibrato
+|> (length ['a', 'b', 'c'])|
+```
+Imprime
+```
+3
+```
+### concat
+El operador binario infijo `<|>`, también llamado _concat_, recibe dos melodías del mismo tipo y las concatena en la primera dimensión.
+Ejemplo:
+```vibrato
+arr: Melody<Melody<whole>> <-> [[maj, min], [maj, maj, min], [min]]|
+brr: Melody<Melody<whole>> <-> [[min, min, min, min], [maj]]|
 
+crr: Melody<Melody<whole>> <-> arr <|> brr|    -- crr = [[maj, min], [maj, maj, min], [min], [min, min, min, min], [maj]]
+```
 ## Ejemplos
 Ver carpeta [examples](https://github.com/vibrato-team/vibrato-programming-language/tree/master/examples)
 
@@ -452,6 +461,18 @@ Ver carpeta [examples](https://github.com/vibrato-team/vibrato-programming-langu
 
 ### Sobrecarga de funciones
 Se podrá declarar más de una función con mismo identificador pero distintos argumentos.
+
+### Crear Operadores
+Se va a poder definir operadores entre tipos de datos solo si el operador no esta definido
+
+### `from_legato`
+Funcionque toma un legato y devuelve un string con el tipo de dato que se este usando en el legato.
+```vibrato
+|> (from_legato(L))|
+```
+```
+"quarter"
+```
 
 ### Arpeggio
 Una variable de tipo `Arpeggio<tipo_0>`, donde `tipo_0` es un tipo cualquiera, es un diccionario que mapea `Melody<half>` a `tipo_0`. La sintaxis para **crear** un arpeggio sería así:
