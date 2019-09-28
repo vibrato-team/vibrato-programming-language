@@ -208,7 +208,7 @@ loop {
     } else {
         |]
     }
-} x (10)
+} in (10)
 ```
 
 ### Sostenidos y Bemoles
