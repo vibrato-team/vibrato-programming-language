@@ -1,0 +1,73 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: b9375f64ca871dc6b2ceb115deace5588e341e99cb5ef350021e556eee1cfc1c
+
+name:           vibrato
+version:        0.1.0.0
+synopsis:       An imperative programming language based on music and production theory.
+description:    Please see the README on GitHub at <https://github.com/vibrato-team/vibrato-programming-language>
+category:       Compilers
+homepage:       https://github.com/vibrato-team/vibrato-programming-language#readme
+bug-reports:    https://github.com/vibrato-team/vibrato-programming-language/issues
+author:         Gustavo Castellanos,
+                David Rodriguez
+maintainer:     gustavoaca1997@gmail.com,
+                dave00dark@gmail.com
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+    src/Lexer.x
+
+source-repository head
+  type: git
+  location: https://github.com/vibrato-team/vibrato-programming-language
+
+library
+  exposed-modules:
+      Lexer
+      Lib
+  other-modules:
+      Paths_vibrato
+  hs-source-dirs:
+      src
+  build-tools:
+      alex
+    , happy
+  build-depends:
+      array
+    , base >=4.7 && <5
+  default-language: Haskell2010
+
+executable vibrato-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_vibrato
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      array
+    , base >=4.7 && <5
+    , vibrato
+  default-language: Haskell2010
+
+test-suite vibrato-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_vibrato
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      array
+    , base >=4.7 && <5
+    , vibrato
+  default-language: Haskell2010

@@ -1,0 +1,52 @@
+name:                vibrato
+version:             0.1.0.0
+github:              "vibrato-team/vibrato-programming-language"
+license:             BSD3
+author:              ["Gustavo Castellanos", "David Rodriguez"]
+maintainer:          ["gustavoaca1997@gmail.com", "dave00dark@gmail.com"]
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+- src/Lexer.x
+
+# Metadata used when publishing your package
+synopsis:            An imperative programming language based on music and production theory.
+category:            Compilers
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/vibrato-team/vibrato-programming-language>
+
+dependencies:
+- base >= 4.7 && < 5
+- array
+
+library:
+  source-dirs: src
+  build-tools:
+    - alex
+    - happy
+
+executables:
+  vibrato-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - vibrato
+
+tests:
+  vibrato-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - vibrato
