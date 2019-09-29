@@ -1,0 +1,10 @@
+***/
+Un simple
+ hello      
+world.  
+    /***
+moderato() {
+    str_to_play': Melody<half> <-> "Hello world!"|
+    |> (str_to_play')|
+    |> ('\n')
+}
