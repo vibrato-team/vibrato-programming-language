@@ -1,0 +1,12 @@
+***/
+Abortar por usar ==
+    /***
+moderato() {
+    n: quarter&
+    str; Melody<half> <-> "=="|
+    |> ("Esto deberia fallar por culpa del ")|
+    |> (str)|
+    |> ('\n')|
+    @(n)|
+    |> (n%11 == 10)|
+}

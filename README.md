@@ -420,6 +420,9 @@ val: whole <-> melodia[idx]|
 #### Para acordes
 - Acceder atributo: `acorde.atributo`
 
+#### Para samples
+- Dereferenciar: `sample!`
+
 #### Precedencia de operadores
 El orden de evaluación de operaciones en Vibrato es: dereferencia, acceder atributo de acorde, operadores sobre bool, operadores comparativos, operadores aritméticos, operadores unarios restantes, operadores sobre melodías restantes, respetando el orden de precedencia de cada operador en cada una de ellas
 
