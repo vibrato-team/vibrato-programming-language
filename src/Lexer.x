@@ -6,18 +6,30 @@
 
 -- Character sets and regular expressions
 $digits = 0-9
-$alpha = [a-zA-Z] 
+$alpha = [a-zA-Z]
+
 @string     = \" ($printable # \")* \"              -- "strings
 @char     = \' ($printable # \")* \'                -- "chars
-@Eighththrests = (\*{1}\/ (\/[^\*]|[^\/])* \/\*{1})
-@Sixteenthrests = (\*{2}\/ (\/[^\*]|[^\/])* \/\*{2})
-@ThirtySecondrests = (\*{3}\/ (\/[^\*]|[^\/])* \/\*{3})
-@SixtyFourthrests = (\*{4}\/ (\/[^\*]|[^\/])* \/\*{4})
+
+@commentcontent = (\/[^\*]|[^\/]|\n)*
+@Eighththrests = (\*\/@commentcontent\/\*)
+@Sixteenthrests = (\*\*\/@commentcontent\/\*\*)
+@ThirtySecondrests = (\*\*\*\/@commentcontent\/\*\*\*)
+@SixtyFourthrests = (\*\*\*\*\/@commentcontent\/\*\*\*\*)
 
 
 tokens :-
 
-    $white+                             ;
+    -- Silencios
+    \-\-.*                                    {\p _ -> RestToken { rest=HalfRestToken, posn=p } }
+    \~.*                                      {\p _ -> RestToken { rest=QuarterRestToken, posn=p } }
+    @Eighththrests                            {\p _ -> RestToken { rest=EightRestToken, posn=p } }
+    @Sixteenthrests                           {\p _ -> RestToken { rest=SixteenthRestToken, posn=p } }
+    @ThirtySecondrests                        {\p _ -> RestToken { rest=ThirtySecondRestToken, posn=p } }
+    @SixtyFourthrests                         {\p _ -> RestToken { rest=SixtyFourthRestToken, posn=p } }
+
+    -- ID
+    [a-zA-Z]([a-zA-Z][0-9]\_)*\'*             {\p s -> IdToken p s}
 
     -- Tipos de datos. 
     whole                               {\p s -> WholeToken p} -- :: AlexPosn -> String -> Token
@@ -72,15 +84,6 @@ tokens :-
     new                                 {\p s -> NewToken p}
     free                                {\p s -> FreeToken p}
 
-    -- Silencios
-    \-\-.*                                    {\p _ -> RestToken { rest=HalfRestToken, posn=p } }
-    \~.*                                      {\p _ -> RestToken { rest=QuarterRestToken, posn=p } }
-    @Eighththrests                            {\p _ -> RestToken { rest=EightRestToken, posn=p } }
-    @Sixteenthrests                           {\p _ -> RestToken { rest=SixteenthRestToken, posn=p } }
-    @ThirtySecondrests                        {\p _ -> RestToken { rest=ThirtySecondRestToken, posn=p } }
-    @SixtyFourthrests                         {\p _ -> RestToken { rest=SixtyFourthRestToken, posn=p } }
-
-
     -- Chords y Legatos
     chord                               {\p s -> ChordToken p}
     legato                              {\p s -> LegatoToken p}
@@ -96,7 +99,7 @@ tokens :-
     mod                                 {\p s -> ModToken p}
     "/"                                 {\p s -> DivToken p}
     "*"                                 {\p s -> MultToken p}
-    "^"                                {\p s -> PowToken p}
+    "^"                                 {\p s -> PowToken p}
     "+"                                 {\p s -> PlusToken p}
 
     -- comparacion
@@ -121,9 +124,8 @@ tokens :-
     maj                                 {\p s -> MajToken p}
     min                                 {\p s -> MinToken p}
 
+    $white+                             ;
 
-    -- ID
-    [a-zA-Z]([a-zA-Z][0-9]\_)*\'*       {\p s -> IdToken p s}
 
 {
 data Rest =
@@ -209,7 +211,3 @@ data Token =
     deriving (Eq, Show)
         
 }
-
-
-
-
