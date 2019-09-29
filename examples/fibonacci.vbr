@@ -22,5 +22,5 @@ moderato() {
     n: quarter|
     |> ("Ingrese un entero:")|
     @ (n)|
-    |> ("Fibonacci de", n, "es", |> fibo with (n))
+    |> ("Fibonacci de", n, "es", play fibo with (n))
 }

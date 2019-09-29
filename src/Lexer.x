@@ -96,7 +96,7 @@ tokens :-
     mod                                 {\p s -> ModToken p}
     "/"                                 {\p s -> DivToken p}
     "*"                                 {\p s -> MultToken p}
-    "**"                                {\p s -> PowToken p}
+    "^"                                {\p s -> PowToken p}
     "+"                                 {\p s -> PlusToken p}
 
     -- comparacion

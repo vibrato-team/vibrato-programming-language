@@ -4,4 +4,6 @@ import Lib
 import Lexer
 
 main :: IO ()
-main = someFunc
+main = do
+    srcFile <- getContents
+    putStrLn $ show $ alexScanTokens srcFile

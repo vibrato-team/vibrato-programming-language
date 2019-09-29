@@ -40,7 +40,7 @@ track has_cycle(
         v: quarter <-> get_nth(u_list, idx)!.value|
         if (not vis![v]) {
             vis![v] <-> maj|
-            if (|> has_cycle with (g, vis, v)) {
+            if (play has_cycle with (g, vis, v)) {
                 maj||
             }
         } else {
@@ -80,7 +80,7 @@ moderato() {
     hasCycle: whole <-> min|
     u: quarter <-> 0|
     loop {
-        hasCycle <-> hasCycle or |> has_cycle with (g, vis, u)|
+        hasCycle <-> hasCycle or play has_cycle with (g, vis, u)|
         u#|
     }x (n)
     

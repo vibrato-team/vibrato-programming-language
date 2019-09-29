@@ -3,12 +3,12 @@ Factorial recursivo.
 /**
 track fact(n: quarter): quarter {
     if (quarter = 0) 1||
-    else n * |> fact with (n-1)||
+    else n * play fact with (n-1)||
 }
 
 moderato() {
     n: quarter|
     |> ("Ingrese un entero:")|
     @ (n)|
-    |> ("Factorial de", n, "es", |> fact with (n))
+    |> ("Factorial de", n, "es", play fact with (n))
 }
