@@ -1,10 +1,12 @@
 ***/
-Un simple
- hello      
-world.  
+Abortar por usar ==
     /***
 moderato() {
-    str_to_play': Melody<half> <-> ¿"Hello world!"| ~ Caracter invalido aqui
-    |> (str_to_play')|
-    |> ('\n')
+    n: quarter|
+    str: Melody<half> <-> "=="|
+    |> ("Esto deberia fallar por culpa del ")|
+    |> (str)|
+    |> ('\n')|
+    @(n)|
+    |> (n == 10)|
 }

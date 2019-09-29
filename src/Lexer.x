@@ -127,7 +127,20 @@ tokens :-
     -- ID
     [a-zA-Z][a-zA-Z0-9\_]*\'*             {\p s -> IdToken s p}
 
+    "=="                                {\p _ -> didYouMeanToken p "="}
+    "!="                                {\p _ -> didYouMeanToken p "/="}
+    "<-"                                {\p _ -> didYouMeanToken p "<->"}
+
 {
+
+didYouMeanToken :: AlexPosn -> String -> a
+didYouMeanToken p op = error $ "Did you men " ++ op ++ " at line: " ++ show (posnLine p) ++ ", col: " ++ show (posnCol p) ++ "?"
+
+posnLine :: AlexPosn -> Int
+posnLine (AlexPn _ l _) = l
+
+posnCol :: AlexPosn -> Int
+posnCol (AlexPn _ _ c) = c
 
 data Rest =
     HalfRestToken|
