@@ -4,13 +4,15 @@
 
 %wrapper "posn"
 
--- Character sets used in the regular expressions
+-- Character sets and regular expressions
 $digit = 0-9
 $alpha = [a-zA-Z] 
+@string     = \" ($printable # \")* \"              -- "strings
+
 
 tokens :-
 
-$white+         ;
+$white+                             ;
 
 -- Tipos de datos. 
 whole                               {\p s -> Whole p} -- :: AlexPosn -> String -> Token
@@ -30,7 +32,7 @@ Sample                              {\p s -> Sample p}
 -- Bloque
 "{"                                 {\p s -> CurlyBracketOpen p}
 "}"                                 {\p s -> CurlyBracketClose p}
-"|"                                 {\p s -> Pipe p}
+"|"                                 {\p s -> Bar p}
 
 -- IO
 "("                                 {\p s -> ParenthesisOpen p}
@@ -65,8 +67,14 @@ with                                {\p s -> With p}
 new                                 {\p s -> New p}
 free                                {\p s -> Free p}
 
--- Comentarios
-[(\-\-)\~].*                        {\p s -> Comment p}
+-- Silencios
+\-\-.*                                    {\p _ -> RestToken { rest=HalfRestToken, posn=p } }
+\~.*                                      {\p _ -> RestToken { rest=QuarterRestToken, posn=p } }
+\*\/(\/(?!\*)|[^\/])*\/\*                 {\p _ -> RestToken { rest=EightRestToken, posn=p } }
+\*{2}\/(\/(?!\*)|[^\/])*\/\*{2}           {\p _ -> RestToken { rest=16thRestToken, posn=p } }
+\*{3}\/(\/(?!\*)|[^\/])*\/\*{3}           {\p _ -> RestToken { rest=32thRestToken, posn=p } }
+\*{4}\/(\/(?!\*)|[^\/])*\/\*{4}           {\p _ -> RestToken { rest=64thRestToken, posn=p } }
+
 
 -- Chords y Legatos
 chord                               {\p s -> Chord p}
@@ -101,97 +109,99 @@ mod                                 {\p s -> Mod p}
 -- Acceso a Chords
 "."                                 {\p s -> Dot p}
 
--- Prelude
-to_ascii                            {\p s -> ToAscii p}
-from_ascii                          {\p s -> FromAscii p}
-length                              {\p s -> Length p}
-"<|>"                               {\p s -> Concat p}
-
 -- Literales
-$digits+                            {\p s -> Int p}
-$digits+\.$digits+                  {\p s -> Float p}
-Maj                                 {\p s -> True p}
-Min                                 {\p s -> False p}
+$digits+                            {\p s -> Int p read(s) }
+$digits+\.$digits+                  {\p s -> Float p read(s) }
+@string                             {\p s -> String p s }
+maj                                 {\p s -> Maj p}
+min                                 {\p s -> Min p}
 
 
 -- ID
-[a-zA-Z]([a-zA-Z][0-9]\_)*\'*       {\p s -> Id p}
-
--- ID Acordes
-[A-Z]([a-zA-Z][0-9]\_)*\'*          {\p s -> IdChord p}
-
--- ID Track
-[a-z]([a-zA-Z][0-9]\_)*\'*          {\p s -> IdTrack p}
-
-
+[a-zA-Z]([a-zA-Z][0-9]\_)*\'*       {\p s -> Id p s}
 
 {
+    data Rest =
+        HalfRestToken|
+        QuarterRestToken|
+        EightRestToken |
+        16thRestToken |
+        32thRestToken |
+        64thRestToken
+        deriving (Eq, Show)
+
     data Token = 
-        Whole AlexPosn |
-        Half AlexPosn |
-        Quarter AlexPosn |
-        Eight AlexPosn |
-        32th AlexPosn |
-        64th AlexPosn |
-        Melody AlexPosn |
-        Sample AlexPosn |
-        Assign AlexPosn |
-        CurlyBracketOpen AlexPosn |
-        CurlyBracketClose AlexPosn |
-        Pipe AlexPosn |
-        ParenthesisOpen AlexPosn |
-        ParenthesisClose AlexPosn |
-        Record AlexPosn |
-        PlaySym AlexPosn |
-        If AlexPosn |
-        Else AlexPosn |
-        Loop AlexPosn |
-        Colon AlexPosn |
-        In AlexPosn |
-        Comma AlexPosn |
-        Next AlexPosn |
-        Stop AlexPosn |
-        Sharp AlexPosn |
-        Flat AlexPosn |
-        Track AlexPosn |
-        DoubleBar AlexPosn |
-        Play AlexPosn |
-        With AlexPosn |
-        New AlexPosn |
-        Free AlexPosn |
-        Chord AlexPosn |
-        Legato AlexPosn |
-        Not AlexPosn |
-        And AlexPosn |
-        Or AlexPosn |
-        Minus AlexPosn |
-        Mod AlexPosn |
-        Div AlexPosn |
-        Mult AlexPosn |
-        Pow AlexPosn |
-        Plus AlexPosn |
-        Equal AlexPosn |
-        NotEqual AlexPosn |
-        Less AlexPosn |
-        Greater AlexPosn |
-        LessEqual AlexPosn |
-        GreaterEqual AlexPosn |
-        BracketOpen AlexPosn |
-        BracketClose AlexPosn |
-        Dot AlexPosn |
-        ToAscii AlexPosn |
-        FromAscii AlexPosn |
-        Length AlexPosn |
-        Concat AlexPosn |
-        Id AlexPosn String |
-        IdChord AlexPosn String |
-        IdTrack AlexPosn String |
-        Int AlexPosn Int |
-        Float AlexPosn Float |
-        True AlexPosn |
-        False AlexPosn |
-        String AlexPosn String |
-        Char AlexPosn Char |
+        -- Tipos de datos
+        WholeToken { posn :: AlexPosn } |
+        HalfToken { posn :: AlexPosn } |
+        QuarterToken { posn :: AlexPosn } |
+        EightToken { posn :: AlexPosn } |
+        32thToken { posn :: AlexPosn } |
+        64thToken { posn :: AlexPosn } |
+        MelodyToken { posn :: AlexPosn } |
+        SampleToken { posn :: AlexPosn } |
+        
+        -- Instrucciones
+        AssignToken { posn :: AlexPosn } |
+        CurlyBracketOpenToken { posn :: AlexPosn } |
+        CurlyBracketCloseToken { posn :: AlexPosn } |
+        BarToken { posn :: AlexPosn } |
+        ParenthesisOpenToken { posn :: AlexPosn } |
+        ParenthesisCloseToken { posn :: AlexPosn } |
+        RecordToken { posn :: AlexPosn } |
+        PlaySymToken { posn :: AlexPosn } |
+        IfToken { posn :: AlexPosn } |
+        ElseToken { posn :: AlexPosn } |
+        LoopToken { posn :: AlexPosn } |
+        ColonToken { posn :: AlexPosn } |
+        InToken { posn :: AlexPosn } |
+        CommaToken { posn :: AlexPosn } |
+        NextToken { posn :: AlexPosn } |
+        StopToken { posn :: AlexPosn } |
+        SharpToken { posn :: AlexPosn } |
+        FlatToken { posn :: AlexPosn } |
+        TrackToken { posn :: AlexPosn } |
+        DoubleBarToken { posn :: AlexPosn } |
+        PlayToken { posn :: AlexPosn } |
+        WithToken { posn :: AlexPosn } |
+        NewToken { posn :: AlexPosn } |
+        FreeToken { posn :: AlexPosn } |
+        RestToken { posn :: AlexPosn, rest :: Rest } |
+        ChordToken { posn :: AlexPosn } |
+        LegatoToken { posn :: AlexPosn } |
+
+        -- Operadores
+        NotToken { posn :: AlexPosn } |
+        AndToken { posn :: AlexPosn } |
+        OrToken { posn :: AlexPosn } |
+        MinusToken { posn :: AlexPosn } |
+        ModToken { posn :: AlexPosn } |
+        DivToken { posn :: AlexPosn } |
+        MultToken { posn :: AlexPosn } |
+        PowToken { posn :: AlexPosn } |
+        PlusToken { posn :: AlexPosn } |
+        EqualToken { posn :: AlexPosn } |
+        NotEqualToken { posn :: AlexPosn } |
+        LessToken { posn :: AlexPosn } |
+        GreaterToken { posn :: AlexPosn } |
+        LessEqualToken { posn :: AlexPosn } |
+        GreaterEqualToken { posn :: AlexPosn } |
+        BracketOpenToken { posn :: AlexPosn } |
+        BracketCloseToken { posn :: AlexPosn } |
+        DotToken { posn :: AlexPosn } |
+
+        -- Identificador
+        IdToken { posn :: AlexPosn, token :: String} |
+
+        -- Literales
+        IntToken { posn :: AlexPosn, intLiteral :: Int} |
+        FloatToken { posn :: AlexPosn, floatLiteral :: Float} |
+        MajToken { posn :: AlexPosn } |
+        MinToken { posn :: AlexPosn } |
+        StringToken { posn :: AlexPosn, stringLiteral :: String} |
+        CharToken { posn :: AlexPosn, charLiteral :: Char}
+
+        deriving (Eq, Show)
         
 }
 
