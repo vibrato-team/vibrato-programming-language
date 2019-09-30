@@ -138,6 +138,7 @@ tokens :-
 
 {
 
+-- This function is basically the lexer
 lexAnalysis :: String -> Either [String] [Token]
 lexAnalysis source = 
     if errors /= [] then Left errors
@@ -147,6 +148,7 @@ lexAnalysis source =
         errors = lefts eitherTokens
         matches = rights eitherTokens
 
+-- Helper functions
 didYouMeanToken :: AlexPosn -> String -> Either String Token
 didYouMeanToken p op = Left $ "Did you mean " ++ op ++ " at line: " ++ show (posnLine p) ++ ", col: " ++ show (posnCol p) ++ "?"
 
@@ -156,6 +158,8 @@ posnLine (AlexPn _ l _) = l
 posnCol :: AlexPosn -> Int
 posnCol (AlexPn _ _ c) = c
 
+-- Data types
+-- rests
 data Rest =
     HalfRestToken|
     QuarterRestToken|
@@ -165,6 +169,7 @@ data Rest =
     SixtyFourthRestToken
     deriving (Eq, Show)
 
+-- tokens
 data Token = 
     -- Tipos de datos
     WholeToken { token :: String, line :: Int, col :: Int } |
