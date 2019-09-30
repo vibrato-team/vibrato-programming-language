@@ -27,5 +27,5 @@ main = do
         case lexResult of
             Left errors -> do
                 putStrLn $ "Something happened!\n" ++ (ppList $ map (\e -> Wrapper e) errors)
-            Right matches -> do
-                putStrLn $ "Tokens:\n" ++ ppList matches)
+            Right tokens -> do
+                putStrLn $ "Tokens:\n" ++ ppList tokens)
