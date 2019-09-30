@@ -32,7 +32,7 @@ tokens :-
     @SixtyFourthrests                         {\p s -> Right $ RestToken { token=s, rest=SixtyFourthRestToken, line=(posnLine p), col=(posnCol p) } }
 
     -- Tipos de datos. 
-    whole                               {\p s -> Right $ WholeToken s (posnLine p) (posnCol p)} -- :: AlexPosn -> Right $ String -> Right $ Token
+    whole                               {\p s -> Right $ WholeToken s (posnLine p) (posnCol p)}
     half                                {\p s -> Right $ HalfToken s (posnLine p) (posnCol p)}
     quarter                             {\p s -> Right $ QuarterToken s (posnLine p) (posnCol p)}
     eight                               {\p s -> Right $ EightToken s (posnLine p) (posnCol p)}
