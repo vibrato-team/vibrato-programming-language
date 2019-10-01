@@ -1,9 +1,10 @@
 {
-module Lexer (Token(..), Rest(..), AlexPosn(..), lexAnalysis) where 
+module Lexer (Token(..), runAlexScan, AlexUserState(..), AlexState(..)) where
+import Tokens
 import Data.Either
 }
 
-%wrapper "posn"
+%wrapper "monadUserState"
 
 -- Character sets and regular expressions
 $digits = 0-9
@@ -18,230 +19,198 @@ $alpha = [a-zA-Z]
 @ThirtySecondrests = (\*\*\*\/@commentcontent\/\*\*\*)
 @SixtyFourthrests = (\*\*\*\*\/@commentcontent\/\*\*\*\*)
 
-
 tokens :-
 
     $white+                             ;
 
     -- Silencios
-    \-\-.*                                    {\p s -> Right $ RestToken { token=s, rest=HalfRestToken, line=(posnLine p), col=(posnCol p) } }
-    \~.*                                      {\p s -> Right $ RestToken { token=s, rest=QuarterRestToken, line=(posnLine p), col=(posnCol p) } }
-    @Eighththrests                            {\p s -> Right $ RestToken { token=s, rest=EightRestToken, line=(posnLine p), col=(posnCol p) } }
-    @Sixteenthrests                           {\p s -> Right $ RestToken { token=s, rest=SixteenthRestToken, line=(posnLine p), col=(posnCol p) } }
-    @ThirtySecondrests                        {\p s -> Right $ RestToken { token=s, rest=ThirtySecondRestToken, line=(posnLine p), col=(posnCol p) } }
-    @SixtyFourthrests                         {\p s -> Right $ RestToken { token=s, rest=SixtyFourthRestToken, line=(posnLine p), col=(posnCol p) } }
+    \-\-.*                              { pushToken $ RestToken HalfRestToken }
+    \~.*                                { pushToken $ RestToken QuarterRestToken }
+    @Eighththrests                      { pushToken $ RestToken EightRestToken }
+    @Sixteenthrests                     { pushToken $ RestToken SixteenthRestToken }
+    @ThirtySecondrests                  { pushToken $ RestToken ThirtySecondRestToken }
+    @SixtyFourthrests                   { pushToken $ RestToken SixtyFourthRestToken }
 
     -- Tipos de datos. 
-    whole                               {\p s -> Right $ WholeToken s (posnLine p) (posnCol p)}
-    half                                {\p s -> Right $ HalfToken s (posnLine p) (posnCol p)}
-    quarter                             {\p s -> Right $ QuarterToken s (posnLine p) (posnCol p)}
-    eight                               {\p s -> Right $ EightToken s (posnLine p) (posnCol p)}
-    ThirtySecond                        {\p s -> Right $ ThirtySecondToken s (posnLine p) (posnCol p)}
-    SixtyFourth                         {\p s -> Right $ SixtyFourthToken s (posnLine p) (posnCol p)}
-    Melody                              {\p s -> Right $ MelodyToken s (posnLine p) (posnCol p)}
-    Sample                              {\p s -> Right $ SampleToken s (posnLine p) (posnCol p)}
+    whole                               { pushToken WholeToken }
+    half                                { pushToken HalfToken }
+    quarter                             { pushToken QuarterToken }
+    eight                               { pushToken EightToken }
+    ThirtySecond                        { pushToken ThirtySecondToken }
+    SixtyFourth                         { pushToken SixtyFourthToken }
+    Melody                              { pushToken MelodyToken }
+    Sample                              { pushToken SampleToken }
 
     -- Instrucciones
 
     -- Asignacion
-    "<->"                               {\p s -> Right $ AssignToken s (posnLine p) (posnCol p)}
+    "<->"                               { pushToken AssignToken }
 
     -- Bloque
-    "{"                                 {\p s -> Right $ CurlyBracketOpenToken s (posnLine p) (posnCol p)}
-    "}"                                 {\p s -> Right $ CurlyBracketCloseToken s (posnLine p) (posnCol p)}
-    "|"                                 {\p s -> Right $ BarToken s (posnLine p) (posnCol p)}
+    "{"                                 { pushToken CurlyBracketOpenToken }
+    "}"                                 { pushToken CurlyBracketCloseToken }
+    "|"                                 { pushToken BarToken }
 
     -- IO
-    "("                                 {\p s -> Right $ ParenthesisOpenToken s (posnLine p) (posnCol p)}
-    ")"                                 {\p s -> Right $ ParenthesisCloseToken s (posnLine p) (posnCol p)}
-    "@"                                 {\p s -> Right $ RecordToken s (posnLine p) (posnCol p)}
-    "|>"                                {\p s -> Right $ PlaySymToken s (posnLine p) (posnCol p)}
+    "("                                 { pushToken ParenthesisOpenToken }
+    ")"                                 { pushToken ParenthesisCloseToken }
+    "@"                                 { pushToken RecordToken }
+    "|>"                                { pushToken PlaySymToken }
 
     -- Condicionales
-    if                                  {\p s -> Right $ IfToken s (posnLine p) (posnCol p)}
-    else                                {\p s -> Right $ ElseToken s (posnLine p) (posnCol p)}
+    if                                  { pushToken IfToken }
+    else                                { pushToken ElseToken }
 
     -- Ciclos
-    loop                                {\p s -> Right $ LoopToken s (posnLine p) (posnCol p)}
-    ":"                                 {\p s -> Right $ ColonToken s (posnLine p) (posnCol p)}
-    in                                  {\p s -> Right $ InToken s (posnLine p) (posnCol p)}
-    ","                                 {\p s -> Right $ CommaToken s (posnLine p) (posnCol p)}
+    loop                                { pushToken LoopToken }
+    ":"                                 { pushToken ColonToken }
+    in                                  { pushToken InToken }
+    ","                                 { pushToken CommaToken }
+    
     -- Stop y Next
-    ">>"                                {\p s -> Right $ NextToken s (posnLine p) (posnCol p)}
-    "|]"                                {\p s -> Right $ StopToken s (posnLine p) (posnCol p)}
+    ">>"                                { pushToken NextToken }
+    "|]"                                { pushToken StopToken }
 
     -- Bemoles y Sostenidos
-    "#"                                 {\p s -> Right $ SharpToken s (posnLine p) (posnCol p)}
-    "&"                                 {\p s -> Right $ FlatToken s (posnLine p) (posnCol p)}
+    "#"                                 { pushToken SharpToken }
+    "&"                                 { pushToken FlatToken }
 
     -- Tracks
-    track                               {\p s -> Right $ TrackToken s (posnLine p) (posnCol p)}
-    "||"                                {\p s -> Right $ DoubleBarToken s (posnLine p) (posnCol p)}
-    play                                {\p s -> Right $ PlayToken s (posnLine p) (posnCol p)}
-    with                                {\p s -> Right $ WithToken s (posnLine p) (posnCol p)}
+    track                               { pushToken TrackToken }
+    "||"                                { pushToken DoubleBarToken }
+    play                                { pushToken PlayToken }
+    with                                { pushToken WithToken }
 
     -- New y Free
-    new                                 {\p s -> Right $ NewToken s (posnLine p) (posnCol p)}
-    free                                {\p s -> Right $ FreeToken s (posnLine p) (posnCol p)}
+    new                                 { pushToken NewToken }
+    free                                { pushToken FreeToken }
 
     -- Chords y Legatos
-    chord                               {\p s -> Right $ ChordToken s (posnLine p) (posnCol p)}
-    legato                              {\p s -> Right $ LegatoToken s (posnLine p) (posnCol p)}
+    chord                               { pushToken ChordToken }
+    legato                              { pushToken LegatoToken }
 
     -- Operadores
     -- dereferencia
-    \!                                  {\p s -> Right $ DereferenceToken s (posnLine p) (posnCol p)}
+    \!                                  { pushToken DereferenceToken }
 
     --logicos
-    not                                 {\p s -> Right $ NotToken s (posnLine p) (posnCol p)}
-    and                                 {\p s -> Right $ AndToken s (posnLine p) (posnCol p)}
-    or                                  {\p s -> Right $ OrToken s (posnLine p) (posnCol p)}
+    not                                 { pushToken NotToken }
+    and                                 { pushToken AndToken }
+    or                                  { pushToken OrToken }
 
     -- aritmeticos
-    "-"                                 {\p s -> Right $ MinusToken s (posnLine p) (posnCol p)}
-    mod                                 {\p s -> Right $ ModToken s (posnLine p) (posnCol p)}
-    "/"                                 {\p s -> Right $ DivToken s (posnLine p) (posnCol p)}
-    "*"                                 {\p s -> Right $ MultToken s (posnLine p) (posnCol p)}
-    "^"                                 {\p s -> Right $ PowToken s (posnLine p) (posnCol p)}
-    "+"                                 {\p s -> Right $ PlusToken s (posnLine p) (posnCol p)}
+    "-"                                 { pushToken MinusToken }
+    mod                                 { pushToken ModToken }
+    "/"                                 { pushToken DivToken }
+    "*"                                 { pushToken MultToken }
+    "^"                                 { pushToken PowToken }
+    "+"                                 { pushToken PlusToken }
 
     -- comparacion
-    "="                                 {\p s -> Right $ EqualToken s (posnLine p) (posnCol p)}
-    "/="                                {\p s -> Right $ NotEqualToken s (posnLine p) (posnCol p)}
-    "<"                                 {\p s -> Right $ LessToken s (posnLine p) (posnCol p)}
-    ">"                                 {\p s -> Right $ GreaterToken s (posnLine p) (posnCol p)}
-    "<="                                {\p s -> Right $ LessEqualToken s (posnLine p) (posnCol p)}
-    ">="                                {\p s -> Right $ GreaterEqualToken s (posnLine p) (posnCol p)}
+    "="                                 { pushToken EqualToken }
+    "/="                                { pushToken NotEqualToken }
+    "<"                                 { pushToken LessToken }
+    ">"                                 { pushToken GreaterToken }
+    "<="                                { pushToken LessEqualToken }
+    ">="                                { pushToken GreaterEqualToken }
 
     -- indexacion
-    "["                                 {\p s -> Right $ BracketOpenToken s (posnLine p) (posnCol p)}
-    "]"                                 {\p s -> Right $ BracketCloseToken s (posnLine p) (posnCol p)}
+    "["                                 { pushToken BracketOpenToken }
+    "]"                                 { pushToken BracketCloseToken }
 
     -- Acceso a Chords
-    "."                                 {\p s -> Right $ DotToken s (posnLine p) (posnCol p)}
+    "."                                 { pushToken DotToken }
 
     -- Literales
-    $digits+                            {\p s -> Right $ IntToken s (posnLine p) (posnCol p) (read s) }
-    $digits+\.$digits+                  {\p s -> Right $ FloatToken s (posnLine p) (posnCol p) (read s) }
-    @string                             {\p s -> Right $ StringToken s (posnLine p) (posnCol p) (read s) }
-    @char                               {\p s -> Right $ CharToken s (posnLine p) (posnCol p) (read s)}
-    maj                                 {\p s -> Right $ MajToken s (posnLine p) (posnCol p)}
-    min                                 {\p s -> Right $ MinToken s (posnLine p) (posnCol p)}
+    $digits+                            { pushToken IntToken  }
+    $digits+\.$digits+                  { pushToken FloatToken }
+    @string                             { pushToken StringToken }
+    @char                               { pushToken CharToken }
+    maj                                 { pushToken MajToken }
+    min                                 { pushToken MinToken }
 
     -- ID
-    [a-zA-Z][a-zA-Z0-9\_]*\'*             {\p s -> Right $ IdToken s (posnLine p) (posnCol p)}
+    [a-zA-Z][a-zA-Z0-9\_]*\'*           { pushToken IdToken }
 
-    "=="                                {\p _ -> didYouMeanToken p "\"=\""}
-    "!="                                {\p _ -> didYouMeanToken p "\"/=\""}
-    "<-"                                {\p _ -> didYouMeanToken p "\"<->\""}
-    .                                   {\p s -> Left $ "Lexical error at line " ++ show (posnLine p) ++ " and column " ++ show (posnCol p) ++ ": " ++ show s}
+    "=="                                { throwError }
+    "!="                                { throwError }
+    "<-"                                { throwError }
+    .                                   { throwError }                                 
 
 {
 
--- This function is basically the lexer
-lexAnalysis :: String -> Either [String] [Token]
-lexAnalysis source = 
-    if errors /= [] then Left errors
-    else Right matches
-    where
-        eitherTokens = alexScanTokens source
-        errors = lefts eitherTokens
-        matches = rights eitherTokens
+alexEOF :: Alex ()
+alexEOF = return ()
+
+--------------------------------------------------------
+--------------------------------------------------------
 
 -- Helper functions
-didYouMeanToken :: AlexPosn -> String -> Either String Token
-didYouMeanToken p op = Left $ "Did you mean " ++ op ++ " at line: " ++ show (posnLine p) ++ ", col: " ++ show (posnCol p) ++ "?"
-
 posnLine :: AlexPosn -> Int
 posnLine (AlexPn _ l _) = l
 
 posnCol :: AlexPosn -> Int
 posnCol (AlexPn _ _ c) = c
 
--- Data types
--- rests
-data Rest =
-    HalfRestToken|
-    QuarterRestToken|
-    EightRestToken |
-    SixteenthRestToken |
-    ThirtySecondRestToken |
-    SixtyFourthRestToken
-    deriving (Eq, Show)
+    --------------------------------------------------------
+--------------------------------------------------------
 
--- tokens
-data Token = 
-    -- Tipos de datos
-    WholeToken { token :: String, line :: Int, col :: Int } |
-    HalfToken { token :: String, line :: Int, col :: Int } |
-    QuarterToken { token :: String, line :: Int, col :: Int } |
-    EightToken { token :: String, line :: Int, col :: Int } |
-    ThirtySecondToken { token :: String, line :: Int, col :: Int } |
-    SixtyFourthToken { token :: String, line :: Int, col :: Int } |
-    MelodyToken { token :: String, line :: Int, col :: Int } |
-    SampleToken { token :: String, line :: Int, col :: Int } |
-    
-    -- Instrucciones
-    AssignToken { token :: String, line :: Int, col :: Int } |
-    CurlyBracketOpenToken { token :: String, line :: Int, col :: Int } |
-    CurlyBracketCloseToken { token :: String, line :: Int, col :: Int } |
-    BarToken { token :: String, line :: Int, col :: Int } |
-    ParenthesisOpenToken { token :: String, line :: Int, col :: Int } |
-    ParenthesisCloseToken { token :: String, line :: Int, col :: Int } |
-    RecordToken { token :: String, line :: Int, col :: Int } |
-    PlaySymToken { token :: String, line :: Int, col :: Int } |
-    IfToken { token :: String, line :: Int, col :: Int } |
-    ElseToken { token :: String, line :: Int, col :: Int } |
-    LoopToken { token :: String, line :: Int, col :: Int } |
-    ColonToken { token :: String, line :: Int, col :: Int } |
-    InToken { token :: String, line :: Int, col :: Int } |
-    CommaToken { token :: String, line :: Int, col :: Int } |
-    NextToken { token :: String, line :: Int, col :: Int } |
-    StopToken { token :: String, line :: Int, col :: Int } |
-    SharpToken { token :: String, line :: Int, col :: Int } |
-    FlatToken { token :: String, line :: Int, col :: Int } |
-    TrackToken { token :: String, line :: Int, col :: Int } |
-    DoubleBarToken { token :: String, line :: Int, col :: Int } |
-    PlayToken { token :: String, line :: Int, col :: Int } |
-    WithToken { token :: String, line :: Int, col :: Int } |
-    NewToken { token :: String, line :: Int, col :: Int } |
-    FreeToken { token :: String, line :: Int, col :: Int } |
-    RestToken { token :: String, line :: Int, col :: Int, rest :: Rest } |
-    ChordToken { token :: String, line :: Int, col :: Int } |
-    LegatoToken { token :: String, line :: Int, col :: Int } |
+-- State of the monad
+data AlexUserState = AlexUserState {
+    matches :: Either [Error] [Token]
+}
 
-    -- Operadores
-    DereferenceToken { token :: String, line :: Int, col :: Int } |
-    NotToken { token :: String, line :: Int, col :: Int } |
-    AndToken { token :: String, line :: Int, col :: Int } |
-    OrToken { token :: String, line :: Int, col :: Int } |
-    MinusToken { token :: String, line :: Int, col :: Int } |
-    ModToken { token :: String, line :: Int, col :: Int } |
-    DivToken { token :: String, line :: Int, col :: Int } |
-    MultToken { token :: String, line :: Int, col :: Int } |
-    PowToken { token :: String, line :: Int, col :: Int } |
-    PlusToken { token :: String, line :: Int, col :: Int } |
-    EqualToken { token :: String, line :: Int, col :: Int } |
-    NotEqualToken { token :: String, line :: Int, col :: Int } |
-    LessToken { token :: String, line :: Int, col :: Int } |
-    GreaterToken { token :: String, line :: Int, col :: Int } |
-    LessEqualToken { token :: String, line :: Int, col :: Int } |
-    GreaterEqualToken { token :: String, line :: Int, col :: Int } |
-    BracketOpenToken { token :: String, line :: Int, col :: Int } |
-    BracketCloseToken { token :: String, line :: Int, col :: Int } |
-    DotToken { token :: String, line :: Int, col :: Int } |
+-- Modify user state
+modifyUserState :: (AlexUserState -> AlexUserState) -> Alex ()
+modifyUserState f = Alex $ \s -> Right (s{ alex_ust=(f $ alex_ust s) }, ())
 
-    -- Identificador
-    IdToken { token :: String, line :: Int, col :: Int} |
+-- push token to state
+pushTokenToState :: Token -> AlexUserState -> AlexUserState
+pushTokenToState tk state = state { matches=newUserState } where
+    newUserState = case matches state of
+        ust@(Left _) -> ust
+        Right tks -> Right $ tks ++ [tk]
 
-    -- Literales
-    IntToken { token :: String, line :: Int, col :: Int, intLiteral :: Int} |
-    FloatToken { token :: String, line :: Int, col :: Int, floatLiteral :: Float} |
-    MajToken { token :: String, line :: Int, col :: Int } |
-    MinToken { token :: String, line :: Int, col :: Int } |
-    StringToken { token :: String, line :: Int, col :: Int, stringLiteral :: String} |
-    CharToken { token :: String, line :: Int, col :: Int, charLiteral :: Char}
+-- Initial state
+alexInitUserState :: AlexUserState
+alexInitUserState = AlexUserState {
+    matches=Right []
+}
 
-    deriving (Eq, Show)
+-- get state from Alex a
+getUserState :: Alex AlexUserState
+getUserState = Alex $ \s -> Right (s, alex_ust s)
+
+-- Run scanner
+runAlexScan :: String -> Either String AlexUserState
+runAlexScan s = runAlex s $ alexMonadScan >> getUserState
+
+--------------------------------------------------------
+--------------------------------------------------------
+
+-- Push token to the monad
+type StdTokenConstructor = String -> Int -> Int -> Token
+
+pushToken :: StdTokenConstructor -> AlexAction ()
+pushToken constructor (p, _, _, s) len = modifyUserState (pushTokenToState tk) >> alexMonadScan where
+    tokenString = take len s
+    tk = constructor tokenString (posnLine p) (posnCol p)
+
+throwError :: AlexAction ()
+throwError (p, _, _, str) len = (Alex $ \s -> Right (s{ alex_ust= pushError s }, ())) >> alexMonadScan where
+    newError = Error p (take len str )
+    pushError s = AlexUserState $ Left $ fromLeft [] (matches $ alex_ust s) ++ [newError]
+
+-- Lexical error
+data Error = Error { posn :: AlexPosn, errorToken :: String }
+instance Show Error where
+    show err = "Invalid token at line " ++ show (posnLine (posn err) )++
+        ", column " ++ show (posnCol (posn err)) ++ ": " ++ show (errorToken err) ++
+            ". " ++ suggestion where
+            suggestion = case (errorToken err) of
+                "==" -> "Did you mean \"=\"?"
+                "!=" -> "Did you mean \"/=\""
+                "<-" -> "Did you mean \"<->\""
+                _ -> ""
 
 }

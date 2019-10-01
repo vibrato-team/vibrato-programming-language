@@ -7,25 +7,22 @@ import Lexer
 newtype Wrapper = Wrapper String
 
 -- Typeclass that has function `ppList` for showing cleaner a list of Tokens, Errors, etc.
-class PrettyPrintable a where
-    ppList :: [a] -> String
-
-instance PrettyPrintable Wrapper where
-    ppList [] = ""
-    ppList ((Wrapper s):ss) = s ++ "\n" ++ ppList ss
-
-instance PrettyPrintable Token where
-    ppList [] = ""
-    ppList (x:xs) = show x ++ "\n" ++ ppList xs
+ppList :: (Show a) => [a] -> String
+ppList [] = ""
+ppList [x] = show x
+ppList (x:xs) = show x ++ "\n" ++ ppList xs
 
 
 -- Main function. Currently it is only testing the lexer.
 main :: IO ()
 main = do
     srcFile <- getContents
-    let lexResult = lexAnalysis srcFile in (
+    let lexResult = runAlexScan srcFile in (
         case lexResult of
-            Left errors -> do
-                putStrLn $ "Something happened!\n" ++ (ppList $ map (\e -> Wrapper e) errors)
-            Right tokens -> do
-                putStrLn $ "Tokens:\n" ++ ppList tokens)
+            Left error ->
+                putStrLn $ "Something happened!\n" ++ show error
+            Right state -> case matches state of
+                Left errors -> 
+                    putStrLn $ "Lexical error!\n" ++ ppList errors
+                Right tokens -> do
+                    putStrLn $ "Tokens:\n" ++ ppList tokens)
