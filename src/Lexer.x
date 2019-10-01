@@ -9,9 +9,10 @@ import Data.Either
 -- Character sets and regular expressions
 $digits = 0-9
 $alpha = [a-zA-Z]
+@escchars = \\[nt\"\'\\]                                  -- "escaped characters
 
-@string     = \"($printable # \")*\"              -- "strings
-@char     = \'($printable # \")+\'                -- "chars
+@string     = \"([$printable # \"] | @escchars)*\"              -- "strings
+@char     = \'([$printable # \'] | @escchars)+\'                
 
 @commentcontent = (\/[^\*]|[^\/]|\n)*
 @Eighththrests = (\*\/@commentcontent\/\*)
