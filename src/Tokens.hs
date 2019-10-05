@@ -25,12 +25,12 @@ data Token =
     
     -- Instrucciones
     AssignToken { token :: String, line :: Int, col :: Int } |
-    CurlyBracketOpenToken { token :: String, line :: Int, col :: Int } |
-    CurlyBracketCloseToken { token :: String, line :: Int, col :: Int } |
+    OpenCurlyToken { token :: String, line :: Int, col :: Int } |
+    CloseCurlyToken { token :: String, line :: Int, col :: Int } |
     BarToken { token :: String, line :: Int, col :: Int } |
 
-    ParenthesisOpenToken { token :: String, line :: Int, col :: Int } |
-    ParenthesisCloseToken { token :: String, line :: Int, col :: Int } |
+    OpenParToken { token :: String, line :: Int, col :: Int } |
+    CloseParToken { token :: String, line :: Int, col :: Int } |
     RecordToken { token :: String, line :: Int, col :: Int } |
     PlaySymToken { token :: String, line :: Int, col :: Int } |
 
