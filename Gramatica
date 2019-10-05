@@ -1,0 +1,94 @@
+inicio = 
+    comment
+    | funcion
+
+comment = 
+    inline
+    | blockComment
+
+funcion = 
+    moderato OpenParToken Args CloseParToken Block
+    | track IdToken OpenParToken Args CloseParToken ColonToken Tipo Block
+
+Block = 
+    OpenCurlyToken Seq CloseCurlyToken
+
+Seq = 
+    Instruccion BarToken Seq
+    | Instruccion DoubleBarToken Seq
+    | Instruccion DoubleBarToken
+    | Instruccion
+
+Instruccion = 
+    Declaracion
+    | Asignacion
+    | Block
+    | IO
+    | Condicional
+    | Iteracion
+    | CallFuncion
+
+
+Declaracion =
+    IdToken ColonToken AsigDeclaracion
+
+AsigDeclaracion =
+    AssignToken Expresion
+    | lambda
+
+
+Asignacion =
+    IdToken AssignToken Expresion
+
+
+IO =
+    RecordToken OpenParToken listVar CloseParToken
+    PlaySymToken OpenParToken listVar CloseParToken
+
+
+Condicional =
+    IfToken OpenParToken Expresion CloseParToken Instruccion CondElse
+
+CondElse =
+    ElseToken Instruccion
+    | lambda
+
+
+Iteracion =
+    -- Iteracion determinada
+    LoopToken IdToken ColonToken Tipo Instruccion InToken OpenParToken listVar CloseParToken
+    | LoopToken IdToken Instruccion InToken OpenParToken listVar CloseParToken
+    
+    -- Iteracion indeterminada
+    | LoopToken OpenParToken Expresion OpenParToken
+
+
+CallFuncion =
+    PlayToken IdToken WithToken OpenParToken listExp CloseParToken
+
+listVar =
+    IdToken ColonToken Tipo CommaToken listVar
+    | IdToken ColonToken Tipo
+
+listExp = 
+    Expresion CommaToken listExp
+    | Expresion
+
+
+Tipo =
+    WholeToken
+    | HalfToken
+    | QuarterToken
+    | EightToken
+    | ThirtySecondToken
+    | SixtyFourthToken
+    | MelodyToken
+    | SampleToken
+
+Literales =
+    IntToken
+    | FloatToken
+    | MajToken
+    | MinToken
+    | StringToken
+    | CharToken
