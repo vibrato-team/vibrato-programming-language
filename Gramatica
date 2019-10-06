@@ -7,8 +7,8 @@ comment =
     | blockComment
 
 funcion = 
-    moderato OpenParToken Args CloseParToken Block
-    | track IdToken OpenParToken Args CloseParToken ColonToken Tipo Block
+    moderato OpenParToken listVar CloseParToken Block
+    | track IdToken OpenParToken listVar CloseParToken ColonToken Tipo Block
 
 Block = 
     OpenCurlyToken Seq CloseCurlyToken
@@ -27,6 +27,8 @@ Instruccion =
     | Condicional
     | Iteracion
     | CallFuncion
+    | SharpToken
+    | FlatToken
 
 
 Declaracion =
@@ -42,8 +44,8 @@ Asignacion =
 
 
 IO =
-    RecordToken OpenParToken listVar CloseParToken
-    PlaySymToken OpenParToken listVar CloseParToken
+    RecordToken OpenParToken listExp CloseParToken
+    PlaySymToken OpenParToken listExp CloseParToken
 
 
 Condicional =
@@ -56,8 +58,8 @@ CondElse =
 
 Iteracion =
     -- Iteracion determinada
-    LoopToken IdToken ColonToken Tipo Instruccion InToken OpenParToken listVar CloseParToken
-    | LoopToken IdToken Instruccion InToken OpenParToken listVar CloseParToken
+    LoopToken IdToken ColonToken Tipo Instruccion InToken OpenParToken listExp CloseParToken
+    | LoopToken IdToken Instruccion InToken OpenParToken listExp CloseParToken
     
     -- Iteracion indeterminada
     | LoopToken OpenParToken Expresion OpenParToken
@@ -85,10 +87,42 @@ Tipo =
     | MelodyToken
     | SampleToken
 
-Literales =
+Literal =
     IntToken
     | FloatToken
     | MajToken
     | MinToken
     | StringToken
     | CharToken
+
+
+Expresion =
+    -- Booleanos
+    NotToken Expresion
+    Expresion AndToken Expresion
+    Expresion OrToken Expresion
+    
+    -- Aritmetivos
+    MinusToken Expresion
+    Expresion MinusToken Expresion
+    Expresion ModToken Expresion
+    Expresion DivToken Expresion
+    Expresion MultToken Expresion
+    Expresion PowToken Expresion
+    Expresion PlusToken Expresion
+
+    -- Relacionales
+    Expresion EqualToken Expresion
+    Expresion NotEqualToken Expresion
+    Expresion LessToken Expresion
+    Expresion GreaterToken Expresion
+    Expresion LessEqualToken Expresion
+    Expresion GreaterEqualToken Expresion
+
+    -- Arreglos
+    Expresion BracketOpenToken Expresion BracketCloseToken
+
+    -- Micelaneos
+    Variable
+    Literal
+    OpenParToken Expresion CloseParToken
