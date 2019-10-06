@@ -27,8 +27,8 @@ Instruccion =
     | Condicional
     | Iteracion
     | CallFuncion
-    | SharpToken
-    | FlatToken
+    | NextToken
+    | StopToken
 
 
 Declaracion =
@@ -84,8 +84,8 @@ Tipo =
     | EightToken
     | ThirtySecondToken
     | SixtyFourthToken
-    | MelodyToken
-    | SampleToken
+    | MelodyToken LessToken Tipo GreaterToken
+    | SampleToken LessToken Tipo GreaterToken
 
 Literal =
     IntToken
@@ -99,30 +99,34 @@ Literal =
 Expresion =
     -- Booleanos
     NotToken Expresion
-    Expresion AndToken Expresion
-    Expresion OrToken Expresion
+    | Expresion AndToken Expresion
+    | Expresion OrToken Expresion
     
     -- Aritmetivos
-    MinusToken Expresion
-    Expresion MinusToken Expresion
-    Expresion ModToken Expresion
-    Expresion DivToken Expresion
-    Expresion MultToken Expresion
-    Expresion PowToken Expresion
-    Expresion PlusToken Expresion
+    | MinusToken Expresion
+    | Expresion MinusToken Expresion
+    | Expresion ModToken Expresion
+    | Expresion DivToken Expresion
+    | Expresion MultToken Expresion
+    | Expresion PowToken Expresion
+    | Expresion PlusToken Expresion
 
     -- Relacionales
-    Expresion EqualToken Expresion
-    Expresion NotEqualToken Expresion
-    Expresion LessToken Expresion
-    Expresion GreaterToken Expresion
-    Expresion LessEqualToken Expresion
-    Expresion GreaterEqualToken Expresion
+    | Expresion EqualToken Expresion
+    | Expresion NotEqualToken Expresion
+    | Expresion LessToken Expresion
+    | Expresion GreaterToken Expresion
+    | Expresion LessEqualToken Expresion
+    | Expresion GreaterEqualToken Expresion
 
     -- Arreglos
-    Expresion BracketOpenToken Expresion BracketCloseToken
+    | Expresion BracketOpenToken Expresion BracketCloseToken
 
     -- Micelaneos
-    Variable
-    Literal
-    OpenParToken Expresion CloseParToken
+    | Variable
+    | Literal
+    | OpenParToken Expresion CloseParToken
+
+    -- Sostenidos y bemoles
+    | Expresion SharpToken
+    | Expresion FlatToken
