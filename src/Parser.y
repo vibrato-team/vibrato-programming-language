@@ -90,6 +90,14 @@ import qualified AST
 
     id                  { IdToken _ _ _ }
 
+%nonassoc '>' '<' '=' '/=' '<=' '>='
+%left '+' '-'
+%left '*' '/'
+%left mod 
+%left '^'
+
+%left NEG
+
 %%
 
 Start                   :: { AST.Program }
@@ -197,8 +205,8 @@ Type                    : whole                                 { AST.Type $1 No
                         | half                                  { AST.Type $1 Nothing }
                         | quarter                               { AST.Type $1 Nothing }
                         | eighth                                { AST.Type $1 Nothing }
-                        | ThirtySecond                                  { AST.Type $1 Nothing }
-                        | SixtyFourth                                  { AST.Type $1 Nothing }
+                        | ThirtySecond                          { AST.Type $1 Nothing }
+                        | SixtyFourth                           { AST.Type $1 Nothing }
                         | melody '<' Type '>'                   { AST.Type $1 (Just $3) }
                         | sample '<' Type '>'                   { AST.Type $1 (Just $3) }
                         | id                                    { AST.Type $1 Nothing }
@@ -216,53 +224,48 @@ LiteralMelody           :: { AST.Expression }
 LiteralMelody           : '[' ListExp ']'                           { AST.LiteralMelody $2 Nothing Nothing }
                         | melody '<' Type '>' '(' Expression ')'    { AST.LiteralMelody [] (Just $6) (Just $3) }
 
+Expression              :: { AST.Expression }
 Expression              : LValue                                { $1 }
---             | not Expression
+                        -- Boolean
+                        | not Expression                        { AST.NotExp $2 }
+                        | Expression and Expression             { AST.AndExp $1 $3 } 
+                        | Expression or Expression              { AST.OrExp $1 $3 }
 
---           | Expression and Expression
---           | Expression or Expression
-          
---           -- Aritmetivos
---           | '-' Expression
---           | Expression '-' Expression
---           | Expression mod Expression
---           | Expression '/' Expression
---           | Expression '*' Expression
---           | Expression '^' Expression
---           | Expression '+' Expression
-  
---           -- Relacionales
---           | Expression '=' Expression
---           | Expression '/=' Expression
---           | Expression '<' Expression
---           | Expression '>' Expression
---           | Expression '<=' Expression
---           | Expression '>=' Expression
+                        -- Aritmetivos
+                        | '-' Expression %prec NEG              { AST.NegativeExp $2 }
+                        | Expression '-' Expression             { AST.SubstractionExp $1 $3 }
+                        | Expression mod Expression             { AST.ModExp $1 $3 }
+                        | Expression '/' Expression             { AST.DivExp $1 $3 }
+                        | Expression '*' Expression             { AST.MultExp $1 $3 }
+                        | Expression '^' Expression             { AST.PowExp $1 $3 }             
+                        | Expression '+' Expression             { AST.AdditionExp $1 $3 }
 
---           -- Acordes y legato
---           | DotExpression
-  
-          -- Acordes y legato
---          | Expresion '.' Expresion
+                        -- Relacionales
+                        | Expression '=' Expression             { AST.EqualExp $1 $3 }
+                        | Expression '/=' Expression            { AST.NotEqualExp $1 $3 }
+                        | Expression '<' Expression             { AST.LessExp $1 $3 }
+                        | Expression '>' Expression             { AST.GreaterExp $1 $3 }
+                        | Expression '<=' Expression            { AST.LessEqualExp $1 $3 }
+                        | Expression '>=' Expression            { AST.GreaterEqualExp $1 $3 }
 
-          -- Para Samples
---          | Expresion '!'
---           -- Micelaneos
---           | Literal
---           | '(' Expression ')'
-  
---           -- Sostenidos y bemoles
---           | Expression '#'
---           | Expression '&'
-  
---           | NewToken Type '(' Expression ')'
+                        -- Micelaneos
+                        | Literal                               { $1 }
+                        | '(' Expression ')'                    { $2 }
 
---           | CallFuncion                           { $1 }
+                        -- Sostenidos y bemoles
+                        | Expression '#'                        { AST.SharpExp $1 }
+                        | Expression '&'                        { AST.FlatExp $1 }
 
--- ChordLegato : chord ChordLegatoAux
---             | legato ChordLegatoAux
+                        | new Type '(' Expression ')'           { AST.NewExp $2 $4 }
 
--- ChordLegatoAux : id '{' ListaVarCL '}'
+                        | CallFuncion                           { $1 }
 
--- ListaVarCL : id ':' Tipo
---          | ListaVar '|' id ':' Tipo
+ChordLegato             :: { AST.ChordLegatoDeclaracion }
+ChordLegato             : chord ChordLegatoAux                  { AST.ChordLegatoDec $2 }
+                        | legato ChordLegatoAux                 { AST.ChordLegatoDec $2 }
+
+ChordLegatoAux          : Id '{' ListaVarCL '}'                 { AST.ListaVarCL $1 (reverse $3)}
+
+ListaVarCL              :: { [AST.VarDeclaration] }
+ListaVarCL              : VarDeclaration                        { [$1] }
+                        | ListaVar '|' VarDeclaration           { $3 : $1 }

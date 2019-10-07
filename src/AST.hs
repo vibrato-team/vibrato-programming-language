@@ -123,7 +123,23 @@ data Expression =
     ModExp          {   exp_left :: Expression, exp_right :: Expression }     |
     MultExp         {   exp_left :: Expression, exp_right :: Expression }     |
     DivExp          {   exp_left :: Expression, exp_right :: Expression }     |
-    PowExp          {   exp_left :: Expression, exp_right :: Expression }
+    PowExp          {   exp_left :: Expression, exp_right :: Expression }     |
+
+    -- Relational
+    EqualExp        {   exp_left :: Expression, exp_right :: Expression }     |
+    NotEqualExp     {   exp_left :: Expression, exp_right :: Expression }     |
+    LessExp         {   exp_left :: Expression, exp_right :: Expression }     |
+    GreaterExp      {   exp_left :: Expression, exp_right :: Expression }     |
+    LessEqualExp    {   exp_left :: Expression, exp_right :: Expression }     |
+    GreaterEqualExp {   exp_left :: Expression, exp_right :: Expression }     |
+
+    -- Bemoles y Sostenidos
+    SharpExp        {   exp_exp :: Expression }                               |
+    FlatExp         {   exp_exp :: Expression }                               |
+
+    -- New
+    NewExp          {   type :: Type, exp_exp :: Expression }                 |
+
     deriving (Eq, Show)
 
 instance ASTNode Expression where
@@ -179,3 +195,10 @@ instance ASTNode Block where
         putTabs tabs
         putStrLn "Block of instructions:"
         foldl1 (>>) $ map (printNode (tabs+1)) $ statements block
+
+
+newtype ChordLegatoDeclaracion =
+    ChordLegatoDec        { list :: ListaVarCL }
+
+data ListaVarCL =
+    ListaVarCL {  }
