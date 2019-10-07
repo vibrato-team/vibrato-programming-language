@@ -48,13 +48,13 @@ tokens :-
     "<->"                               { pushToken AssignToken }
 
     -- Bloque
-    "{"                                 { pushToken CurlyBracketOpenToken }
-    "}"                                 { pushToken CurlyBracketCloseToken }
+    "{"                                 { pushToken OpenCurlyToken }
+    "}"                                 { pushToken CloseCurlyToken }
     "|"                                 { pushToken BarToken }
 
     -- IO
-    "("                                 { pushToken ParenthesisOpenToken }
-    ")"                                 { pushToken ParenthesisCloseToken }
+    "("                                 { pushToken OpenParToken }
+    ")"                                 { pushToken CloseParToken }
     "@"                                 { pushToken RecordToken }
     "|>"                                { pushToken PlaySymToken }
 
