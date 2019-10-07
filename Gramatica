@@ -7,15 +7,15 @@ comment =
     | blockComment
 
 funcion = 
-    moderato OpenParToken listVar CloseParToken Block
-    | track IdToken OpenParToken listVar CloseParToken ColonToken Tipo Block
+    moderato OpenParToken listVar CloseParToken Block inicio
+    | track IdToken OpenParToken listVar CloseParToken ColonToken Tipo Block inicio
 
 Block = 
     OpenCurlyToken Seq CloseCurlyToken
 
 Seq = 
-    Instruccion BarToken Seq
-    | Instruccion DoubleBarToken Seq
+    Seq BarToken Instruccion
+    | Seq Instruccion DoubleBarToken 
     | Instruccion DoubleBarToken
     | Instruccion
 
@@ -34,13 +34,12 @@ Instruccion =
 Declaracion =
     IdToken ColonToken AsigDeclaracion
 
+Asignacion =
+    IdToken AsigDeclaracion
+
 AsigDeclaracion =
     AssignToken Expresion
     | lambda
-
-
-Asignacion =
-    IdToken AssignToken Expresion
 
 
 IO =
@@ -62,7 +61,7 @@ Iteracion =
     | LoopToken IdToken Instruccion InToken OpenParToken listExp CloseParToken
     
     -- Iteracion indeterminada
-    | LoopToken OpenParToken Expresion OpenParToken
+    | LoopToken OpenParToken Expresion OpenParToken Instruccion
 
 
 CallFuncion =
@@ -122,6 +121,9 @@ Expresion =
     -- Arreglos
     | Expresion BracketOpenToken Expresion BracketCloseToken
 
+    -- Acordes y legato
+    | Expresion DotToken Expresion
+
     -- Micelaneos
     | Variable
     | Literal
@@ -130,3 +132,5 @@ Expresion =
     -- Sostenidos y bemoles
     | Expresion SharpToken
     | Expresion FlatToken
+
+    | NewToken Tipo OpenParToken Expresion CloseParToken
