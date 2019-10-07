@@ -2,23 +2,22 @@
 module Parser(parse) where
 import Lexer
 import Tokens
+import qualified AST
 }
 
 %name parse
-%tokentype { Token _ _ _ }
+%tokentype { Token }
 %error { parseError }
--- TODO: %lexer { lexer } { EOFToken _ _ _ }. Hace falta una función con la firma lexer :: (Token -> Alex a) -> Alex a
-%monad { Alex }
 
 %token
     whole               { WholeToken _ _ _ }
     half                { HalfToken _ _ _ }
     quarter             { QuarterToken _ _ _ }
     eighth              { EighthToken _ _ _ }
-    32th                { ThirtySecondToken _ _ _ }
-    64th                { SixtyFourthToken _ _ _ }
     melody              { MelodyToken _ _ _ }
     sample              { SampleToken _ _ _ }
+    ThirtySecond        { ThirtySecondToken _ _ _ }
+    SixtyFourth         { SixtyFourthToken _ _ _ }
 
     '<->'               { AssignToken _ _ _ }
     '{'                 { OpenCurlyToken _ _ _ }
@@ -93,117 +92,166 @@ import Tokens
 
 %%
 
-inicio :: { inicio }
-inicio : Alcance        {$1}
+Start                   :: { AST.Program }
+Start                   : ExternalList                          { AST.Start $ reverse $1 }
 
-Alcance :: { Alcance }
-Alcance : Comment
-        | Funcion
+ExternalList            :: { [AST.ExternalDeclaration] }
+ExternalList            : ExternalDeclaration                   { [$1] }
+                        | ExternalList ExternalDeclaration      { $2 : $1 }
 
-Funcion :: { Funcion }
-Funcion : id '(' ListaVar ')' Block Alcance
-        | track id '(' ListaVar ')' Block Alcance
+ExternalDeclaration     :: { AST.ExternalDeclaration }
+ExternalDeclaration     : FunctionDeclaration                   { AST.ExternalFunctionDeclaration $1 }
+                        | VarDeclaration                        { AST.ExternalVarDeclaration $1 }
 
+FunctionDeclaration     :: { AST.FunctionDeclaration }
+FunctionDeclaration     : track Id '(' ListaVar ')' MaybeType Block   { AST.FuncDec $2 $6 (reverse $4) $7 }
 
-Block : '{' Seq '}'
+Id                      :: { AST.Id }
+Id                      : id                                    { AST.Id $1 }
 
-Seq : Instruccion
-    | Seq '|' Instruccion
-    | Instruccion '||'
-    | Seq Instruccion '||'
-    | Comment
-    | Seq Comment
+MaybeType               :: { Maybe AST.Type }
+MaybeType               : {- empty -}                           { Nothing }
+                        | ':' Type                              { Just $1 }
 
-Instruccion : Declaracion
-            | Asignacion
-            | Block
-            | IO
-            | Condicional
-            | Iteracion
-            | CallFuncion
-            | '>>'
-            | '|]'
-            | free id
+Block                   :: { AST.Block }
+Block                   : '{' Seq '}'                           { AST.Block $ reverse $2 }
 
-Declaracion : id ':' AsignarAux
+Seq                     :: { [AST.Instruction] }
+Seq                     : Instruction                           { $1 }
+                        | Seq '|' Instruction                   { $3 : $1 }
 
-Asignacion : id AsignarAux
+Instruction             :: { AST.Instruction }
+Instruction             : OpenCondition                         { $1 }
+                        | ClosedCondition                       { $1 }
 
-AsignarAux : '=' Expresion
-           | {- empty -}           { [] }
+SimpleInstruction       :: { AST.Instruction }
+SimpleInstruction       : VarDeclaration                        { AST.VarDecInst $1 }
+                        | Asignacion                            { $1 }
+                        | Return                                { $1 }
+                        | Block                                 { AST.BlockInst $1 }
+                        | IO                                    { $1 }
+                        | Loop                                  { $1 }
+                        | '>>'                                  { $1 }
+                        | '|]'                                  { $1 }
+                        | free id                               { $1 }
 
-IO : '@' '(' ListExp ')'
-   | '|>' '(' ListExp ')'
+VarDeclaration          :: { AST.VarDeclaration }
+VarDeclaration          : Id ':' Type MaybeAsignar              { AST.VarDec $1 $3 $4 }
 
-Condicional : if '(' Expresion ')' Instruccion CondicionElse
+MaybeAsignar            :: { Maybe AST.Expression }    
+MaybeAsignar            : '<->' Expression                      { Just $2 }
+                        | {- empty -}                           { Nothing }
 
-CondicionElse : else Instruccion
-              | {- empty -}           { [] }
+Asignacion              :: { AST.Instruction }
+Asignacion              : LValue '<->' Expression               { AST.AssignInst $1 $3 }
 
-Iteracion : loop id ':' Tipo Instruccion in '(' ListExp ')'
-          | loop id Instruccion in '(' ListExp ')'
-          | loop '(' Expresion ')' Instruccion
+LValue                  :: { AST.Expression }
+LValue                  : Indexing                              { $1 }
+                        | DotExpression                         { $1 }
+                        | Dereference                           { $1 }
+                        | Id                                    { AST.IdExp $1 }
 
-CallFuncion : play id with '(' ListExp ')'
+Return                  :: { AST.Instruction }
+Return                  : Expression '||'                       { AST.ReturnInst $1 }
 
-ListaVar : id ':' Tipo
-         | ListaVar id ':' Tipo
+IO                      :: { AST.Instruction }
+IO                      : '@' '(' ListExp ')'                   { AST.RecordInst $ reverse $3 }
+                        | '|>' '(' ListExp ')'                  { AST.PlayInst $ reverse $3 }
 
-ListExp : Expresion
-        | ListExp CommaToken Expresion
+OpenCondition           :: { AST.Instruction }
+OpenCondition           : if '(' Expression ')' Instruction                         { AST.IfInst $3 $5 Nothing }
+                        | if '(' Expression ')' ClosedCondition else OpenCondition  { AST.IfInst $3 $5 (Just $7) }
 
-Tipo : whole
-     | half
-     | quarter
-     | eighth
-     | 32th
-     | 64th
-     | melody '<' Tipo '>'
-     | sample '<' Tipo '>'
+ClosedCondition         :: { AST.Instruction }
+ClosedCondition         : if '(' Expression ')' ClosedCondition else ClosedCondition    { AST.IfInst $3 $5 (Just $7) }
+                        | SimpleInstruction                                             { $1 }
 
-Literal : int
-        | float
-        | maj
-        | min
-        | string
-        | char
+Loop                    :: { AST.Instruction }
+Loop                    : loop Id MaybeType Block in '(' Expression ')'                                       { AST.ForInst $2 $3 $4 Nothing $7 Nothing }
+                        | loop Id MaybeType Block in '(' Expression ',' Expression ')'                        { AST.ForInst $2 $3 $4 (Just $7) $9 Nothing }
+                        | loop Id MaybeType Block in '(' Expression ',' Expression ',' Expression ')'         { AST.ForInst $2 $3 $4 (Just $7) $9 (Just $11) }
+                        | loop '(' Expression ')' Block                                                       { AST.WhileInst $3 $5 }
 
-Expresion : not Expresion
-          | Expresion and Expresion
-          | Expresion or Expresion
+CallFuncion             :: { AST.Expression }
+CallFuncion             : play Id with '(' ListExp ')'          { AST.CallExp $2 $ reverse $5 }
+
+ListaVar                :: { [AST.VarDeclaration] }
+ListaVar                : VarDeclaration                        { [$1] }
+                        | ListaVar ',' VarDeclaration           { $3 : $1 }             
+
+ListExp                 :: { [AST.Expression] }
+ListExp                 : Expression                            { [$1] }
+                        | ListExp ',' Expression                { $3 : $1 }
+
+Indexing                :: { AST.Expression }
+Indexing                : LValue '[' Expression ']'             { AST.IndexingExp $1 $3 }
+
+DotExpression           :: { AST.Expression }
+DotExpression           : LValue '.' Id                         { AST.DotExp $1 $3 }
+
+Dereference             :: { AST.Expression }
+Dereference             : LValue '!'                            { AST.DereferenceExp $1 }
+
+Type                    :: { AST.Type }
+Type                    : whole                                 { AST.Type $1 Nothing }
+                        | half                                  { AST.Type $1 Nothing }
+                        | quarter                               { AST.Type $1 Nothing }
+                        | eighth                                { AST.Type $1 Nothing }
+                        | ThirtySecond                                  { AST.Type $1 Nothing }
+                        | SixtyFourth                                  { AST.Type $1 Nothing }
+                        | melody '<' Type '>'                   { AST.Type $1 (Just $3) }
+                        | sample '<' Type '>'                   { AST.Type $1 (Just $3) }
+                        | id                                    { AST.Type $1 Nothing }
+
+Literal                 :: { AST.Expression }
+Literal                 : int                                   { AST.Literal $1 }
+                        | float                                 { AST.Literal $1 }
+                        | maj                                   { AST.Literal $1 }
+                        | min                                   { AST.Literal $1 }
+                        | string                                { AST.Literal $1 }
+                        | char                                  { AST.Literal $1 }
+                        | LiteralMelody                         { $1 }
+
+LiteralMelody           :: { AST.Expression }
+LiteralMelody           : '[' ListExp ']'                           { AST.LiteralMelody $2 Nothing Nothing }
+                        | melody '<' Type '>' '(' Expression ')'    { AST.LiteralMelody [] (Just $6) (Just $3) }
+
+Expression              : LValue                                { $1 }
+--             | not Expression
+
+--           | Expression and Expression
+--           | Expression or Expression
           
-          -- Aritmetivos
-          | '-' Expresion
-          | Expresion '-' Expresion
-          | Expresion mod Expresion
-          | Expresion '/' Expresion
-          | Expresion '*' Expresion
-          | Expresion '^' Expresion
-          | Expresion '+' Expresion
+--           -- Aritmetivos
+--           | '-' Expression
+--           | Expression '-' Expression
+--           | Expression mod Expression
+--           | Expression '/' Expression
+--           | Expression '*' Expression
+--           | Expression '^' Expression
+--           | Expression '+' Expression
   
-          -- Relacionales
-          | Expresion '=' Expresion
-          | Expresion '/=' Expresion
-          | Expresion '<' Expresion
-          | Expresion '>' Expresion
-          | Expresion '<=' Expresion
-          | Expresion '>=' Expresion
-  
-          -- Arreglos
-          | Expresion '[' Expresion ']'
-  
-          -- Acordes y legato
-          | Expresion '.' Expresion
-  
-          -- Micelaneos
-          | Variable
-          | Literal
-          | '(' Expresion ')'
-  
-          -- Sostenidos y bemoles
-          | Expresion '#'
-          | Expresion '&'
-  
-          | NewToken Tipo '(' Expresion ')'
+--           -- Relacionales
+--           | Expression '=' Expression
+--           | Expression '/=' Expression
+--           | Expression '<' Expression
+--           | Expression '>' Expression
+--           | Expression '<=' Expression
+--           | Expression '>=' Expression
 
-Chord : 
+--           -- Acordes y legato
+--           | DotExpression
+  
+--           -- Micelaneos
+--           | Literal
+--           | '(' Expression ')'
+  
+--           -- Sostenidos y bemoles
+--           | Expression '#'
+--           | Expression '&'
+  
+--           | NewToken Type '(' Expression ')'
+
+--           | CallFuncion                           { $1 }
+
+-- Chord : 

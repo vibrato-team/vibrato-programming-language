@@ -37,7 +37,7 @@ instance ASTNode ExternalDeclaration where
 
 -- Function Declaration
 data FunctionDeclaration =
-    FunctionDec {   func_id :: Id, func_type :: Type, 
+    FunctionDec {   func_id :: Id, func_type :: Maybe Type, 
                     func_params :: [VarDeclaration], 
                     func_body :: Block  }
     deriving (Eq, Show)
@@ -48,7 +48,7 @@ instance ASTNode FunctionDeclaration where
         putStrLn "Function Declaration: "
         printNode (tabs+1) (func_id funcDec)
         foldl1 (>>) $ map (printNode (tabs+1)) $ func_params funcDec
-        printNode (tabs+1) $ func_type funcDec
+        maybe (putStr "") (printNode (tabs+1)) $ func_type funcDec
         printNode (tabs+1) $ func_body funcDec
         putStr "\n"
 
@@ -77,8 +77,8 @@ instance ASTNode Id where
         putStrLn $ "Identifier: " ++ show (token $ id_token identifier)
 
 -- Type
-newtype Type = 
-    Type { type_token :: Token } 
+data Type = 
+    Type    { type_token :: Token, type_type :: Maybe Type } 
     deriving (Eq, Show)
 
 instance ASTNode Type where
@@ -88,8 +88,18 @@ instance ASTNode Type where
 
 -- Expression
 data Expression =
+    -- Literal expression
+    Literal         {   exp_token :: Token }                                  |
+    
+    LiteralMelody   {   exp_values :: [Expression],
+                        exp_size :: Maybe Expression,
+                        exp_type :: Maybe Type}  |
+
     -- Identifier
-    IdExp           {   exp_id :: Id }    |
+    IdExp           {   exp_id :: Id }                                        |
+
+    -- Call function
+    CallExp         {   exp_id :: Id, exp_params :: [Expression] }            |
 
     -- Pointers expression
     DereferenceExp  {   exp_exp :: Expression }                               |
@@ -130,15 +140,17 @@ data Instruction =
     NextInst                                                                  |
     StopInst                                                                  |
 
-    RecordInst      {   inst_exp :: Expression }                              |
+    RecordInst      {   inst_exps :: [Expression] }                              |
     PlayInst        {   inst_exps :: [Expression] }                           |
     
     IfInst          {   inst_exp :: Expression, inst_inst :: Instruction,
                         inst_else :: Maybe Instruction  }                     |
     
-    ForInst         {   inst_block :: Block,
+    ForInst         {   inst_id :: Id,
+                        inst_type :: Maybe Type,
+                        inst_block :: Block,
                         inst_start :: Maybe Expression,
-                        inst_end :: Maybe Expression,
+                        inst_end :: Expression,
                         inst_step :: Maybe Expression   }                     |
 
     WhileInst       {   inst_exp :: Expression,
