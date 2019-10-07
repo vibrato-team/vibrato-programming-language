@@ -5,90 +5,205 @@ import Tokens
 }
 
 %name parse
-%tokentype { Token }
+%tokentype { Token _ _ _ }
 %error { parseError }
--- TODO: %lexer { lexer } { EOFToken }. Hace falta una función con la firma lexer :: (Token -> Alex a) -> Alex a
+-- TODO: %lexer { lexer } { EOFToken _ _ _ }. Hace falta una función con la firma lexer :: (Token -> Alex a) -> Alex a
 %monad { Alex }
 
 %token
-    whole               { WholeToken }
-    half                { HalfToken }
-    quarter             { QuarterToken }
-    eighth              { EighthToken }
-    32th                { ThirtySecondToken }
-    64th                { SixtyFourthToken }
-    Melody              { MelodyToken }
-    Sample              { SampleToken }
+    whole               { WholeToken _ _ _ }
+    half                { HalfToken _ _ _ }
+    quarter             { QuarterToken _ _ _ }
+    eighth              { EighthToken _ _ _ }
+    32th                { ThirtySecondToken _ _ _ }
+    64th                { SixtyFourthToken _ _ _ }
+    melody              { MelodyToken _ _ _ }
+    sample              { SampleToken _ _ _ }
 
-    '<->'               { AssignToken }
-    '{'                 { OpenCurlyToken }
-    '}'                 { CloseCurlyToken }
-    '|'                 { BarToken }
+    '<->'               { AssignToken _ _ _ }
+    '{'                 { OpenCurlyToken _ _ _ }
+    '}'                 { CloseCurlyToken _ _ _ }
+    '|'                 { BarToken _ _ _ }
     
-    '('                 { OpenParToken }
-    ')'                 { CloseParToken }
-    '@'                 { RecordToken }
-    '|>'                { PlaySymToken }
+    '('                 { OpenParToken _ _ _ }
+    ')'                 { CloseParToken _ _ _ }
+    '@'                 { RecordToken _ _ _ }
+    '|>'                { PlaySymToken _ _ _ }
 
-    if                  { IfToken }
-    else                { ElseToken }
+    if                  { IfToken _ _ _ }
+    else                { ElseToken _ _ _ }
 
-    loop                { LoopToken }
-    ':'                 { ColonToken }
-    in                  { InToken }
-    ','                 { CommaToken }
+    loop                { LoopToken _ _ _ }
+    ':'                 { ColonToken _ _ _ }
+    in                  { InToken _ _ _ }
+    ','                 { CommaToken _ _ _ }
 
-    '>>'                { NextToken }
-    '|]'                { StopToken }
+    '>>'                { NextToken _ _ _ }
+    '|]'                { StopToken _ _ _ }
 
-    '#'                 { SharpToken }
-    '&'                 { FlatToken }
+    '#'                 { SharpToken _ _ _ }
+    '&'                 { FlatToken _ _ _ }
 
-    track               { TrackToken }
-    '||'                { DoubleBarToken }
-    play                { PlayToken }
-    with                { WithToken }
+    track               { TrackToken _ _ _ }
+    '||'                { DoubleBarToken _ _ _ }
+    play                { PlayToken _ _ _ }
+    with                { WithToken _ _ _ }
 
-    new                 { NewToken }
-    free                { FreeToken }
+    new                 { NewToken _ _ _ }
+    free                { FreeToken _ _ _ }
 
-    rest                { RestToken }
+    rest                { RestToken _ _ _ _ }
 
-    chord               { ChordToken }
-    legato              { LegatoToken }
+    chord               { ChordToken _ _ _ }
+    legato              { LegatoToken _ _ _ }
 
-    '!'                 { DereferenceToken }
+    '!'                 { DereferenceToken _ _ _ }
 
-    not                 { NotToken }
-    and                 { AndToken }
-    or                  { OrToken }
+    not                 { NotToken _ _ _ }
+    and                 { AndToken _ _ _ }
+    or                  { OrToken _ _ _ }
 
-    '-'                 { MinusToken }
-    'mod'               { ModToken }
-    '/'                 { DivToken }
-    '*'                 { MultToken }
-    '^'                 { PowToken }
-    '+'                 { PlusToken }
+    '-'                 { MinusToken _ _ _ }
+    mod                 { ModToken _ _ _ }
+    '/'                 { DivToken _ _ _ }
+    '*'                 { MultToken _ _ _ }
+    '^'                 { PowToken _ _ _ }
+    '+'                 { PlusToken _ _ _ }
 
-    '='                 { EqualToken }
-    '/='                { NotEqualToken }
-    '<'                 { LessToken }
-    '>'                 { GreaterToken }
-    '<='                { LessEqualToken }
-    '>='                { GreaterEqualToken }
+    '='                 { EqualToken _ _ _ }
+    '/='                { NotEqualToken _ _ _ }
+    '<'                 { LessToken _ _ _ }
+    '>'                 { GreaterToken _ _ _ }
+    '<='                { LessEqualToken _ _ _ }
+    '>='                { GreaterEqualToken _ _ _ }
 
-    '['                 { BracketOpenToken }
-    ']'                 { BracketCloseToken }
+    '['                 { BracketOpenToken _ _ _ }
+    ']'                 { BracketCloseToken _ _ _ }
 
-    '.'                 { DotToken }
+    '.'                 { DotToken _ _ _ }
 
-    int                 { IntToken }
-    float               { FloatToken }
-    maj                 { MajToken }
-    min                 { MinToken }
-    string              { StringToken }
-    char                { CharToken }
+    int                 { IntToken _ _ _ }
+    float               { FloatToken _ _ _ }
+    maj                 { MajToken _ _ _ }
+    min                 { MinToken _ _ _ }
+    string              { StringToken _ _ _ }
+    char                { CharToken _ _ _ }
 
-    id                  { IdToken }
+    id                  { IdToken _ _ _ }
 
 %%
+
+inicio :: { inicio }
+inicio : Alcance        {$1}
+
+Alcance :: { Alcance }
+Alcance : Comment
+        | Funcion
+
+Funcion :: { Funcion }
+Funcion : id '(' ListaVar ')' Block Alcance
+        | track id '(' ListaVar ')' Block Alcance
+
+
+Block : '{' Seq '}'
+
+Seq : Instruccion
+    | Seq '|' Instruccion
+    | Instruccion '||'
+    | Seq Instruccion '||'
+    | Comment
+    | Seq Comment
+
+Instruccion : Declaracion
+            | Asignacion
+            | Block
+            | IO
+            | Condicional
+            | Iteracion
+            | CallFuncion
+            | '>>'
+            | '|]'
+            | free id
+
+Declaracion : id ':' AsignarAux
+
+Asignacion : id AsignarAux
+
+AsignarAux : '=' Expresion
+           | {- empty -}           { [] }
+
+IO : '@' '(' ListExp ')'
+   | '|>' '(' ListExp ')'
+
+Condicional : if '(' Expresion ')' Instruccion CondicionElse
+
+CondicionElse : else Instruccion
+              | {- empty -}           { [] }
+
+Iteracion : loop id ':' Tipo Instruccion in '(' ListExp ')'
+          | loop id Instruccion in '(' ListExp ')'
+          | loop '(' Expresion ')' Instruccion
+
+CallFuncion : play id with '(' ListExp ')'
+
+ListaVar : id ':' Tipo
+         | ListaVar id ':' Tipo
+
+ListExp : Expresion
+        | ListExp CommaToken Expresion
+
+Tipo : whole
+     | half
+     | quarter
+     | eighth
+     | 32th
+     | 64th
+     | melody '<' Tipo '>'
+     | sample '<' Tipo '>'
+
+Literal : int
+        | float
+        | maj
+        | min
+        | string
+        | char
+
+Expresion : not Expresion
+          | Expresion and Expresion
+          | Expresion or Expresion
+          
+          -- Aritmetivos
+          | '-' Expresion
+          | Expresion '-' Expresion
+          | Expresion mod Expresion
+          | Expresion '/' Expresion
+          | Expresion '*' Expresion
+          | Expresion '^' Expresion
+          | Expresion '+' Expresion
+  
+          -- Relacionales
+          | Expresion '=' Expresion
+          | Expresion '/=' Expresion
+          | Expresion '<' Expresion
+          | Expresion '>' Expresion
+          | Expresion '<=' Expresion
+          | Expresion '>=' Expresion
+  
+          -- Arreglos
+          | Expresion '[' Expresion ']'
+  
+          -- Acordes y legato
+          | Expresion '.' Expresion
+  
+          -- Micelaneos
+          | Variable
+          | Literal
+          | '(' Expresion ')'
+  
+          -- Sostenidos y bemoles
+          | Expresion '#'
+          | Expresion '&'
+  
+          | NewToken Tipo '(' Expresion ')'
+
+Chord : 
