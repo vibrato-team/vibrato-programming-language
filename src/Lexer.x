@@ -140,8 +140,8 @@ tokens :-
 
 {
 
-alexEOF :: Alex Token
-alexEOF = return EOFToken
+alexEOF :: Alex ()
+alexEOF = return ()
 
 --------------------------------------------------------
 --------------------------------------------------------
