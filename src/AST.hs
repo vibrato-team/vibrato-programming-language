@@ -135,10 +135,7 @@ data Expression =
 
     -- Bemoles y Sostenidos
     SharpExp        {   exp_exp :: Expression }                               |
-    FlatExp         {   exp_exp :: Expression }                               |
-
-    -- New
-    NewExp          {   exp_type :: Type, exp_exp :: Expression }              
+    FlatExp         {   exp_exp :: Expression }                                             
 
     deriving (Eq, Show)
 
@@ -201,4 +198,4 @@ newtype ChordLegatoDeclaracion =
     ChordLegatoDec        { list :: ParamsCL }
 
 data ParamsCL =
-    ParamsCL { exp_id :: Id, var_params :: [VarDeclaration] }
+    ParamsCL { chordlegato_id :: Id, var_params :: [VarDeclaration] }

@@ -13,7 +13,7 @@ import qualified AST
     whole               { WholeToken _ _ _ }
     half                { HalfToken _ _ _ }
     quarter             { QuarterToken _ _ _ }
-    eighth              { EighthToken _ _ _ }
+    eighth              { EightToken _ _ _ }
     melody              { MelodyToken _ _ _ }
     sample              { SampleToken _ _ _ }
     ThirtySecond        { ThirtySecondToken _ _ _ }
@@ -112,7 +112,7 @@ ExternalDeclaration     : FunctionDeclaration                   { AST.ExternalFu
                         | VarDeclaration                        { AST.ExternalVarDeclaration $1 }
 
 FunctionDeclaration     :: { AST.FunctionDeclaration }
-FunctionDeclaration     : track Id '(' ListaVar ')' MaybeType Block   { AST.FuncDec $2 $6 (reverse $4) $7 }
+FunctionDeclaration     : track Id '(' ListaVar ')' MaybeType Block   { AST.FunctionDec $2 $6 (reverse $4) $7 }
 
 Id                      :: { AST.Id }
 Id                      : id                                    { AST.Id $1 }
@@ -256,7 +256,7 @@ Expression              : LValue                                { $1 }
                         | Expression '#'                        { AST.SharpExp $1 }
                         | Expression '&'                        { AST.FlatExp $1 }
 
-                        | new Literal                  { AST.NewExp $3 }
+                        | new Literal                           { AST.NewExp $2 }
 
                         | CallFuncion                           { $1 }
 
