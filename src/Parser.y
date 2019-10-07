@@ -94,11 +94,12 @@ import Tokens
 %%
 
 inicio :: { inicio }
-inicio : Alcance        {$1}
+inicio : Alcance        { $1 }
 
-Alcance :: { Alcance }
+Alcance :: { Program }
 Alcance : Comment
         | Funcion
+        | ChordLegato
 
 Funcion :: { Funcion }
 Funcion : id '(' ListaVar ')' Block Alcance
@@ -124,6 +125,7 @@ Instruccion : Declaracion
             | '>>'
             | '|]'
             | free id
+            | ChordLegato
 
 Declaracion : id ':' AsignarAux
 
@@ -147,10 +149,10 @@ Iteracion : loop id ':' Tipo Instruccion in '(' ListExp ')'
 CallFuncion : play id with '(' ListExp ')'
 
 ListaVar : id ':' Tipo
-         | ListaVar id ':' Tipo
+         | ListaVar ',' id ':' Tipo
 
 ListExp : Expresion
-        | ListExp CommaToken Expresion
+        | ListExp ',' Expresion
 
 Tipo : whole
      | half
@@ -194,6 +196,9 @@ Expresion : not Expresion
   
           -- Acordes y legato
           | Expresion '.' Expresion
+
+          -- Para Samples
+          | Expresion '!'
   
           -- Micelaneos
           | Variable
@@ -206,4 +211,10 @@ Expresion : not Expresion
   
           | NewToken Tipo '(' Expresion ')'
 
-Chord : 
+ChordLegato : chord ChordLegatoAux
+            | legato ChordLegatoAux
+
+ChordLegatoAux : id '{' ListaVarCL '}'
+
+ListaVarCL : id ':' Tipo
+         | ListaVar '|' id ':' Tipo
