@@ -8,7 +8,7 @@ class ASTNode a where
     printNode :: Indent -> a -> IO ()
 
 putTabs :: Indent -> IO ()
-putTabs indent = putStr $ replicate (2*indent) '-'
+putTabs indent = putStr $ replicate (4*indent) '.'
 
 -- Start Symbol
 newtype Program =
@@ -37,7 +37,7 @@ instance ASTNode ExternalDeclaration where
 
 -- Function Declaration
 data FunctionDeclaration =
-    FunctionDec {   func_id :: Id, func_type :: Type, 
+    FunctionDec {   func_id :: Id, func_type :: Maybe Type, 
                     func_params :: [VarDeclaration], 
                     func_body :: Block  }
     deriving (Eq, Show)
@@ -45,10 +45,10 @@ data FunctionDeclaration =
 instance ASTNode FunctionDeclaration where
     printNode tabs funcDec = do
         putTabs tabs
-        putStr "Function Declaration: "
-        putStr $ show (func_id funcDec) ++ "("
+        putStrLn "Function Declaration: "
+        printNode (tabs+1) (func_id funcDec)
         foldl1 (>>) $ map (printNode (tabs+1)) $ func_params funcDec
-        putStrLn $ ": " ++ show $ token $ type_token $ funct_type funcDec
+        maybe (putStr "") (printNode (tabs+1)) $ func_type funcDec
         printNode (tabs+1) $ func_body funcDec
         putStr "\n"
 
@@ -60,11 +60,11 @@ data VarDeclaration =
 
 instance ASTNode VarDeclaration where
     printNode tabs varDec = do
+        putTabs tabs
+        putStrLn "Variable Declaration:"
         printNode (tabs+1) $ var_id varDec
-        putStr ": "
         printNode (tabs+1) $ var_type varDec
         maybe (putStr "") (printNode (tabs+1)) $ var_init varDec
-        putStr "\n"
 
 -- Identifier
 newtype Id = 
@@ -74,22 +74,32 @@ newtype Id =
 instance ASTNode Id where
     printNode tabs identifier = do
         putTabs tabs
-        putStrLn $ "Identifier: " ++ show $ token $ id_token identifier
+        putStrLn $ "Identifier: " ++ show (token $ id_token identifier)
 
 -- Type
-newtype Type = 
-    Type { type_token :: Token } 
+data Type = 
+    Type    { type_token :: Token, type_type :: Maybe Type } 
     deriving (Eq, Show)
 
 instance ASTNode Type where
     printNode tabs dataType = do
         putTabs tabs
-        putStrLn $ "Data Type: " ++ show $ token $ id_token identifier
+        putStrLn $ "Data Type: " ++ show (token $ type_token dataType)
 
 -- Expression
 data Expression =
+    -- Literal expression
+    Literal         {   exp_token :: Token }                                  |
+    
+    LiteralMelody   {   exp_values :: [Expression],
+                        exp_size :: Maybe Expression,
+                        exp_type :: Maybe Type}  |
+
     -- Identifier
-    IdExp           {   exp_id :: Id }    |
+    IdExp           {   exp_id :: Id }                                        |
+
+    -- Call function
+    CallExp         {   exp_id :: Id, exp_params :: [Expression] }            |
 
     -- Pointers expression
     DereferenceExp  {   exp_exp :: Expression }                               |
@@ -116,6 +126,11 @@ data Expression =
     PowExp          {   exp_left :: Expression, exp_right :: Expression }
     deriving (Eq, Show)
 
+instance ASTNode Expression where
+    printNode tabs exp = do
+        putTabs tabs
+        print exp
+
 -- Instructions
 data Instruction =
     VarDecInst      {   inst_dec :: VarDeclaration  }                         |
@@ -125,15 +140,17 @@ data Instruction =
     NextInst                                                                  |
     StopInst                                                                  |
 
-    RecordInst      {   inst_exp :: Expression }                              |
+    RecordInst      {   inst_exps :: [Expression] }                              |
     PlayInst        {   inst_exps :: [Expression] }                           |
     
     IfInst          {   inst_exp :: Expression, inst_inst :: Instruction,
                         inst_else :: Maybe Instruction  }                     |
     
-    ForInst         {   inst_block :: Block,
+    ForInst         {   inst_id :: Id,
+                        inst_type :: Maybe Type,
+                        inst_block :: Block,
                         inst_start :: Maybe Expression,
-                        inst_end :: Maybe Expression,
+                        inst_end :: Expression,
                         inst_step :: Maybe Expression   }                     |
 
     WhileInst       {   inst_exp :: Expression,
@@ -147,7 +164,18 @@ data Instruction =
     BlockInst       {   inst_block :: Block }
     deriving (Eq, Show)
 
+instance ASTNode Instruction where
+    printNode tabs inst = do
+        putTabs tabs
+        print inst
+
 -- Block (Scope)
 newtype Block = 
     Block { statements :: [Instruction] }
     deriving (Eq, Show)
+
+instance ASTNode Block where
+    printNode tabs block = do
+        putTabs tabs
+        putStrLn "Block of instructions:"
+        foldl1 (>>) $ map (printNode (tabs+1)) $ statements block

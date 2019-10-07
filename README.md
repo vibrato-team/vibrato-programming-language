@@ -171,7 +171,7 @@ else <instrucción_1>
 `Condicion` siempre va a ser una expresión de tipo `whole`.
 
 ### Iteración determinada
-La iteracion determinada va a repetir un bloque segun el inicio, fin y salto. Inicio y salto son opcionales. luego de `loop` se debe indicar el nombre de la variable de iteracion, seguido de `:` y el tipo de dato, que en este caso solo de tipo entero, es decir, `quarter` y `eight`, por default agarra tipo `quarter`.
+La iteracion determinada va a repetir un bloque segun el inicio, fin y salto. Inicio y salto son opcionales. luego de `loop` se debe indicar el nombre de la variable de iteracion, seguido de `:` y el tipo de dato, que en este caso solo de tipo entero, es decir, `quarter` y `eight`, por defecto agarra tipo `quarter`.
 ```
 loop <id>:<tipo> {
     |>("Hard Rock Sofa!")
@@ -190,6 +190,8 @@ loop x {
 3
 4
 ```
+`inicio` es opcional y por defecto es 0.
+`salto` es opcional y por defecto es 1.
 
 ### Iteración indeterminada
 La iteracion indeterminada va a repetir un bloque de instrucciones mientras `condicion` sea `maj`, en caso contrario, se termina el ciclo. 
