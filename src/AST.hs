@@ -90,10 +90,10 @@ instance ASTNode Type where
 data Expression =
     -- Literal expression
     Literal         {   exp_token :: Token }                                  |
+
+    Literal'        { exp_exp :: Expression, exp_type :: Type }               |
     
-    LiteralMelody   {   exp_values :: [Expression],
-                        exp_size :: Maybe Expression,
-                        exp_type :: Maybe Type}  |
+    LiteralMelody   {   exp_values :: [Expression] }                          |
 
     -- Identifier
     IdExp           {   exp_id :: Id }                                        |
@@ -138,7 +138,7 @@ data Expression =
     FlatExp         {   exp_exp :: Expression }                               |
 
     -- New
-    NewExp          {   type :: Type, exp_exp :: Expression }                 |
+    NewExp          {   exp_type :: Type, exp_exp :: Expression }              
 
     deriving (Eq, Show)
 
@@ -198,7 +198,7 @@ instance ASTNode Block where
 
 
 newtype ChordLegatoDeclaracion =
-    ChordLegatoDec        { list :: ListaVarCL }
+    ChordLegatoDec        { list :: ParamsCL }
 
-data ListaVarCL =
-    ListaVarCL {  }
+data ParamsCL =
+    ParamsCL { exp_id :: Id, var_params :: [VarDeclaration] }

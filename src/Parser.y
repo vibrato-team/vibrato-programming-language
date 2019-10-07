@@ -219,10 +219,10 @@ Literal                 : int                                   { AST.Literal $1
                         | string                                { AST.Literal $1 }
                         | char                                  { AST.Literal $1 }
                         | LiteralMelody                         { $1 }
+                        | Type '(' Expression ')'               { AST.Literal' $3 $1 }
 
 LiteralMelody           :: { AST.Expression }
-LiteralMelody           : '[' ListExp ']'                           { AST.LiteralMelody $2 Nothing Nothing }
-                        | melody '<' Type '>' '(' Expression ')'    { AST.LiteralMelody [] (Just $6) (Just $3) }
+LiteralMelody           : '[' ListExp ']'                           { AST.LiteralMelody $2 }
 
 Expression              :: { AST.Expression }
 Expression              : LValue                                { $1 }
@@ -256,7 +256,7 @@ Expression              : LValue                                { $1 }
                         | Expression '#'                        { AST.SharpExp $1 }
                         | Expression '&'                        { AST.FlatExp $1 }
 
-                        | new Type '(' Expression ')'           { AST.NewExp $2 $4 }
+                        | new Literal                  { AST.NewExp $3 }
 
                         | CallFuncion                           { $1 }
 
@@ -264,7 +264,7 @@ ChordLegato             :: { AST.ChordLegatoDeclaracion }
 ChordLegato             : chord ChordLegatoAux                  { AST.ChordLegatoDec $2 }
                         | legato ChordLegatoAux                 { AST.ChordLegatoDec $2 }
 
-ChordLegatoAux          : Id '{' ListaVarCL '}'                 { AST.ListaVarCL $1 (reverse $3)}
+ChordLegatoAux          : Id '{' ListaVarCL '}'                 { AST.ParamsCL $1 (reverse $3)}
 
 ListaVarCL              :: { [AST.VarDeclaration] }
 ListaVarCL              : VarDeclaration                        { [$1] }
