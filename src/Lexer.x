@@ -81,6 +81,7 @@ tokens :-
     "||"                                { pushToken DoubleBarToken }
     play                                { pushToken PlayToken }
     with                                { pushToken WithToken }
+    moderato                            { pushToken MainToken }
 
     -- New y Free
     new                                 { pushToken NewToken }

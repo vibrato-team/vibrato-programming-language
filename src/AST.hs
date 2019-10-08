@@ -175,6 +175,7 @@ data Instruction =
     DecrementInst   {   inst_exp :: Expression  }                             |
 
     BlockInst       {   inst_block :: Block }
+
     deriving (Eq, Show)
 
 instance ASTNode Instruction where

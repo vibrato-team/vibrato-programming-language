@@ -52,6 +52,7 @@ data Token =
     DoubleBarToken { token :: String, line :: Int, col :: Int } |
     PlayToken { token :: String, line :: Int, col :: Int } |
     WithToken { token :: String, line :: Int, col :: Int } |
+    MainToken { token :: String, line :: Int, col :: Int } |
     
     NewToken { token :: String, line :: Int, col :: Int } |
     FreeToken { token :: String, line :: Int, col :: Int } |
