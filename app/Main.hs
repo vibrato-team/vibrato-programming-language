@@ -2,6 +2,8 @@ module Main where
 
 import Lib
 import Lexer
+import qualified Parser
+import AST
 
 -- Wrapper for making String an instance of PrettyPrintable
 newtype Wrapper = Wrapper String
@@ -25,4 +27,5 @@ main = do
                 Left errors -> 
                     putStrLn $ "Lexical error!\n" ++ ppList errors
                 Right tokens -> do
-                    putStrLn $ "Tokens:\n" ++ ppList tokens)
+                    putStrLn $ ppList tokens
+                    printNode 0 $ Parser.parse tokens)

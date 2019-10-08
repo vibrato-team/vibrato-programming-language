@@ -63,7 +63,7 @@ Son las notas que duran un compás completo y pueden tener los valores `maj` o `
 Ejemplo:
 ```vibrato
 b0: whole <-> maj|
-b1: whole <-> min or b0
+b1: whole <-> min or b0|
 ```
 
 ### Half (Blanca)
@@ -71,21 +71,21 @@ Son las notas que duran medio compás y sus valores pertenecen al conjunto de ca
 Ejemplo:
 ```vibrato
 c0: half <-> 'z'|
-c1: half <-> '~'
+c1: half <-> '~'|
 ```
 
 ### Quarter (Negra)
 Son las notas que duran un cuarto de compás y sus valores pertenecen al rango [-2^31, 2^31 - 1] de los enteros complemento a 2. Soporta los operadores aritméticos `+`, `-`, `*`, `/` y `mod`. Valor default: `0`.
 Ejemplo:
 ```vibrato
-x0: quarter <-> x1 * x2 + 4
+x0: quarter <-> x1 * x2 + 4|
 ```
 
 ### Eight (Corchea)
 Son las notas que duran un octavo de compás y sus valores pertenecen al rango [-2^63, 2^63 - 1] de los enteros complemento a 2. Soporta los operadores aritméticos `+`, `-`, `*`, `/` y `mod`. Valor default: `0`.
 Ejemplo:
 ```vibrato
-x0: quarter <-> 100000000000
+x0: quarter <-> 100000000000|
 ```
 
 ### 32th (Fusa)
@@ -101,7 +101,7 @@ Son las notas que duran un treintavo de compás completo y sus valores son numer
 Ejemplo:
 ```vibrato
 sf0: 64th <-> 3.0|
-sf1: 64th <-> 1.6180339887
+sf1: 64th <-> 1.6180339887|
 ```
 
 ### Melodies (Melodías)
@@ -111,7 +111,7 @@ Ejemplo:
 ```vibrato
 arr: Melody<quarter> <-> [1, 2, 3, 4]|
 brr: Melody<half> <-> "abcdefg"|
-crr: Melody<whole> <-> Melody<whole> (4)
+crr: Melody<whole> <-> Melody<whole> (4)|
 ```
 
 Los valores dentro de los literales creados con la última sintaxis serán los default en caso de existir un valor default para el tipo.
@@ -129,27 +129,28 @@ Para dereferenciar se usa el operador unario sufijo `!`.
 
 
 ## Instrucciones
+Las asignaciones, las declaraciones de una variable, instrucciones de IO y los usos de `free` deben terminar en `|`. Este tipo de instrucciones les diremos _sentencias_.
 
 ### Asignación
 ```vibrato
-variable <-> expresion
+variable <-> expresion|
 ```
 Ejecutar esta instrucción tiene el efecto de evaluar la expresión del lado derecho y almacenarla en la variable del lado izquierdo.
 
 ### Bloque
-Un bloque es una instrucción que tiene dentro una secuencia de instrucciones finalizadas por `|`. El `|` es opcional para la última instrucción del bloque.
+Un bloque es una instrucción que tiene dentro una secuencia de instrucciones.
 ```
 {
-    <instrucción_0>|
-    <instrucción_1>|
+    <instrucción_0>
+    <instrucción_1>
     ...
-    <instrucción_n>|
+    <instrucción_n>
 }
 ```
 
 ### Entrada
 ```vibrato
-@ (var_0, var_1, ..., var_n)
+@ (var_0, var_1, ..., var_n)|
 ```
 Permite obtener datos escritos por el usuario vía entrada estándar, almacenando los valores en cada una de las variables pasadas a la instrucción de record, denotada por `@`. Los valores se obtienen de los tokens de la línea ingresada por el usuario.
 
@@ -157,7 +158,7 @@ Esta instrucción funciona únicamente con variables de tipo whole, half, quarte
 
 ### Salida
 ```vibrato
-|> (var_0, var_1, ..., var_n)
+|> (var_0, var_1, ..., var_n)|
 ```
 Imprime en salida estándar las variables pasadas a la instrucción de play, denotada por `|>`, separadas por un espacio. 
 
@@ -165,8 +166,8 @@ Imprime en salida estándar las variables pasadas a la instrucción de play, den
 ### Condicional if / else
 La instruccion condicional if/else verifica una condicion y ejecuta `instruccion_0` si condicion es `maj`, de lo contrario ejecuta `instruccion_1`. 
 ```vibrato
-if(Condicion) <instrucción_0>
-else <instrucción_1>
+if(Condicion) <instrucción_0>|
+else <instrucción_1>|
 ```
 `Condicion` siempre va a ser una expresión de tipo `whole`.
 
@@ -174,14 +175,14 @@ else <instrucción_1>
 La iteracion determinada va a repetir un bloque segun el inicio, fin y salto. Inicio y salto son opcionales. luego de `loop` se debe indicar el nombre de la variable de iteracion, seguido de `:` y el tipo de dato, que en este caso solo de tipo entero, es decir, `quarter` y `eight`, por defecto agarra tipo `quarter`.
 ```
 loop <id>:<tipo> {
-    |>("Hard Rock Sofa!")
+    |>("Hard Rock Sofa!")|
 } in (inicio, fin, salto)
 ```
 `inicio, fin y salto` siempre van a ser expresiones aritmeticas.
 `fin` es exclusivo, por ejemplo:
 ```vibrato
 loop x {
-    |>(x)
+    |>(x)|
 } in (1,5,1)
 ```
 ```
@@ -197,7 +198,7 @@ loop x {
 La iteracion indeterminada va a repetir un bloque de instrucciones mientras `condicion` sea `maj`, en caso contrario, se termina el ciclo. 
 ```
 loop(condicion){
-    |>("Hard Rock Sofa!")
+    |>("Hard Rock Sofa!")|
 }
 ```
 `condicion` siempre va a ser una expresion de tipo `whole`.
@@ -218,11 +219,11 @@ loop {
 Esta intrucción va en forma sufija. Los Sostenidos `#` suman una unidad a la variable en uso. 
 Por otro lado los Bemoles `&` restan una unidad a la variable en uso.
 ```vibrato
-sb: quarter <-> 1
-sb#
-|>(sb)
-sb&
-|>(sb)
+sb: quarter <-> 1|
+sb#|
+|>(sb)|
+sb&|
+|>(sb)|
 ```
 ```
 2
@@ -254,7 +255,7 @@ track intro'(foo: whole) {
 ```
 Para hacer el llamado a una funcion, se debe hacer de la siguiente forma:
 ```vibrato
-play <nombre_track> with (lista_parametros)
+play <nombre_track> with (lista_parametros)|
 ```
 Ejemplo:
 ```
@@ -282,18 +283,18 @@ free ptr|
 
 Para utilizar una variable debe estar previamente declarada en el bloque en el que se este trabajando. No es posible anidar funciones.
 ```
-ra: quarter <-> 1
-ra2: quarter <-> 2
-|>(ra + ra2)
+ra: quarter <-> 1|
+ra2: quarter <-> 2|
+|>(ra + ra2)|
 ```
 
 Si se declara una variable con un mismo de una variable externa al bloque en uso, esta esconde la variable externa hasta el final del bloque
 ```
 ra: quarter <-> 1
 loop ra:quarter {
-    |>(ra)
+    |>(ra)|
 } in (3)
-|>(ra)
+|>(ra)|
 ```
 
 Imprime:
@@ -356,8 +357,8 @@ Un acorde es una estructura de datos que se utiliza para organizar y almacenar d
 
 ```vibrato
 chord Identificador {
-    id_1: tipo_1|
-    id_2: tipo_2|
+    id_1: tipo_1,
+    id_2: tipo_2,
     ...
     id_n: tipo_n
 }
@@ -374,8 +375,8 @@ x <-> Sol (3.0, 'c', c0)|
 donde `x` es una variable de tipo `Sol`, `c0` es una variable de tipo caracter y `Sol` está definido así:
 ```vibrato
 chord Sol {
-    x: 64th|
-    y: half|
+    x: 64th,
+    y: half,
     z: half
 }
 ```
@@ -426,7 +427,7 @@ val: whole <-> melodia[idx]|
 - Dereferenciar: `sample!`
 
 #### Precedencia de operadores
-El orden de evaluación de operaciones en Vibrato es: dereferencia, acceder atributo de acorde, operadores sobre bool, operadores comparativos, operadores aritméticos, operadores unarios restantes, operadores sobre melodías restantes, respetando el orden de precedencia de cada operador en cada una de ellas
+El orden de evaluación de operaciones en Vibrato es: dereferencia, acceder atributo de acorde, operadores sobre bool, operadores comparativos, operadores unarios aritméticos, operadores aritméticos restantes, operadores unarios restantes, operadores sobre melodías restantes, respetando el orden de precedencia de cada operador en cada una de ellas
 
 ## Preludio
 El programador tendrá acceso a las siguientes funciones _built-in_:
@@ -434,7 +435,7 @@ El programador tendrá acceso a las siguientes funciones _built-in_:
 ### `to_ascii` y `from_ascii`
 ```vibrato
 |> (to_ascii('A'))|
-|> (from_ascii(66))
+|> (from_ascii(66))|
 ```
 Imprime
 ```
@@ -493,12 +494,12 @@ dict: Arpeggio<quarter> <-> {
 A un arpeggio se le pueden agregar nuevos pares dinámicamente de la siquiente manera:
 ```vibrato
 dict <~> ("v1br4t0", 140)|
-dict <~> ("tr3m0l0", 300)
+dict <~> ("tr3m0l0", 300)|
 ```
 
 Para acceder a un valor se hace de la siguiente manera:
 ```vibrato
-x: quarter <-> dict["efg"]
+x: quarter <-> dict["efg"]|
 ``` 
 
 ### Generación de archivo MIDI

@@ -6,9 +6,9 @@ track fact(numero: quarter): quarter {
     else numero * play fact with (numero-1)||
 }
 
-moderato() {
+track moderato() {
     n: quarter|
     |> ("Ingrese un entero o \"quarter\":")|
     @ (n)|
-    |> ("Factorial de", n, "es", play fact with (n))
+    |> ("Factorial de", n, "es", play fact with (n))|
 }
