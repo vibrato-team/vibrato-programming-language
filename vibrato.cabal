@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d7373bef77007d0231c1bf0fd8f1e27742276979d481c44ee2113370c714f9aa
+-- hash: f5d009ab2819d7f9f74a91d706c01bf2b37b5c71a8c63c6a3c9955be4e025a12
 
 name:           vibrato
 version:        0.1.0.0
@@ -35,6 +35,7 @@ library
       Lexer
       Lib
       Parser
+      Semantic
       Tokens
   other-modules:
       Paths_vibrato
