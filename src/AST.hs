@@ -12,28 +12,28 @@ putTabs indent = putStr $ replicate (4*indent) '.'
 
 -- Start Symbol
 newtype Program =
-    Start { external_declarations :: [ExternalDeclaration] }
+    Start { external_declarations :: [ExternalInstruction] }
     deriving (Eq, Show)
 
 instance ASTNode Program where
     printNode tabs (Start decs) = do
         putTabs tabs
         putStrLn "Program:"
-        foldl1 (>>) $ map (printNode (tabs+1)) decs
+        foldl (>>) (putStr "") $ map (printNode (tabs+1)) decs
         putStr "\n"
 
 -- Global var declarations and function declarations
-data ExternalDeclaration =
+data ExternalInstruction =
     ExternalFunctionDeclaration FunctionDeclaration |
-    ExternalVarDeclaration VarDeclaration
+    ExternalInstruction Instruction
     deriving (Eq, Show)
 
-instance ASTNode ExternalDeclaration where
+instance ASTNode ExternalInstruction where
     printNode tabs (ExternalFunctionDeclaration funcDec) =
         printNode tabs funcDec
 
-    printNode tabs (ExternalVarDeclaration varDec) =
-        printNode tabs varDec
+    printNode tabs (ExternalInstruction inst) =
+        printNode tabs inst
 
 -- Function Declaration
 data FunctionDeclaration =
@@ -47,7 +47,7 @@ instance ASTNode FunctionDeclaration where
         putTabs tabs
         putStrLn "Function Declaration: "
         printNode (tabs+1) (func_id funcDec)
-        foldl1 (>>) $ map (printNode (tabs+1)) $ func_params funcDec
+        foldl (>>) (putStr "") $ map (printNode (tabs+1)) $ func_params funcDec
         maybe (putStr "") (printNode (tabs+1)) $ func_type funcDec
         printNode (tabs+1) $ func_body funcDec
         putStr "\n"
@@ -91,7 +91,7 @@ data Expression =
     -- Literal expression
     Literal         {   exp_token :: Token }                                  |
 
-    Literal'        { exp_exp :: Expression, exp_type :: Type }               |
+    Literal'        { exp_exps :: [Expression], exp_type :: Type }            |
     
     LiteralMelody   {   exp_values :: [Expression] }                          |
 
@@ -131,11 +131,7 @@ data Expression =
     LessExp         {   exp_left :: Expression, exp_right :: Expression }     |
     GreaterExp      {   exp_left :: Expression, exp_right :: Expression }     |
     LessEqualExp    {   exp_left :: Expression, exp_right :: Expression }     |
-    GreaterEqualExp {   exp_left :: Expression, exp_right :: Expression }     |
-
-    -- Bemoles y Sostenidos
-    SharpExp        {   exp_exp :: Expression }                               |
-    FlatExp         {   exp_exp :: Expression }                                             
+    GreaterEqualExp {   exp_left :: Expression, exp_right :: Expression }            
 
     deriving (Eq, Show)
 
@@ -153,7 +149,7 @@ data Instruction =
     NextInst                                                                  |
     StopInst                                                                  |
 
-    RecordInst      {   inst_exps :: [Expression] }                              |
+    RecordInst      {   inst_exps :: [Expression] }                           |
     PlayInst        {   inst_exps :: [Expression] }                           |
     
     IfInst          {   inst_exp :: Expression, inst_inst :: Instruction,
@@ -169,13 +165,19 @@ data Instruction =
     WhileInst       {   inst_exp :: Expression,
                         inst_block :: Block    }                              |
 
-    FreeInst        {   inst_exp :: Expression  }                             |
+    FreeInst        {   inst_id :: Id  }                                      |
 
     IncrementInst   {   inst_exp :: Expression  }                             |
     DecrementInst   {   inst_exp :: Expression  }                             |
 
-    BlockInst       {   inst_block :: Block }
+    BlockInst       {   inst_block :: Block }                                 |
 
+    ChordDec        { inst_list :: ParamsCL }                                 |
+    LegatoDec       { inst_list :: ParamsCL }                                 |
+
+    -- Bemoles y Sostenidos
+    SharpExp        {   inst_exp :: Expression }                              |
+    FlatExp         {   inst_exp :: Expression }                                
     deriving (Eq, Show)
 
 instance ASTNode Instruction where
@@ -192,11 +194,8 @@ instance ASTNode Block where
     printNode tabs block = do
         putTabs tabs
         putStrLn "Block of instructions:"
-        foldl1 (>>) $ map (printNode (tabs+1)) $ statements block
-
-
-newtype ChordLegatoDeclaracion =
-    ChordLegatoDec        { list :: ParamsCL }
+        foldl (>>) (putStr "") $ map (printNode (tabs+1)) $ statements block
 
 data ParamsCL =
-    ParamsCL { chordlegato_id :: Id, var_params :: [VarDeclaration] }
+    ParamsCL { chordlegato_id :: Type, var_params :: [VarDeclaration] }
+    deriving (Eq, Show)

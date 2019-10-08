@@ -2,12 +2,15 @@
 module Parser(parse) where
 import Lexer
 import Tokens
+import ParseError
 import qualified AST
 }
 
-%name parse
-%tokentype { Token }
+%name alexParse
 %error { parseError }
+%monad { Alex }
+%lexer { lexerWrapper } { EOFToken }
+%tokentype { Token }
 
 %token
     whole               { WholeToken _ _ _ }
@@ -51,8 +54,6 @@ import qualified AST
     new                 { NewToken _ _ _ }
     free                { FreeToken _ _ _ }
 
-    rest                { RestToken _ _ _ _ }
-
     chord               { ChordToken _ _ _ }
     legato              { LegatoToken _ _ _ }
 
@@ -89,59 +90,83 @@ import qualified AST
     char                { CharToken _ _ _ }
 
     id                  { IdToken _ _ _ }
+    id_type             { IdTypeToken _ _ _ }
 
+
+%nonassoc '<->'
 %nonassoc '>' '<' '=' '/=' '<=' '>='
+%left LVALUE
+%right '['
+%left ']'
 %left '+' '-'
-%left '*' '/'
-%left mod 
+%left '*' '/' mod
 %left '^'
-
-%left NEG
+%left NEG '#' '&'
+%left and or
+%right not
+%left '.'
+%left '!'
 
 %%
 
 Start                   :: { AST.Program }
-Start                   : ExternalList                          { AST.Start $ reverse $1 }
+Start                   : ExternalList                      { AST.Start $ reverse $1 }
 
-ExternalList            :: { [AST.ExternalDeclaration] }
-ExternalList            : ExternalDeclaration                   { [$1] }
-                        | ExternalList ExternalDeclaration      { $2 : $1 }
+ExternalList            :: { [AST.ExternalInstruction] }
+ExternalList            : ExternalInstruction                   { [$1] }
+                        | ExternalList ExternalInstruction      { $2 : $1 }
 
-ExternalDeclaration     :: { AST.ExternalDeclaration }
-ExternalDeclaration     : FunctionDeclaration                   { AST.ExternalFunctionDeclaration $1 }
-                        | VarDeclaration                        { AST.ExternalVarDeclaration $1 }
+ExternalInstruction     :: { AST.ExternalInstruction }
+ExternalInstruction     : FunctionDeclaration                   { AST.ExternalFunctionDeclaration $1 }
+                        | Instruction                           { AST.ExternalInstruction $1 }
 
 FunctionDeclaration     :: { AST.FunctionDeclaration }
 FunctionDeclaration     : track Id '(' ListaVar ')' MaybeType Block   { AST.FunctionDec $2 $6 (reverse $4) $7 }
+                        | track Id '('')' MaybeType Block               { AST.FunctionDec $2 $5 [] $6 }
 
 Id                      :: { AST.Id }
 Id                      : id                                    { AST.Id $1 }
 
 MaybeType               :: { Maybe AST.Type }
 MaybeType               : {- empty -}                           { Nothing }
-                        | ':' Type                              { Just $1 }
+                        | ':' Type                              { Just $2 }
 
 Block                   :: { AST.Block }
 Block                   : '{' Seq '}'                           { AST.Block $ reverse $2 }
 
 Seq                     :: { [AST.Instruction] }
-Seq                     : Instruction                           { $1 }
-                        | Seq '|' Instruction                   { $3 : $1 }
+Seq                     : Instruction                           { [$1] }
+                        | Seq Instruction                       { $2 : $1 }
 
 Instruction             :: { AST.Instruction }
 Instruction             : OpenCondition                         { $1 }
                         | ClosedCondition                       { $1 }
 
+OpenCondition           :: { AST.Instruction }
+OpenCondition           : if '(' Expression ')' Instruction                         { AST.IfInst $3 $5 Nothing }
+                        | if '(' Expression ')' ClosedCondition else OpenCondition  { AST.IfInst $3 $5 (Just $7) }
+
+ClosedCondition         :: { AST.Instruction }
+ClosedCondition         : if '(' Expression ')' ClosedCondition else ClosedCondition    { AST.IfInst $3 $5 (Just $7) }
+                        | SimpleInstruction                                             { $1 }
+
 SimpleInstruction       :: { AST.Instruction }
-SimpleInstruction       : VarDeclaration                        { AST.VarDecInst $1 }
-                        | Asignacion                            { $1 }
-                        | Return                                { $1 }
-                        | Block                                 { AST.BlockInst $1 }
-                        | IO                                    { $1 }
+SimpleInstruction       : Block                                 { AST.BlockInst $1 }
                         | Loop                                  { $1 }
-                        | '>>'                                  { $1 }
-                        | '|]'                                  { $1 }
-                        | free id                               { $1 }
+                        | '>>'                                  { AST.NextInst }
+                        | '|]'                                  { AST.StopInst }
+                        | ChordLegato                           { $1 }
+                        | Return                                { $1 }
+                        | Statement '|'                         { $1 }
+
+Statement               :: { AST.Instruction }
+Statement               : VarDeclaration                        { AST.VarDecInst $1 }
+                        | Asignacion                            { $1 }
+                        | IO                                    { $1 }
+                        | free Id                               { AST.FreeInst $2 }
+                        | LValue '#'                            { AST.SharpExp $1 }
+                        | LValue '&'                            { AST.FlatExp $1 }
+
 
 VarDeclaration          :: { AST.VarDeclaration }
 VarDeclaration          : Id ':' Type MaybeAsignar              { AST.VarDec $1 $3 $4 }
@@ -166,14 +191,6 @@ IO                      :: { AST.Instruction }
 IO                      : '@' '(' ListExp ')'                   { AST.RecordInst $ reverse $3 }
                         | '|>' '(' ListExp ')'                  { AST.PlayInst $ reverse $3 }
 
-OpenCondition           :: { AST.Instruction }
-OpenCondition           : if '(' Expression ')' Instruction                         { AST.IfInst $3 $5 Nothing }
-                        | if '(' Expression ')' ClosedCondition else OpenCondition  { AST.IfInst $3 $5 (Just $7) }
-
-ClosedCondition         :: { AST.Instruction }
-ClosedCondition         : if '(' Expression ')' ClosedCondition else ClosedCondition    { AST.IfInst $3 $5 (Just $7) }
-                        | SimpleInstruction                                             { $1 }
-
 Loop                    :: { AST.Instruction }
 Loop                    : loop Id MaybeType Block in '(' Expression ')'                                       { AST.ForInst $2 $3 $4 Nothing $7 Nothing }
                         | loop Id MaybeType Block in '(' Expression ',' Expression ')'                        { AST.ForInst $2 $3 $4 (Just $7) $9 Nothing }
@@ -192,13 +209,13 @@ ListExp                 : Expression                            { [$1] }
                         | ListExp ',' Expression                { $3 : $1 }
 
 Indexing                :: { AST.Expression }
-Indexing                : LValue '[' Expression ']'             { AST.IndexingExp $1 $3 }
+Indexing                : Expression '[' Expression ']'             { AST.IndexingExp $1 $3 }
 
 DotExpression           :: { AST.Expression }
-DotExpression           : LValue '.' Id                         { AST.DotExp $1 $3 }
+DotExpression           : Expression '.' Id                         { AST.DotExp $1 $3 }
 
 Dereference             :: { AST.Expression }
-Dereference             : LValue '!'                            { AST.DereferenceExp $1 }
+Dereference             : Expression '!'                            { AST.DereferenceExp $1 }
 
 Type                    :: { AST.Type }
 Type                    : whole                                 { AST.Type $1 Nothing }
@@ -209,7 +226,7 @@ Type                    : whole                                 { AST.Type $1 No
                         | SixtyFourth                           { AST.Type $1 Nothing }
                         | melody '<' Type '>'                   { AST.Type $1 (Just $3) }
                         | sample '<' Type '>'                   { AST.Type $1 (Just $3) }
-                        | id                                    { AST.Type $1 Nothing }
+                        | IdType                                { $1 }
 
 Literal                 :: { AST.Expression }
 Literal                 : int                                   { AST.Literal $1 }
@@ -219,13 +236,13 @@ Literal                 : int                                   { AST.Literal $1
                         | string                                { AST.Literal $1 }
                         | char                                  { AST.Literal $1 }
                         | LiteralMelody                         { $1 }
-                        | Type '(' Expression ')'               { AST.Literal' $3 $1 }
+                        | Type '(' ListExp ')'                  { AST.Literal' (reverse $3) $1 }
 
 LiteralMelody           :: { AST.Expression }
 LiteralMelody           : '[' ListExp ']'                           { AST.LiteralMelody $2 }
 
 Expression              :: { AST.Expression }
-Expression              : LValue                                { $1 }
+Expression              : LValue %prec LVALUE                   { $1 }
                         -- Boolean
                         | not Expression                        { AST.NotExp $2 }
                         | Expression and Expression             { AST.AndExp $1 $3 } 
@@ -252,20 +269,20 @@ Expression              : LValue                                { $1 }
                         | Literal                               { $1 }
                         | '(' Expression ')'                    { $2 }
 
-                        -- Sostenidos y bemoles
-                        | Expression '#'                        { AST.SharpExp $1 }
-                        | Expression '&'                        { AST.FlatExp $1 }
-
                         | new Literal                           { AST.NewExp $2 }
 
                         | CallFuncion                           { $1 }
 
-ChordLegato             :: { AST.ChordLegatoDeclaracion }
-ChordLegato             : chord ChordLegatoAux                  { AST.ChordLegatoDec $2 }
-                        | legato ChordLegatoAux                 { AST.ChordLegatoDec $2 }
+IdType                  :: { AST.Type }
+IdType                  : id_type                               { AST.Type $1 Nothing }
 
-ChordLegatoAux          : Id '{' ListaVarCL '}'                 { AST.ParamsCL $1 (reverse $3)}
+ChordLegato             :: { AST.Instruction }
+ChordLegato             : chord ChordLegatoAux                  { AST.ChordDec $2 }
+                        | legato ChordLegatoAux                 { AST.LegatoDec $2 }
 
-ListaVarCL              :: { [AST.VarDeclaration] }
-ListaVarCL              : VarDeclaration                        { [$1] }
-                        | ListaVar '|' VarDeclaration           { $3 : $1 }
+ChordLegatoAux          : IdType '{' ListaVar '}'               { AST.ParamsCL $1 (reverse $3)}
+
+{
+parse :: String -> Either String AST.Program
+parse s = runAlex s alexParse
+}
