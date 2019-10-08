@@ -19,13 +19,7 @@ ppList (x:xs) = show x ++ "\n" ++ ppList xs
 main :: IO ()
 main = do
     srcFile <- getContents
-    let lexResult = runAlexScan srcFile in (
-        case lexResult of
-            Left error ->
-                putStrLn $ "Something happened!\n" ++ show error
-            Right state -> case matches state of
-                Left errors -> 
-                    putStrLn $ "Lexical error!\n" ++ ppList errors
-                Right tokens -> do
-                    putStrLn $ ppList tokens
-                    printNode 0 $ Parser.parse tokens)
+    let result = Parser.parse srcFile in (
+        case result of
+            Left err -> error err
+            Right program -> printNode 0 program)

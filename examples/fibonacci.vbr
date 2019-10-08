@@ -9,18 +9,18 @@ track fibo(n: quarter): quarter {
     if (n = 0) n0 ||
     if (n = 1) n1 ||
 
-    loop {
+    loop x {
         aux: quarter <-> n1|
         n1 <-> n0 + n1|
         n0 <-> aux|
-    } x (n - 1)
+    } in (n - 1)
 
     n1||
 }
 
-moderato() {
+track moderato() {
     n: quarter|
     |> ("Ingrese un entero:")|
     @ (n)|
-    |> ("Fibonacci de", n, "es", play fibo with (n))
+    |> ("Fibonacci de", n, "es", play fibo with (n))|
 }

@@ -1,5 +1,5 @@
 {
-module Lexer (Token(..), runAlexScan, AlexUserState(..), AlexState(..)) where
+module Lexer (Token(..), Alex, alexError, runAlex, alexEOF, lexerWrapper, AlexUserState(..), AlexState(..)) where
 import Tokens
 import Data.Either
 }
@@ -24,13 +24,13 @@ tokens :-
 
     $white+                             ;
 
-    -- Silencios
-    \-\-.*                              { pushToken $ RestToken HalfRestToken }
-    \~.*                                { pushToken $ RestToken QuarterRestToken }
-    @Eighththrests                      { pushToken $ RestToken EightRestToken }
-    @Sixteenthrests                     { pushToken $ RestToken SixteenthRestToken }
-    @ThirtySecondrests                  { pushToken $ RestToken ThirtySecondRestToken }
-    @SixtyFourthrests                   { pushToken $ RestToken SixtyFourthRestToken }
+    -- Silencios TODO para el MIDI
+    \-\-.*                              ;
+    \~.*                                ;
+    @Eighththrests                      ;
+    @Sixteenthrests                     ;
+    @ThirtySecondrests                  ;
+    @SixtyFourthrests                   ;
 
     -- Tipos de datos. 
     whole                               { pushToken WholeToken }
@@ -131,17 +131,18 @@ tokens :-
     min                                 { pushToken MinToken }
 
     -- ID
-    [a-zA-Z][a-zA-Z0-9\_]*\'*           { pushToken IdToken }
+    [a-z][a-zA-Z0-9\_]*\'*              { pushToken IdToken }
+    [A-Z][a-zA-Z0-9\_]*\'*              { pushToken IdTypeToken }
 
-    "=="                                { throwError }
-    "!="                                { throwError }
-    "<-"                                { throwError }
-    .                                   { throwError }                                 
+    "=="                                { pushToken ErrorToken }
+    "!="                                { pushToken ErrorToken }
+    "<-"                                { pushToken ErrorToken }
+    .                                   { pushToken ErrorToken }                                 
 
 {
 
-alexEOF :: Alex ()
-alexEOF = return ()
+alexEOF :: Alex Token
+alexEOF = return EOFToken
 
 --------------------------------------------------------
 --------------------------------------------------------
@@ -182,24 +183,32 @@ alexInitUserState = AlexUserState {
 getUserState :: Alex AlexUserState
 getUserState = Alex $ \s -> Right (s, alex_ust s)
 
--- Run scanner
-runAlexScan :: String -> Either String AlexUserState
-runAlexScan s = runAlex s $ alexMonadScan >> getUserState
+throwError :: AlexUserState -> Alex AlexUserState
+throwError ust = case matches ust of
+    Left errors -> error $ concatMap (++ "\n") $ map show errors
+    Right _ -> return ust
+
+-- Lexer wrapper for monadic parser
+lexerWrapper :: (Token -> Alex a) -> Alex a
+lexerWrapper cont = do
+    token <- alexMonadScan
+    cont token
 
 --------------------------------------------------------
 --------------------------------------------------------
 
 -- Push token to the monad
-type StdTokenConstructor = String -> Int -> Int -> Token
+type TokenConstructor = String -> Int -> Int -> Token
 
-pushToken :: StdTokenConstructor -> AlexAction ()
-pushToken constructor (p, _, _, s) len = modifyUserState (pushTokenToState tk) >> alexMonadScan where
+pushToken :: TokenConstructor -> AlexAction Token
+pushToken constructor (p, _, _, s) len = modifyUserState (pushTokenToState tk) >> return tk where
     tokenString = take len s
     tk = constructor tokenString (posnLine p) (posnCol p)
 
-throwError :: AlexAction ()
-throwError (p, _, _, str) len = (Alex $ \s -> Right (s{ alex_ust= pushError s }, ())) >> alexMonadScan where
-    newError = Error p (take len str )
+throwUserError :: AlexAction Token
+throwUserError (p, _, _, str) len = (Alex $ \s -> Right (s{ alex_ust= pushError s }, ErrorToken tokenString (posnLine p) (posnCol p))) where
+    tokenString = take len str
+    newError = Error p tokenString
     pushError s = AlexUserState $ Left $ fromLeft [] (matches $ alex_ust s) ++ [newError]
 
 -- Lexical error

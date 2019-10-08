@@ -96,9 +96,13 @@ data Token =
     CharToken { token :: String, line :: Int, col :: Int } |
 
     -- Identificador
-    IdToken { token :: String, line :: Int, col :: Int} |
+    IdToken     { token :: String, line :: Int, col :: Int} |
+    IdTypeToken { token :: String, line :: Int, col :: Int} |
 
     -- EOF
-    EOFToken
+    EOFToken |
+
+    -- Error
+    ErrorToken { token :: String, line :: Int, col :: Int }
 
     deriving (Eq, Show)
