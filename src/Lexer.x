@@ -1,5 +1,5 @@
 {
-module Lexer (Token(..), Alex, alexError, runAlex, alexEOF, lexerWrapper, AlexUserState(..), AlexState(..)) where
+module Lexer (Token(..), Alex, alexError, runAlex, runAlexScan, alexEOF, lexerWrapper, AlexUserState(..), AlexState(..)) where
 import Tokens
 import Data.Either
 }
@@ -135,10 +135,10 @@ tokens :-
     [a-z][a-zA-Z0-9\_]*\'*              { pushToken IdToken }
     [A-Z][a-zA-Z0-9\_]*\'*              { pushToken IdTypeToken }
 
-    "=="                                { pushToken ErrorToken }
-    "!="                                { pushToken ErrorToken }
-    "<-"                                { pushToken ErrorToken }
-    .                                   { pushToken ErrorToken }                                 
+    "=="                                { throwUserError }
+    "!="                                { throwUserError }
+    "<-"                                { throwUserError }
+    .                                   { throwUserError }                                 
 
 {
 
@@ -194,7 +194,9 @@ lexerWrapper :: (Token -> Alex a) -> Alex a
 lexerWrapper cont = do
     token <- alexMonadScan
     cont token
-
+--- Run scanner
+runAlexScan :: String -> Either String AlexUserState
+runAlexScan s = runAlex s $ alexMonadScan >> getUserState
 --------------------------------------------------------
 --------------------------------------------------------
 
@@ -202,15 +204,15 @@ lexerWrapper cont = do
 type TokenConstructor = String -> Int -> Int -> Token
 
 pushToken :: TokenConstructor -> AlexAction Token
-pushToken constructor (p, _, _, s) len = modifyUserState (pushTokenToState tk) >> return tk where
+pushToken constructor (p, _, _, s) len = modifyUserState (pushTokenToState tk) >> alexMonadScan where
     tokenString = take len s
     tk = constructor tokenString (posnLine p) (posnCol p)
 
 throwUserError :: AlexAction Token
-throwUserError (p, _, _, str) len = (Alex $ \s -> Right (s{ alex_ust= pushError s }, ErrorToken tokenString (posnLine p) (posnCol p))) where
+throwUserError (p, _, _, str) len = (Alex $ \s -> Right (s{ alex_ust= pushError s }, ())) >> alexMonadScan where
     tokenString = take len str
     newError = Error p tokenString
-    pushError s = AlexUserState $ Left $ fromLeft [] (matches $ alex_ust s) ++ [newError]
+    pushError s = AlexUserState $ Left $ newError : (fromLeft [] (matches $ alex_ust s))
 
 -- Lexical error
 data Error = Error { posn :: AlexPosn, errorToken :: String }

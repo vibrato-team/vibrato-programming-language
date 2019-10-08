@@ -2,14 +2,11 @@
 module Parser(parse) where
 import Lexer
 import Tokens
-import ParseError
 import qualified AST
 }
 
-%name alexParse
+%name parse
 %error { parseError }
-%monad { Alex }
-%lexer { lexerWrapper } { EOFToken }
 %tokentype { Token }
 
 %token
@@ -283,6 +280,6 @@ ChordLegato             : chord ChordLegatoAux                  { AST.ChordDec $
 ChordLegatoAux          : IdType '{' ListaVar '}'               { AST.ParamsCL $1 (reverse $3)}
 
 {
-parse :: String -> Either String AST.Program
-parse s = runAlex s alexParse
+parseError :: [Token] -> a
+parseError (tk:tks) = error $ "Parser error at line " ++ show (line tk) ++ ", column " ++ show (col tk) ++ ": " ++ show (token tk)
 }
