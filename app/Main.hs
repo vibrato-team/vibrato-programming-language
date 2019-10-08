@@ -1,7 +1,7 @@
 module Main where
 
 import Lib
-import Lexer
+import qualified Lexer
 import qualified Parser
 import AST
 
@@ -19,7 +19,9 @@ ppList (x:xs) = show x ++ "\n" ++ ppList xs
 main :: IO ()
 main = do
     srcFile <- getContents
-    let result = Parser.parse srcFile in (
-        case result of
+    let lexResult = Lexer.runAlexScan srcFile in (
+        case lexResult of
             Left err -> error err
-            Right program -> printNode 0 program)
+            Right state -> case Lexer.matches state of
+                Left errors -> error $ "Lexical errors:\n" ++ ppList errors
+                Right tokens -> printNode 0 $ Parser.parse tokens)
