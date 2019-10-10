@@ -52,6 +52,7 @@ data Token =
     DoubleBarToken { token :: String, line :: Int, col :: Int } |
     PlayToken { token :: String, line :: Int, col :: Int } |
     WithToken { token :: String, line :: Int, col :: Int } |
+    MainToken { token :: String, line :: Int, col :: Int } |
     
     NewToken { token :: String, line :: Int, col :: Int } |
     FreeToken { token :: String, line :: Int, col :: Int } |
@@ -96,6 +97,13 @@ data Token =
     CharToken { token :: String, line :: Int, col :: Int } |
 
     -- Identificador
-    IdToken { token :: String, line :: Int, col :: Int}
+    IdToken     { token :: String, line :: Int, col :: Int} |
+    IdTypeToken { token :: String, line :: Int, col :: Int} |
+
+    -- EOF
+    EOFToken |
+
+    -- Error
+    ErrorToken { token :: String, line :: Int, col :: Int }
 
     deriving (Eq, Show)

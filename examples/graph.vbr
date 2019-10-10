@@ -2,18 +2,18 @@
 Lista enlazada
 /*
 chord List {
-    next: sample<List>|
-    value: quarter|
+    next: Sample<List>,
+    value: quarter
 }
 
 **/
 Obtener elemento n-ésimo de una lista enlazada.
 /**
-track get_nth(head: sample<List>, n: quarter): sample<List> {
+track get_nth(head: Sample<List>, n: quarter): Sample<List> {
     idx: quarter <-> 0|
-    loop {
-        head <-> head.next
-    }x (n)
+    loop x {
+        head <-> head.next|
+    } in (n)
     head||
 }
 
@@ -21,23 +21,23 @@ track get_nth(head: sample<List>, n: quarter): sample<List> {
 Grafo
 /*
 chord Graph {
-    adyList: sample< Melody< sample<List>>>|  ~ Lista de adyacencia
-    n: quarter|                                 ~ nro de vertices
-    m: quarter|                                 ~ nro de arcos
+    adyList: Sample< Melody< Sample<List> > >,  ~ Lista de adyacencia
+    n: quarter,                                 ~ nro de vertices
+    m: quarter                                 ~ nro de arcos
 }
 
 */
 Encuentra si hay un ciclo en el grafo
 /*
 track has_cycle(
-    g: >Graph, 
-    vis: sample<Melody<whole>>, 
+    g: Graph, 
+    vis: Sample<Melody<whole> >, 
     u: quarter
 ): whole {
     idx: quarter <-> 0|
-    loop {
-        u_list: sample<List> <-> g.adyList![u]|
-        v: quarter <-> get_nth(u_list, idx)!.value|
+    loop x {
+        u_list: Sample<List> <-> g.adyList![u]|
+        v: quarter <-> (play get_nth with (u_list, idx))!.value|
         if (not vis![v]) {
             vis![v] <-> maj|
             if (play has_cycle with (g, vis, v)) {
@@ -47,12 +47,12 @@ track has_cycle(
             maj||
         }
         idx#|
-    }x (length g.adyList![u])
+    } in (0, play length with (g.adyList![u]))
 
     min||
 }
 
-moderato() {
+track moderato() {
     n: quarter|
     m: quarter|
 
@@ -62,31 +62,30 @@ moderato() {
     |>("Número de arcos: ")|
     @(m)|
 
-    vis: sample<Melody<whole>> <-> new Melody<whole>(n)|
-    g: Graph <-> Graph(new Melody<sample<List>>,
-                    n, m)|
+    vis: Sample<Melody<whole> > <-> new Melody<whole>(n)|
+    g: Graph <-> Graph(new Melody<Sample<List> >(n), n, m)|
     
     -- Leer arcos
-    loop {
+    loop x {
         u: quarter|
         v: quarter|
         |>("Ingrese un par de vertices: ")|
         @(u, v)|
 
-        list_head: sample<List> <-> g.adyList![u]|
-        g.adyList![u] <-> new List(list_head, v)
-    }x (m)
+        list_head: Sample<List> <-> g.adyList![u]|
+        g.adyList![u] <-> new List(list_head, v)|
+    } in (0, m, 1)
 
     hasCycle: whole <-> min|
     u: quarter <-> 0|
-    loop {
+    loop x {
         hasCycle <-> hasCycle or play has_cycle with (g, vis, u)|
         u#|
-    }x (n)
+    } in (n)
     
     if (hasCycle) {
-        |>("El grafo tiene al menos un ciclo.\n")
+        |>("El grafo tiene al menos un ciclo.\n")|
     } else {
-        |>("El grafo no tiene ciclos.\n")
+        |>("El grafo no tiene ciclos.\n")|
     }
 }

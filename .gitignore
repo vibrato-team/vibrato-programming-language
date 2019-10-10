@@ -1,1 +1,6 @@
 .stack-work/
+*.hi
+*.o
+*.info
+src/Lexer.hs
+src/Parser.hs

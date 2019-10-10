@@ -1,8 +1,8 @@
 ***/
 Abortar por usar ==
     /***
-moderato() {
-    n: quarter&
+track moderato() {
+    n: quarter|
     str; Melody<half> <-> "=="|
     |> ("Esto deberia fallar por culpa del ")|
     |> (str)|

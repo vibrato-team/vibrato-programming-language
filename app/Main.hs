@@ -1,7 +1,9 @@
 module Main where
 
 import Lib
-import Lexer
+import qualified Lexer
+import qualified Parser
+import AST
 
 -- Wrapper for making String an instance of PrettyPrintable
 newtype Wrapper = Wrapper String
@@ -17,12 +19,9 @@ ppList (x:xs) = show x ++ "\n" ++ ppList xs
 main :: IO ()
 main = do
     srcFile <- getContents
-    let lexResult = runAlexScan srcFile in (
+    let lexResult = Lexer.runAlexScan srcFile in (
         case lexResult of
-            Left error ->
-                putStrLn $ "Something happened!\n" ++ show error
-            Right state -> case matches state of
-                Left errors -> 
-                    putStrLn $ "Lexical error!\n" ++ ppList errors
-                Right tokens -> do
-                    putStrLn $ "Tokens:\n" ++ ppList tokens)
+            Left err -> error err
+            Right state -> case Lexer.matches state of
+                Left errors -> error $ "Lexical errors:\n" ++ ppList errors
+                Right tokens -> printNode 0 $ Parser.parse tokens)
