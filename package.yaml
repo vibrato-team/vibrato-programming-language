@@ -22,6 +22,7 @@ description:         Please see the README on GitHub at <https://github.com/vibr
 dependencies:
 - base >= 4.7 && < 5
 - array
+- split >= 0.2
 
 library:
   source-dirs: src
