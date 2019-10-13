@@ -1,5 +1,5 @@
 {
-module Lexer (Token(..), Alex, alexError, runAlex, runAlexScan, alexEOF, lexerWrapper, AlexUserState(..), AlexState(..)) where
+module Lexer (Error(..), Token(..), Alex, alexError, runAlex, runAlexScan, alexEOF, lexerWrapper, AlexUserState(..), AlexState(..)) where
 import Tokens
 import Data.Either
 }
@@ -211,15 +211,13 @@ pushToken constructor (p, _, _, s) len = modifyUserState (pushTokenToState tk) >
 throwUserError :: AlexAction Token
 throwUserError (p, _, _, str) len = (Alex $ \s -> Right (s{ alex_ust= pushError s }, ())) >> alexMonadScan where
     tokenString = take len str
-    newError = Error p tokenString
+    newError = Error (posnLine p) (posnCol p) tokenString
     pushError s = AlexUserState $ Left $ newError : (fromLeft [] (matches $ alex_ust s))
 
 -- Lexical error
-data Error = Error { posn :: AlexPosn, errorToken :: String }
+data Error = Error { errLine :: Int, errCol :: Int, errorToken :: String }
 instance Show Error where
-    show err = "Invalid token at line " ++ show (posnLine (posn err) )++
-        ", column " ++ show (posnCol (posn err)) ++ ": " ++ show (errorToken err) ++
-            ". " ++ suggestion where
+    show err = "Invalid token. " ++ suggestion where
             suggestion = case (errorToken err) of
                 "==" -> "Did you mean \"=\"?"
                 "!=" -> "Did you mean \"/=\""

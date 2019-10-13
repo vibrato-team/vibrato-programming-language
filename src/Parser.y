@@ -3,6 +3,7 @@ module Parser(parse) where
 import Lexer
 import Tokens
 import qualified AST
+import Util.Error
 }
 
 %name parse
