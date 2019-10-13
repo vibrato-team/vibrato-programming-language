@@ -5,12 +5,13 @@ import Tokens
 import qualified AST
 import Util.Error
 import Control.Monad.Reader
+import Data.Either
 }
 
 %name parse
 %error { parseError }
 %tokentype { Token }
-%monad { Reader String }
+%monad { ParserMonad }
 
 %token
     whole               { WholeToken _ _ _ }
@@ -286,8 +287,9 @@ ChordLegato             : chord ChordLegatoAux                  { AST.ChordDec $
 ChordLegatoAux          : IdType '{' ListaVar '}'               { AST.ParamsCL $1 (reverse $3)}
 
 {
-parseError :: [Token] -> Reader String a
-parseError (tk:_) = do
-    src <- ask
-    return $ error $ "\n" ++ showError src "Parse error:" (line tk) (col tk)
+
+type ParserMonad = Either [Error]
+
+parseError :: [Token] -> ParserMonad a
+parseError (tk:_) = Left $ [Error (line tk) (col tk) "Parse error:"]
 }

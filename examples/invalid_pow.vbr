@@ -3,10 +3,10 @@
 /****
 
 track pow(b: eight, e: eight): eight {
-    if (e = 0) 1||}
+    if (e = 0) 1||
     if (e = 1) b||
 
-    aux: eight <-> play pow with (b, e/2)|
+    aux: eight <-> play pow with b, e/2)|
     aux^2 * play pow with (b, e mod 2)||
 }
 
@@ -17,5 +17,5 @@ moderato() {
     @ (n)|
     |> ("Ingrese el exponente: ")|
     @ (e)|
-    |> (n, "^", b, " = ", play pow with (n, e))
+    |> (n, "^", b, " = ", play pow with (n, e))|
 }

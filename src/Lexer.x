@@ -2,6 +2,7 @@
 module Lexer (Error(..), Token(..), Alex, alexError, runAlex, runAlexScan, alexEOF, lexerWrapper, AlexUserState(..), AlexState(..)) where
 import Tokens
 import Data.Either
+import Util.Error
 }
 
 %wrapper "monadUserState"
@@ -211,18 +212,15 @@ pushToken constructor (p, _, _, s) len = modifyUserState (pushTokenToState tk) >
 throwUserError :: AlexAction Token
 throwUserError (p, _, _, str) len = (Alex $ \s -> Right (s{ alex_ust= pushError s }, ())) >> alexMonadScan where
     tokenString = take len str
-    newError = Error (posnLine p) (posnCol p) tokenString
+    newError = Error (posnLine p) (posnCol p) (lexErrMsg tokenString)
     pushError s = AlexUserState $ Left $ newError : (fromLeft [] (matches $ alex_ust s))
 
--- Lexical error
-data Error = Error { errLine :: Int, errCol :: Int, errorToken :: String }
-instance Show Error where
-    show err = "Invalid token" ++ suggestion where
-            suggestion = case (errorToken err) of
-                "==" -> ". Did you mean \"=\"?"
-                "!=" -> ". Did you mean \"/=\"?"
-                "<-" -> ". Did you mean \"<->\"?"
-                "%" -> ". Did you mean \"mod\"?"
-                _ -> ":"
-
+    -- Lexical Error Message
+lexErrMsg tokenString = "Invalid token" ++ suggestion where
+    suggestion = case tokenString of
+        "==" -> ". Did you mean \"=\"?"
+        "!=" -> ". Did you mean \"/=\"?"
+        "<-" -> ". Did you mean \"<->\"?"
+        "%" -> ". Did you mean \"mod\"?"
+        _ -> ":"
 }
