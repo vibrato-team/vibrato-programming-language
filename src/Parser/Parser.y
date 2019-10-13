@@ -4,7 +4,6 @@ import Lexer
 import Tokens
 import qualified AST
 import Util.Error
-import Control.Monad.Reader
 import Data.Either
 }
 

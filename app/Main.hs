@@ -5,7 +5,6 @@ import qualified Lexer
 import qualified Parser.Parser as Parser
 import AST
 import Util.Error
-import Control.Monad.Reader
 
 -- Main function. Currently it is only testing the lexer.
 main :: IO ()
