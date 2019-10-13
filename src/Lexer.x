@@ -222,6 +222,7 @@ instance Show Error where
                 "==" -> ". Did you mean \"=\"?"
                 "!=" -> ". Did you mean \"/=\"?"
                 "<-" -> ". Did you mean \"<->\"?"
+                "%" -> ". Did you mean \"mod\"?"
                 _ -> ":"
 
 }
