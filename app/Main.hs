@@ -5,9 +5,6 @@ import qualified Lexer
 import qualified Parser.Parser as Parser
 import AST
 import Util.Error
-import Control.Monad.Reader
-
-showErrors srcFile = map (\err -> showError srcFile (show err) (Lexer.errLine err) (Lexer.errCol err))
 
 -- Main function. Currently it is only testing the lexer.
 main :: IO ()
@@ -17,5 +14,7 @@ main = do
         case lexResult of
             Left err -> error err
             Right state -> case Lexer.matches state of
-                Left errors -> error $ "\n" ++ unlines (showErrors srcFile $ reverse errors)
-                Right tokens -> printNode 0 $ runReader (Parser.parse tokens) srcFile)
+                Left errors -> throwCompilerError srcFile (reverse errors)
+                Right tokens -> case Parser.parse tokens of
+                    Left errors -> throwCompilerError srcFile errors
+                    Right ast -> printNode 0 ast)
