@@ -217,11 +217,12 @@ throwUserError (p, _, _, str) len = (Alex $ \s -> Right (s{ alex_ust= pushError 
 -- Lexical error
 data Error = Error { errLine :: Int, errCol :: Int, errorToken :: String }
 instance Show Error where
-    show err = "Invalid token. " ++ suggestion where
+    show err = "Invalid token" ++ suggestion where
             suggestion = case (errorToken err) of
-                "==" -> "Did you mean \"=\"?"
-                "!=" -> "Did you mean \"/=\""
-                "<-" -> "Did you mean \"<->\""
-                _ -> ""
+                "==" -> ". Did you mean \"=\"?"
+                "!=" -> ". Did you mean \"/=\"?"
+                "<-" -> ". Did you mean \"<->\"?"
+                "%" -> ". Did you mean \"mod\"?"
+                _ -> ":"
 
 }

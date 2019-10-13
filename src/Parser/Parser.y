@@ -1,14 +1,16 @@
 {
-module Parser(parse) where
+module Parser.Parser(parse) where
 import Lexer
 import Tokens
 import qualified AST
 import Util.Error
+import Control.Monad.Reader
 }
 
 %name parse
 %error { parseError }
 %tokentype { Token }
+%monad { Reader String }
 
 %token
     whole               { WholeToken _ _ _ }
@@ -90,6 +92,8 @@ import Util.Error
     id                  { IdToken _ _ _ }
     id_type             { IdTypeToken _ _ _ }
 
+    main                { MainToken _ _ _ }
+
 
 %nonassoc '<->'
 %nonassoc '>' '<' '=' '/=' '<=' '>='
@@ -119,8 +123,9 @@ ExternalInstruction     : FunctionDeclaration                   { AST.ExternalFu
                         | Instruction                           { AST.ExternalInstruction $1 }
 
 FunctionDeclaration     :: { AST.FunctionDeclaration }
-FunctionDeclaration     : track Id '(' ListaVar ')' MaybeType Block   { AST.FunctionDec $2 $6 (reverse $4) $7 }
+FunctionDeclaration     : track Id '(' ListaVar ')' MaybeType Block     { AST.FunctionDec $2 $6 (reverse $4) $7 }
                         | track Id '('')' MaybeType Block               { AST.FunctionDec $2 $5 [] $6 }
+                        | main '(' ')' Block                            { AST.FunctionDec (AST.Id $1) Nothing [] $4 }
 
 Id                      :: { AST.Id }
 Id                      : id                                    { AST.Id $1 }
@@ -281,6 +286,8 @@ ChordLegato             : chord ChordLegatoAux                  { AST.ChordDec $
 ChordLegatoAux          : IdType '{' ListaVar '}'               { AST.ParamsCL $1 (reverse $3)}
 
 {
-parseError :: [Token] -> a
-parseError (tk:tks) = error $ "Parser error at line " ++ show (line tk) ++ ", column " ++ show (col tk) ++ ": " ++ show (token tk)
+parseError :: [Token] -> Reader String a
+parseError (tk:_) = do
+    src <- ask
+    return $ error $ "\n" ++ showError src "Parse error:" (line tk) (col tk)
 }

@@ -18,7 +18,7 @@ track fibo(n: quarter): quarter {
     n1||
 }
 
-track moderato() {
+moderato() {
     n: quarter|
     |> ("Ingrese un entero:")|
     @ (n)|
