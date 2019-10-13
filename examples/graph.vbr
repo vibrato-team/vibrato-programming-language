@@ -52,7 +52,7 @@ track has_cycle(
     min||
 }
 
-track moderato() {
+moderato() {
     n: quarter|
     m: quarter|
 
