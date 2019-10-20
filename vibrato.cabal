@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: b94543c3639ae7ecd46a50115b68fa77b0e3c0c5c79e1f3c3844f433ecb8e64a
+-- hash: 18e0ddac1866a6a5c71b7d8e124139e572ed5762b73e948d5a551274f78aa203
 
 name:           vibrato
 version:        0.1.0.0
@@ -66,17 +66,25 @@ executable vibrato-exe
     , vibrato
   default-language: Haskell2010
 
-test-suite vibrato-test
+test-suite lexer-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      FunctionSpec
+      IdSpec
+      InstructionsSpec
+      LiteralsSpec
+      OperatorsSpec
+      TokenSpec
+      Utils
       Paths_vibrato
   hs-source-dirs:
-      test
+      test/lexer
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       array
     , base >=4.7 && <5
+    , hspec
     , mtl >=2.2
     , split >=0.2
     , vibrato
