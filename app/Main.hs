@@ -3,6 +3,7 @@ module Main where
 import Lib
 import qualified Lexer
 import qualified Parser.Parser as Parser
+import qualified Parser.Monad as PMonad
 import AST
 import Util.Error
 import qualified Control.Monad.RWS.Lazy as RWS
@@ -21,5 +22,5 @@ main = do
             Right state -> case Lexer.matches state of
                 Left errors -> throwCompilerError srcFile (reverse errors)
                 Right tokens -> do
-                    (ast, _) <- RWS.evalRWST (Parser.parse tokens) srcFile (Set.empty, Map.empty, 1)
+                    (ast, _) <- RWS.evalRWST (Parser.parse tokens) srcFile PMonad.initialState
                     printNode 0 ast)

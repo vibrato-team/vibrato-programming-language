@@ -23,6 +23,20 @@ type ParserState = (Sem.ScopeSet, Sem.SymbolTable, Int)
 -- | Monad of the parser
 type ParserMonad = RWS.RWST String () ParserState IO
 
+-- | Initial state with the level pervasive.
+initialState :: ParserState
+initialState = (Set.singleton 0, initialMap, 1)
+    where 
+        boolEntry    =    ("bool", [Sem.Entry "bool" Sem.Type 0 Nothing Nothing])
+        charEntry    =    ("char", [Sem.Entry "char" Sem.Type 0 Nothing Nothing])
+        int32Entry   =    ("int32", [Sem.Entry "int32" Sem.Type 0 Nothing Nothing])
+        int64Entry   =    ("int64", [Sem.Entry "int64" Sem.Type 0 Nothing Nothing])
+        float32Entry =    ("float32", [Sem.Entry "float32" Sem.Type 0 Nothing Nothing])
+        float64Entry =    ("float64", [Sem.Entry "float64" Sem.Type 0 Nothing Nothing])
+        arrayEntry   =    ("array", [Sem.Entry "array" Sem.Constructor 0 Nothing Nothing])
+        pointerEntry =    ("pointer", [Sem.Entry "pointer" Sem.Constructor 0 Nothing Nothing])
+        initialMap   =    Map.fromList [boolEntry, charEntry, int32Entry, int64Entry, float32Entry, float64Entry, arrayEntry, pointerEntry]
+
 -- | Insert a new entry into the SymbolTable
 insertEntry :: Sem.Entry -> ParserMonad ()
 insertEntry entry = do
