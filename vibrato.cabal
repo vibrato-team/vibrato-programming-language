@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 18e0ddac1866a6a5c71b7d8e124139e572ed5762b73e948d5a551274f78aa203
+-- hash: 478d196ef18a986e1005602054ca2a982b0e6fc69b95936524ff0580d6a26035
 
 name:           vibrato
 version:        0.1.0.0
@@ -35,6 +35,7 @@ library
       Lexer
       Lib
       Parser.Parser
+      Semantic.Data
       Tokens
       Util.Error
   other-modules:
@@ -47,6 +48,7 @@ library
   build-depends:
       array
     , base >=4.7 && <5
+    , containers
     , mtl >=2.2
     , split >=0.2
   default-language: Haskell2010
@@ -61,6 +63,7 @@ executable vibrato-exe
   build-depends:
       array
     , base >=4.7 && <5
+    , containers
     , mtl >=2.2
     , split >=0.2
     , vibrato
@@ -84,6 +87,7 @@ test-suite lexer-test
   build-depends:
       array
     , base >=4.7 && <5
+    , containers
     , hspec
     , mtl >=2.2
     , split >=0.2

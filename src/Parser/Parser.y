@@ -1,10 +1,12 @@
 {
-module Parser.Parser(parse) where
+module Parser.Parser(parse, ParserMonad) where
 import Lexer
 import Tokens
 import qualified AST
 import Util.Error
 import Data.Either
+import qualified Semantic.Data as Sem
+import qualified Control.Monad.RWS.Lazy as RWS
 }
 
 %name parse
@@ -287,8 +289,14 @@ ChordLegatoAux          : IdType '{' ListaVar '}'               { AST.ParamsCL $
 
 {
 
-type ParserMonad = Either [Error]
+-- State
+type ParserState = (Sem.ScopeSet, Sem.SymbolTable)
+
+-- Monad
+type ParserMonad = RWS.RWST String () ParserState IO
 
 parseError :: [Token] -> ParserMonad a
-parseError (tk:_) = Left $ [Error (line tk) (col tk) "Parse error:"]
+parseError (tk:_) = do
+    srcFile <- RWS.ask
+    throwCompilerError srcFile [Error (line tk) (col tk) "Parse error:"]
 }
