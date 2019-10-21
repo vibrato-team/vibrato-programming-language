@@ -44,12 +44,19 @@ deleteScope scope = do
     let scopeSet' = Set.delete scope scopeSet
     RWS.put (scopeSet', table, lvl)
 
--- | Look up for a symbol in the symbol table and return its scope
+-- | Get chain from a symbol
+getChain :: String -> ParserMonad (Maybe [Sem.Entry])
+getChain symbol = do
+    (_, table, _) <- RWS.get
+    -- Get chain of matching entries
+    return $ Map.lookup symbol table
+
+-- | Look for a symbol in the symbol table and return its scope
 lookup :: String -> ParserMonad (Maybe Sem.Entry)
 lookup symbol = do
-    (scopeSet, table, _) <- RWS.get
-    -- Get chain of matching entries
-    case Map.lookup symbol table of
+    (scopeSet, _, _) <- RWS.get
+    chainMaybe <- getChain symbol
+    case chainMaybe of
         Nothing     -> return Nothing
         Just chain  ->
             -- Get entries that their scope is active
@@ -59,6 +66,20 @@ lookup symbol = do
                     -- Return entry with maximum scope
                     let getBest e1 e2 = if Sem.entry_scope e1 > Sem.entry_scope e2 then e1 else e2
                     return $ Just $ foldl1 getBest entries
+
+-- | Find if a symbol is in the scope given. This is mainly
+--  used for looking fields up.    
+lookupField :: String -> Int -> ParserMonad (Maybe Sem.Entry)
+lookupField symbol level = do
+    chainMaybe <- getChain symbol
+    case chainMaybe of
+        Nothing     -> return Nothing
+        Just chain  ->
+            -- Get entry that matches symbol
+            case filter (\e -> Sem.entry_scope e == level) chain of
+                [] -> return Nothing
+                [e] -> return $ Just e
+                _ -> return Nothing
 
 -- | Increment level of scope
 incrementScope :: ParserMonad ()
