@@ -6,6 +6,7 @@ import qualified AST
 import Util.Error
 import Data.Either
 import qualified Semantic.Data as Sem
+import Parser.Monad (ParserMonad)
 import qualified Parser.Monad as PMonad
 import qualified Control.Monad.RWS.Lazy as RWS
 import qualified Semantic.Data as SemData 
@@ -228,7 +229,7 @@ Indexing                :: { AST.Expression }
 Indexing                : LValue '[' Expression ']'             { AST.IndexingExp $1 $3 $2 }
 
 DotExpression           :: { AST.Expression }
-DotExpression           : LValue '.' Id                         {% PMonad.analyzeLValue (AST.DotExp $1 $3) >> return (AST.DotExp $1 $3) }
+DotExpression           : LValue '.' Id                         {% analyzeLValue (AST.DotExp $1 $3) >> return (AST.DotExp $1 $3) }
 
 Dereference             :: { AST.Expression }
 Dereference             : LValue '!'                            { AST.DereferenceExp $1 }
@@ -293,10 +294,10 @@ IdType                  :: { AST.Type }
 IdType                  : id_type                               { AST.Type $1 Nothing }
 
 ChordLegato             :: { AST.Instruction }
-ChordLegato             : chord IdType ChordLegatoAux                  {% createTypeEntry $2 } -- AST.ChordDec
-                        | legato IdType ChordLegatoAux                 {% createTypeEntry $2 } -- AST.LegatoDec
+ChordLegato             : chord IdType ChordLegatoFields                  {% createTypeEntry $2 }
+                        | legato IdType ChordLegatoFields                 {% createTypeEntry $2 }
 
-ChordLegatoAux          : '{' ListaField '}'               { (reverse $2)}
+ChordLegatoFields          : '{' ListaField '}'               { (reverse $2)}
 
 ListaField              :: { [AST.VarDeclaration] }
 ListaField              : FieldDeclaration                        { [$1] }
@@ -316,42 +317,19 @@ parseError :: [Token] -> PMonad.ParserMonad a
 parseError (tk:_) = do
     srcFile <- RWS.ask
     throwCompilerError srcFile [Error (line tk) (col tk) "Parse error:"]
-
--- | Throws a semantic error
-semError :: Token -> ParserMonad a
-semError tk = do
-    srcFile <- RWS.ask
-    throwCompilerError srcFile [Error (line tk) (col tk) "Parse error:"]
-   
--- | Throw a semantic error if Maybe is Nothing
-throwIfNothing :: Maybe a -> Token -> ParserMonad a
-throwIfNothing Nothing = semError
-throwIfNothing (Just a) = return a
-
-create
-
------------------------------------------------------------------------------------------------
--- Semantic analysers
------------------------------------------------------------------------------------------------
-
--- | Analize variable and return AST given
-analyzeVar :: Token -> a -> ParserMonad a
-analyzeVar tk ast = do
-    let tkString = token tk
-    entryMaybe <- F
 -----------------------------------------------------------------------------------------------
 -- Entry Creation
 -----------------------------------------------------------------------------------------------
 createFuntionEntry :: Token -> Maybe SemData.Type -> [a] -> b -> ParserMonad ()
 createFuntionEntry s t xs i= do
-    let funcat = SemData.Function { ast_function = AST.FunctionDec s t xs i }
+    let funcat = SemData.Function { SemData.ast_function = AST.FunctionDec s t xs i }
     (_, _, lvl) <- RWS.get
     let entry = SemData.Entry {
-        entry_name = s,
-        entry_category = funcat,
-        entry_scope = lvl,
-        entry_type = t,
-        entry_level = Nothing
+        SemData.entry_name = s,
+        SemData.entry_category = funcat,
+        SemData.entry_scope = lvl,
+        SemData.entry_type = t,
+        SemData.entry_level = Nothing
         }
 
     insertEntry entry
@@ -362,11 +340,11 @@ createVarEntry s t e = do
     (_, _, lvl) <- RWS.get
     -- Lookup para el entry de del tipo
     let entry = SemData.Entry {
-        entry_name = s,
-        entry_category = SemData.Var,
-        entry_scope = lvl,
-        entry_type = t,
-        entry_level = Nothing
+        SemData.entry_name = s,
+        SemData.entry_category = SemData.Var,
+        SemData.entry_scope = lvl,
+        SemData.entry_type = t,
+        SemData.entry_level = Nothing
     }
     insertEntry entry
 
@@ -376,11 +354,11 @@ createTypeEntry s = do
     incrementScope
     (_, _, lvl) <- RWS.get
     let entry = SemData.Entry {
-        entry_name = s,
-        entry_category = SemData.Type,
-        entry_scope = lvl,
-        entry_type = Nothing,
-        entry_level = Nothing
+        SemData.entry_name = s,
+        SemData.entry_category = SemData.Type,
+        SemData.entry_scope = lvl,
+        SemData.entry_type = Nothing,
+        SemData.entry_level = Nothing
     }
     insertEntry entry
 
@@ -388,11 +366,11 @@ createFieldEntry :: Token -> Maybe SemData.Type -> ParserMonad ()
 createFieldEntry tk typ = do
     (_, _, lvl) <- RWS.get
     let entry = SemData.Entry {
-        entry_name = tk,
-        entry_category = SemData.Field,
-        entry_scope = lvl,
-        entry_type = typ,
-        entry_level = Nothing
+        SemData.entry_name = tk,
+        SemData.entry_category = SemData.Field,
+        SemData.entry_scope = lvl,
+        SemData.entry_type = typ,
+        SemData.entry_level = Nothing
     }
     insertEntry entry
 
@@ -400,11 +378,11 @@ createParamEntry :: Token -> Maybe SemData.Type -> ParserMonad ()
 createParamEntry tk typ = do
     (_, _, lvl) <- RWS.get
     let entry = SemData.Entry {
-        entry_name = tk,
-        entry_category = SemData.Param,
-        entry_scope = lvl,
-        entry_type = typ,
-        entry_level = Nothing
+        SemData.entry_name = tk,
+        SemData.entry_category = SemData.Param,
+        SemData.entry_scope = lvl,
+        SemData.entry_type = typ,
+        SemData.entry_level = Nothing
     }
     insertEntry entry
     
