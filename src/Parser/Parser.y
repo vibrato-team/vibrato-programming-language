@@ -129,16 +129,16 @@ ExternalInstruction     : FunctionDeclaration                   { AST.ExternalFu
                         | Instruction                           { AST.ExternalInstruction $1 }
 
 FunctionDeclaration     :: { AST.FunctionDeclaration }
-FunctionDeclaration     : track Id '(' ListaParam ')' MaybeType Block     {% createFuntionEntry id_token $2 $6 (reverse $4) $7 } -- AST.FunctionDec
-                        | track Id '('')' MaybeType Block               {% createFuntionEntry id_token $2 $5 [] $6 }
-                        | main '(' ')' Block                            {% createFuntionEntry id_token (AST.Id $1) Nothing [] $4 }
+FunctionDeclaration     : track Id '(' ListaParam ')' MaybeType Block     {% createFuntionEntry (AST.id_token $2) $6 (reverse $4) $7 } -- AST.FunctionDec
+                        | track Id '('')' MaybeType Block               {% createFuntionEntry (AST.id_token $2) $5 [] $6 }
+                        | main '(' ')' Block                            {% createFuntionEntry (AST.id_token (AST.Id $1)) Nothing [] $4 }
 
 ListaParam              :: { [AST.VarDeclaration] }
 ListaParam              : ParamDeclaration                        { [$1] }
                         | ListaParam ',' ParamDeclaration           { $3 : $1 }
 
 ParamDeclaration        :: { AST.VarDeclaration }
-ParamDeclaration        : Id ':' Type                           {% createParamEntry $1 $3}
+ParamDeclaration        : Id ':' Type                           {% createParamEntry $ AST.id_token $1 $3}
 
 Id                      :: { AST.Id }
 Id                      : id                                    { AST.Id $1 }
@@ -186,11 +186,11 @@ Statement               : VarDeclaration                        { $1 }
 
 
 VarDeclaration          :: { AST.VarDeclaration }
-VarDeclaration          : Id ':' Type                           {% createVarEntry $1 $3}
+VarDeclaration          : Id ':' Type                           {% createVarEntry (AST.id_token $1) $3}
           
 
 VarInit                 :: { AST.VarDeclaration }
-VarInit                 : Id ':' Type '<->' Expression          {% createVarEntry $1 $3 $4 >> return (AST.VarDec $1 $3 $4) } -- AST.VarDec
+VarInit                 : Id ':' Type '<->' Expression          {% createVarEntry (AST.id_token $1) $3 $4 >> return (AST.VarDec $1 $3 $4) } -- AST.VarDec
 
 Asignacion              :: { AST.Instruction }
 Asignacion              : LValue '<->' Expression               { AST.AssignInst $1 $3 }
@@ -294,8 +294,8 @@ IdType                  :: { AST.Type }
 IdType                  : id_type                               { AST.Type $1 Nothing }
 
 ChordLegato             :: { AST.Instruction }
-ChordLegato             : chord IdType ChordLegatoFields                  {% createTypeEntry $2 }
-                        | legato IdType ChordLegatoFields                 {% createTypeEntry $2 }
+ChordLegato             : chord IdType ChordLegatoFields                  {% createTypeEntry $ type_token $2 }
+                        | legato IdType ChordLegatoFields                 {% createTypeEntry $ type_token $2 }
 
 ChordLegatoFields          : '{' ListaField '}'               { (reverse $2)}
 
@@ -304,7 +304,7 @@ ListaField              : FieldDeclaration                        { [$1] }
                         | ListaField ',' FieldDeclaration           { $3 : $1 }
 
 FieldDeclaration        :: { AST.VarDeclaration }
-FieldDeclaration        : Id ':' Type                           {% createFieldEntry $1 $3}
+FieldDeclaration        : Id ':' Type                           {% createFieldEntry $ AST.id_token $1 $3}
 
 {
 
@@ -320,71 +320,71 @@ parseError (tk:_) = do
 -----------------------------------------------------------------------------------------------
 -- Entry Creation
 -----------------------------------------------------------------------------------------------
-createFuntionEntry :: Token -> Maybe SemData.Type -> [a] -> b -> ParserMonad ()
-createFuntionEntry s t xs i= do
+createFuntionEntry :: Token -> Maybe AST.Type -> [a] -> b -> ParserMonad ()
+createFuntionEntry tk t xs i= do
     let funcat = SemData.Function { SemData.ast_function = AST.FunctionDec s t xs i }
     (_, _, lvl) <- RWS.get
     let entry = SemData.Entry {
-        SemData.entry_name = s,
+        SemData.entry_name = token tk,
         SemData.entry_category = funcat,
         SemData.entry_scope = lvl,
         SemData.entry_type = t,
         SemData.entry_level = Nothing
         }
 
-    insertEntry entry
+    PMonad.insertEntry entry
 
 
-createVarEntry :: Token -> Maybe SemData.Type -> ParserMonad ()
-createVarEntry s t e = do
+createVarEntry :: Token -> Maybe AST.Type -> ParserMonad ()
+createVarEntry tk t e = do
     (_, _, lvl) <- RWS.get
     -- Lookup para el entry de del tipo
     let entry = SemData.Entry {
-        SemData.entry_name = s,
+        SemData.entry_name = token tk,
         SemData.entry_category = SemData.Var,
         SemData.entry_scope = lvl,
         SemData.entry_type = t,
         SemData.entry_level = Nothing
     }
-    insertEntry entry
+    PMonad.insertEntry entry
 
 
 createTypeEntry :: Token -> ParserMonad ()
-createTypeEntry s = do
-    incrementScope
+createTypeEntry tk = do
+    PMonad.incrementScope
     (_, _, lvl) <- RWS.get
     let entry = SemData.Entry {
-        SemData.entry_name = s,
-        SemData.entry_category = SemData.Type,
+        SemData.entry_name = token tk,
+        SemData.entry_category = AST.Type,
         SemData.entry_scope = lvl,
         SemData.entry_type = Nothing,
         SemData.entry_level = Nothing
     }
-    insertEntry entry
+    PMonad.insertEntry entry
 
-createFieldEntry :: Token -> Maybe SemData.Type -> ParserMonad ()
+createFieldEntry :: Token -> Maybe AST.Type -> ParserMonad ()
 createFieldEntry tk typ = do
     (_, _, lvl) <- RWS.get
     let entry = SemData.Entry {
-        SemData.entry_name = tk,
+        SemData.entry_name = token tk,
         SemData.entry_category = SemData.Field,
         SemData.entry_scope = lvl,
         SemData.entry_type = typ,
         SemData.entry_level = Nothing
     }
-    insertEntry entry
+    PMonad.insertEntry entry
 
-createParamEntry :: Token -> Maybe SemData.Type -> ParserMonad ()
+createParamEntry :: Token -> Maybe AST.Type -> ParserMonad ()
 createParamEntry tk typ = do
     (_, _, lvl) <- RWS.get
     let entry = SemData.Entry {
-        SemData.entry_name = tk,
+        SemData.entry_name = token tk,
         SemData.entry_category = SemData.Param,
         SemData.entry_scope = lvl,
         SemData.entry_type = typ,
         SemData.entry_level = Nothing
     }
-    insertEntry entry
+    PMonad.insertEntry entry
     
 }
 
