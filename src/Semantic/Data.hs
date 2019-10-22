@@ -16,8 +16,8 @@ data Category =
 
 -- Para el campo `type` de Entry
 data Type =
-    Simple Entry |
-    Compound Entry Type
+    Simple      { type_entry :: Entry } |
+    Compound    { type_entry :: Entry, type_type :: Type }
     deriving (Eq, Show)
 
 -- Entry, con scope, categoria, token, tipo, cualquier otra cosa chupalo

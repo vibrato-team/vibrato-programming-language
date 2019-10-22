@@ -88,35 +88,43 @@ instance ASTNode Type where
 
 -- Expression
 data Expression =
-    -- Literal expression
+    -- | Literal expression
     Literal         {   exp_token :: Token }                                  |
 
+    -- | Type constructor for scalars and records
     Literal'        { exp_exps :: [Expression], exp_type :: Type }            |
     
     LiteralMelody   {   exp_values :: [Expression] }                          |
 
-    -- Identifier
+    -- | Identifier
     IdExp           {   exp_id :: Id }                                        |
 
-    -- Call function
+    -- | Call function
     CallExp         {   exp_id :: Id, exp_params :: [Expression] }            |
 
-    -- Pointers expression
+    -- | Dereference an expression
     DereferenceExp  {   exp_exp :: Expression }                               |
+    
+    -- | Allocate memory
     NewExp          {   exp_init :: Expression }                              |
 
-    -- array expression
-    IndexingExp     {   exp_left :: Expression, exp_right :: Expression }     |
+    -- | Indexing an array
+    IndexingExp     {   exp_left :: Expression, exp_right :: Expression, 
+                        exp_bracket :: Token }                                |
 
-    -- Accessing a struct field
+    -- | Accessing a struct field
     DotExp          {   exp_left :: Expression, exp_id :: Id }                |
 
-    -- Boolean expression
+    -- | Negation
     NotExp          {   exp_exp :: Expression }                               |
+    
+    -- | Conjunction
     AndExp          {   exp_left :: Expression, exp_right :: Expression }     |
+    
+    -- | Disjunction
     OrExp           {   exp_left :: Expression, exp_right :: Expression }     |
 
-    -- Arithmetic expression
+    -- Arithmetic expressions
     NegativeExp     {   exp_exp :: Expression }                               |
     SubstractionExp {   exp_left :: Expression, exp_right :: Expression }     |
     AdditionExp     {   exp_left :: Expression, exp_right :: Expression }     |

@@ -1,5 +1,5 @@
 {
-module Parser.Parser(parse, ParserMonad) where
+module Parser.Parser(parse, PMonad.ParserMonad) where
 import Lexer
 import Tokens
 import qualified AST
@@ -9,13 +9,13 @@ import qualified Semantic.Data as Sem
 import qualified Parser.Monad as PMonad
 import qualified Control.Monad.RWS.Lazy as RWS
 import qualified Semantic.Data as SemData 
-
+import Semantic.Analyzers
 }
 
 %name parse
 %error { parseError }
 %tokentype { Token }
-%monad { ParserMonad }
+%monad { PMonad.ParserMonad }
 
 %token
     whole               { WholeToken _ _ _ }
@@ -179,7 +179,7 @@ Statement               : VarDeclaration                        { $1 }
                         | VarInit                               { AST.VarDecInst $1 }
                         | Asignacion                            { $1 }
                         | IO                                    { $1 }
-                        | free Id                               { AST.FreeInst $2 }
+                        | free Id                               {% analyzeVar (AST.id_token $2) >>= return (AST.FreeInst $2) }
                         | LValue '#'                            { AST.SharpExp $1 }
                         | LValue '&'                            { AST.FlatExp $1 }
 
@@ -198,7 +198,7 @@ LValue                  :: { AST.Expression }
 LValue                  : Indexing                              { $1 }
                         | DotExpression                         { $1 }
                         | Dereference                           { $1 }
-                        | Id                                    { AST.IdExp $1 }
+                        | Id                                    {% analyzeVar (AST.id_token $1) >> return (AST.IdExp $1) }
 
 Return                  :: { AST.Instruction }
 Return                  : Expression '||'                       { AST.ReturnInst $1 }
@@ -214,7 +214,7 @@ Loop                    : loop Id MaybeType Block in '(' Expression ')'         
                         | loop '(' Expression ')' Block                                                       {AST.WhileInst $3 $5 }
 
 CallFuncion             :: { AST.Expression }
-CallFuncion             : play Id with '(' ListExp ')'          { AST.CallExp $2 $ reverse $5 }
+CallFuncion             : play Id with '(' ListExp ')'          {% analyzeVar (AST.id_token $2) >> return (AST.CallExp $2 $ reverse $5) }
 
 ListaVar                :: { [AST.VarDeclaration] }
 ListaVar                : VarDeclaration                        { [$1] }
@@ -225,13 +225,13 @@ ListExp                 : Expression                            { [$1] }
                         | ListExp ',' Expression                { $3 : $1 }
 
 Indexing                :: { AST.Expression }
-Indexing                : Expression '[' Expression ']'             { AST.IndexingExp $1 $3 }
+Indexing                : LValue '[' Expression ']'             { AST.IndexingExp $1 $3 $2 }
 
 DotExpression           :: { AST.Expression }
-DotExpression           : Expression '.' Id                         { AST.DotExp $1 $3 }
+DotExpression           : LValue '.' Id                         {% PMonad.analyzeLValue (AST.DotExp $1 $3) >> return (AST.DotExp $1 $3) }
 
 Dereference             :: { AST.Expression }
-Dereference             : Expression '!'                            { AST.DereferenceExp $1 }
+Dereference             : LValue '!'                            { AST.DereferenceExp $1 }
 
 Type                    :: { AST.Type }
 Type                    : whole                                 { AST.Type $1 Nothing }
@@ -255,7 +255,7 @@ Literal                 : int                                   { AST.Literal $1
                         | Type '(' ListExp ')'                  { AST.Literal' (reverse $3) $1 }
 
 LiteralMelody           :: { AST.Expression }
-LiteralMelody           : '[' ListExp ']'                           { AST.LiteralMelody $2 }
+LiteralMelody           : '[' ListExp ']'                       { AST.LiteralMelody $2 }
 
 Expression              :: { AST.Expression }
 Expression              : LValue %prec LVALUE                   { $1 }
@@ -308,10 +308,11 @@ FieldDeclaration        : Id ':' Type                           {% createFieldEn
 {
 
 -----------------------------------------------------------------------------------------------
--- Exceptions----------------------------------------------------------------------------------------
+-- Exceptions
+-----------------------------------------------------------------------------------------------
 
 -- | Throws a syntatic error
-parseError :: [Token] -> ParserMonad a
+parseError :: [Token] -> PMonad.ParserMonad a
 parseError (tk:_) = do
     srcFile <- RWS.ask
     throwCompilerError srcFile [Error (line tk) (col tk) "Parse error:"]
