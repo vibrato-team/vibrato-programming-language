@@ -180,8 +180,8 @@ data Instruction =
 
     BlockInst       {   inst_block :: Block }                                 |
 
-    ChordDec        { inst_list :: ParamsCL }                                 |
-    LegatoDec       { inst_list :: ParamsCL }                                 |
+    ChordDec                                                                  |
+    LegatoDec                                                                 |
 
     -- Bemoles y Sostenidos
     SharpExp        {   inst_exp :: Expression }                              |
@@ -203,7 +203,3 @@ instance ASTNode Block where
         putTabs tabs
         putStrLn "Block of instructions:"
         foldl (>>) (putStr "") $ map (printNode (tabs+1)) $ statements block
-
--- data ParamsCL =
---     ParamsCL { chordlegato_id :: Type, var_params :: [VarDeclaration] }
---     deriving (Eq, Show)

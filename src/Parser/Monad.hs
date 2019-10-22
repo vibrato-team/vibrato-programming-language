@@ -36,7 +36,7 @@ initialState = (Set.singleton 0, initialMap, 1)
         sixtyFourthEntry    =    ("64th",       [Sem.Entry "64th"       Sem.Type        0 Nothing Nothing])
         melodyEntry         =    ("Melody",     [Sem.Entry "Melody"     Sem.Constructor 0 Nothing Nothing])
         sampleEntry         =    ("Sample",     [Sem.Entry "Sample"     Sem.Constructor 0 Nothing Nothing])
-        initialMap          =    Map.fromList [wholeEntry, halfEntry, quarterEntry, eightEntry, thirysecondEntry, float64Entry, arrayEntry, pointerEntry]
+        initialMap          =    Map.fromList [wholeEntry, halfEntry, quarterEntry, eightEntry, thirySecondEntry, sixtyFourthEntry, melodyEntry, sampleEntry]
 
 -- | Insert a new entry into the SymbolTable
 insertEntry :: Sem.Entry -> ParserMonad ()

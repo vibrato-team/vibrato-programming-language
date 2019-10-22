@@ -5,6 +5,8 @@ import Parser.Monad (ParserMonad)
 import Parser.Monad as PMonad
 import qualified Semantic.Data as Sem
 import Data.Maybe
+import qualified Control.Monad.RWS.Lazy as RWS
+import Util.Error
 
 -- | Throws a semantic error
 semError :: Token -> String -> ParserMonad a
@@ -26,29 +28,31 @@ analyzeVar :: Token -> ParserMonad Sem.Entry
 analyzeVar tk = do
     let tkString = token tk
     entryMaybe <- PMonad.lookup tkString
-    throwIfNothing tk entryMaybe "Variable not in scope:"
+    throwIfNothing entryMaybe tk "Variable not in scope:"
     return $ fromJust entryMaybe
 
 -- | Analizes if field correspond to the type of the entry and throws an error if it is not
-analyzeField :: Token -> Int -> ParserMoand Sem.Entry
+analyzeField :: Token -> Int -> ParserMonad Sem.Entry
 analyzeField tk level = do
     let tkString = token tk
     entryMaybe <- PMonad.lookupField tkString level
-    throwIfNothing tk entryMaybe "Field not in type " ++ show (Sem.entry_name entry) ++ ":"
+    throwIfNothing entryMaybe tk ("Field not in type " ++ show tkString ++ ":")
     return $ fromJust entryMaybe
 
 -- | Analizes LValue expression and return its type's entry
 analyzeLValue :: AST.Expression -> ParserMonad Sem.Type
 analyzeLValue (AST.IdExp (AST.Id tk)) = do
     entry <- analyzeVar tk
-    return $ Sem.entry_type entry
+    let typeMaybe = Sem.entry_type entry
+    throwIfNothing typeMaybe tk "Semantic error:"
+    return $ fromJust typeMaybe
 
 analyzeLValue (AST.IndexingExp lval _ bracket) = do
     lType <- analyzeLValue lval
     -- if it is not a melody, error
     case lType of
-        Simple _ -> semError bracket "Expression is not a melody:"
-        Compound _ innerType -> return innerType
+        Sem.Simple _ -> semError bracket "Expression is not a melody:"
+        Sem.Compound _ innerType -> return innerType
 
 analyzeLValue (AST.DereferenceExp lval) = analyzeLValue lval
 
@@ -57,6 +61,9 @@ analyzeLValue (AST.DotExp lval (AST.Id tk)) = do
     let typeEntry   = Sem.type_entry lType      -- Entry of the type
         levelMaybe  = Sem.entry_level typeEntry -- Level opened by record
     
-    throwIfNothing tk levelMaybe "Left expression is not a record:"
+    throwIfNothing levelMaybe tk "Left expression is not a record:"
     fieldEntry <- analyzeField tk (fromJust levelMaybe)
-    return $ Sem.entry_type fieldEntry
+    
+    let typeMaybe = Sem.entry_type fieldEntry
+    throwIfNothing typeMaybe tk "Semantic error:"
+    return $ fromJust typeMaybe
