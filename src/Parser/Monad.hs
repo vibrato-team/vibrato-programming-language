@@ -15,6 +15,7 @@ import qualified Semantic.Data as Sem
 import qualified Control.Monad.RWS.Lazy as RWS
 import qualified Data.Set as Set
 import qualified Data.Map.Lazy as Map
+import Tokens
 
 
 -- | State of the parser
@@ -27,15 +28,15 @@ type ParserMonad = RWS.RWST String () ParserState IO
 initialState :: ParserState
 initialState = (Set.singleton 0, initialMap, 1)
     where 
-        boolEntry    =    ("bool", [Sem.Entry "bool" Sem.Type 0 Nothing Nothing])
-        charEntry    =    ("char", [Sem.Entry "char" Sem.Type 0 Nothing Nothing])
-        int32Entry   =    ("int32", [Sem.Entry "int32" Sem.Type 0 Nothing Nothing])
-        int64Entry   =    ("int64", [Sem.Entry "int64" Sem.Type 0 Nothing Nothing])
-        float32Entry =    ("float32", [Sem.Entry "float32" Sem.Type 0 Nothing Nothing])
-        float64Entry =    ("float64", [Sem.Entry "float64" Sem.Type 0 Nothing Nothing])
-        arrayEntry   =    ("array", [Sem.Entry "array" Sem.Constructor 0 Nothing Nothing])
-        pointerEntry =    ("pointer", [Sem.Entry "pointer" Sem.Constructor 0 Nothing Nothing])
-        initialMap   =    Map.fromList [boolEntry, charEntry, int32Entry, int64Entry, float32Entry, float64Entry, arrayEntry, pointerEntry]
+        wholeEntry          =    ("whole",      [Sem.Entry "whole"      Sem.Type        0 Nothing Nothing])
+        halfEntry           =    ("half",       [Sem.Entry "half"       Sem.Type        0 Nothing Nothing])
+        quarterEntry        =    ("quarter",    [Sem.Entry "quarter"    Sem.Type        0 Nothing Nothing])
+        eightEntry          =    ("eight",      [Sem.Entry "eight"      Sem.Type        0 Nothing Nothing])
+        thirySecondEntry    =    ("32th",       [Sem.Entry "32th"       Sem.Type        0 Nothing Nothing])
+        sixtyFourthEntry    =    ("64th",       [Sem.Entry "64th"       Sem.Type        0 Nothing Nothing])
+        melodyEntry         =    ("Melody",     [Sem.Entry "Melody"     Sem.Constructor 0 Nothing Nothing])
+        sampleEntry         =    ("Sample",     [Sem.Entry "Sample"     Sem.Constructor 0 Nothing Nothing])
+        initialMap          =    Map.fromList [wholeEntry, halfEntry, quarterEntry, eightEntry, thirysecondEntry, float64Entry, arrayEntry, pointerEntry]
 
 -- | Insert a new entry into the SymbolTable
 insertEntry :: Sem.Entry -> ParserMonad ()

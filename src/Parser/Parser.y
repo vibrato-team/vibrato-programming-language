@@ -1,26 +1,27 @@
 {
-module Parser.Parser(parse, ParserMonad) where
+module Parser.Parser(parse, PMonad.ParserMonad) where
 import Lexer
 import Tokens
 import qualified AST
 import Util.Error
 import Data.Either
 import qualified Semantic.Data as Sem
-import Parser.Monad
+import qualified Parser.Monad as PMonad
 import qualified Control.Monad.RWS.Lazy as RWS
-
+import qualified Semantic.Data as SemData 
+import Semantic.Analyzers
 }
 
 %name parse
 %error { parseError }
 %tokentype { Token }
-%monad { ParserMonad }
+%monad { PMonad.ParserMonad }
 
 %token
     whole               { WholeToken _ _ _ }
     half                { HalfToken _ _ _ }
     quarter             { QuarterToken _ _ _ }
-    eighth              { EightToken _ _ _ }
+    eight              { EightToken _ _ _ }
     melody              { MelodyToken _ _ _ }
     sample              { SampleToken _ _ _ }
     ThirtySecond        { ThirtySecondToken _ _ _ }
@@ -127,9 +128,9 @@ ExternalInstruction     : FunctionDeclaration                   { AST.ExternalFu
                         | Instruction                           { AST.ExternalInstruction $1 }
 
 FunctionDeclaration     :: { AST.FunctionDeclaration }
-FunctionDeclaration     : track Id '(' ListaVar ')' MaybeType Block     { AST.FunctionDec $2 $6 (reverse $4) $7 }
-                        | track Id '('')' MaybeType Block               { AST.FunctionDec $2 $5 [] $6 }
-                        | main '(' ')' Block                            { AST.FunctionDec (AST.Id $1) Nothing [] $4 }
+FunctionDeclaration     : track Id '(' ListaVar ')' MaybeType Block     {% createFuntionEntry $2 $6 (reverse $4) $7 } -- AST.FunctionDec
+                        | track Id '('')' MaybeType Block               {% createFuntionEntry $2 $5 [] $6 }
+                        | main '(' ')' Block                            {% createFuntionEntry (AST.Id $1) Nothing [] $4 }
 
 Id                      :: { AST.Id }
 Id                      : id                                    { AST.Id $1 }
@@ -170,13 +171,14 @@ Statement               :: { AST.Instruction }
 Statement               : VarDeclaration                        { AST.VarDecInst $1 }
                         | Asignacion                            { $1 }
                         | IO                                    { $1 }
-                        | free Id                               { AST.FreeInst $2 }
+                        | free Id                               {% analyzeVar (AST.id_token $2) >>= return (AST.FreeInst $2) }
                         | LValue '#'                            { AST.SharpExp $1 }
                         | LValue '&'                            { AST.FlatExp $1 }
 
 
 VarDeclaration          :: { AST.VarDeclaration }
-VarDeclaration          : Id ':' Type MaybeAsignar              { AST.VarDec $1 $3 $4 }
+VarDeclaration          : Id ':' Type MaybeAsignar              {% (createVarEntry $1 $3) $4 } -- AST.VarDec
+                        | Id ':' Type 
 
 MaybeAsignar            :: { Maybe AST.Expression }    
 MaybeAsignar            : '<->' Expression                      { Just $2 }
@@ -189,7 +191,7 @@ LValue                  :: { AST.Expression }
 LValue                  : Indexing                              { $1 }
                         | DotExpression                         { $1 }
                         | Dereference                           { $1 }
-                        | Id                                    { AST.IdExp $1 }
+                        | Id                                    {% analyzeVar (AST.id_token $1) >> return (AST.IdExp $1) }
 
 Return                  :: { AST.Instruction }
 Return                  : Expression '||'                       { AST.ReturnInst $1 }
@@ -205,7 +207,7 @@ Loop                    : loop Id MaybeType Block in '(' Expression ')'         
                         | loop '(' Expression ')' Block                                                       { AST.WhileInst $3 $5 }
 
 CallFuncion             :: { AST.Expression }
-CallFuncion             : play Id with '(' ListExp ')'          { AST.CallExp $2 $ reverse $5 }
+CallFuncion             : play Id with '(' ListExp ')'          {% analyzeVar (AST.id_token $2) >> return (AST.CallExp $2 $ reverse $5) }
 
 ListaVar                :: { [AST.VarDeclaration] }
 ListaVar                : VarDeclaration                        { [$1] }
@@ -216,19 +218,19 @@ ListExp                 : Expression                            { [$1] }
                         | ListExp ',' Expression                { $3 : $1 }
 
 Indexing                :: { AST.Expression }
-Indexing                : Expression '[' Expression ']'             { AST.IndexingExp $1 $3 }
+Indexing                : LValue '[' Expression ']'             { AST.IndexingExp $1 $3 $2 }
 
 DotExpression           :: { AST.Expression }
-DotExpression           : Expression '.' Id                         { AST.DotExp $1 $3 }
+DotExpression           : LValue '.' Id                         {% PMonad.analyzeLValue (AST.DotExp $1 $3) >> return (AST.DotExp $1 $3) }
 
 Dereference             :: { AST.Expression }
-Dereference             : Expression '!'                            { AST.DereferenceExp $1 }
+Dereference             : LValue '!'                            { AST.DereferenceExp $1 }
 
 Type                    :: { AST.Type }
 Type                    : whole                                 { AST.Type $1 Nothing }
                         | half                                  { AST.Type $1 Nothing }
                         | quarter                               { AST.Type $1 Nothing }
-                        | eighth                                { AST.Type $1 Nothing }
+                        | eight                                 { AST.Type $1 Nothing }
                         | ThirtySecond                          { AST.Type $1 Nothing }
                         | SixtyFourth                           { AST.Type $1 Nothing }
                         | melody '<' Type '>'                   { AST.Type $1 (Just $3) }
@@ -246,7 +248,7 @@ Literal                 : int                                   { AST.Literal $1
                         | Type '(' ListExp ')'                  { AST.Literal' (reverse $3) $1 }
 
 LiteralMelody           :: { AST.Expression }
-LiteralMelody           : '[' ListExp ']'                           { AST.LiteralMelody $2 }
+LiteralMelody           : '[' ListExp ']'                       { AST.LiteralMelody $2 }
 
 Expression              :: { AST.Expression }
 Expression              : LValue %prec LVALUE                   { $1 }
@@ -291,8 +293,47 @@ ChordLegatoAux          : IdType '{' ListaVar '}'               { AST.ParamsCL $
 
 {
 
-parseError :: [Token] -> ParserMonad a
+-----------------------------------------------------------------------------------------------
+-- Exceptions
+-----------------------------------------------------------------------------------------------
+
+-- | Throws a syntatic error
+parseError :: [Token] -> PMonad.ParserMonad a
 parseError (tk:_) = do
     srcFile <- RWS.ask
     throwCompilerError srcFile [Error (line tk) (col tk) "Parse error:"]
+
+-----------------------------------------------------------------------------------------------
+-- Entry Creation
+-----------------------------------------------------------------------------------------------
+
+createFuntionEntry :: String -> Maybe SemData.Type -> [a] -> b -> PMonad.ParserMonad ()
+createFuntionEntry s t xs i= do
+    let funcat = SemData.Function { ast_function = AST.FunctionDec s t xs i }
+    incrementScope
+    (_, _, lvl) <- RWS.get
+    let entry = SemData.Entry {
+        entry_name = s,
+        entry_category = funcat,
+        entry_scope = lvl,
+        entry_type = t,
+        entry_level = Nothing
+        }
+
+    insertEntry entry
+
+
+createVarEntry :: String -> Maybe SemData.Type -> PMonad.ParserMonad ()
+createVarEntry s t = do
+    (_, _, lvl) <- RWS.get
+    let entry = SemData.Entry {
+        entry_name = s,
+        entry_category = SemData.Var,
+        entry_scope = lvl,
+        entry_type = t,
+        entry_level = Nothing
+    }
+    
+    insertEntry entry
+
 }
