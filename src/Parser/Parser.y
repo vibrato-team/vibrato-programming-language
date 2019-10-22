@@ -128,9 +128,9 @@ ExternalInstruction     : FunctionDeclaration                   { AST.ExternalFu
                         | Instruction                           { AST.ExternalInstruction $1 }
 
 FunctionDeclaration     :: { AST.FunctionDeclaration }
-FunctionDeclaration     : track Id '(' ListaParam ')' MaybeType Block     {% createFuntionEntry $2 $6 (reverse $4) $7 } -- AST.FunctionDec
-                        | track Id '('')' MaybeType Block               {% createFuntionEntry $2 $5 [] $6 }
-                        | main '(' ')' Block                            {% createFuntionEntry (AST.Id $1) Nothing [] $4 }
+FunctionDeclaration     : track Id '(' ListaParam ')' MaybeType Block     {% createFuntionEntry id_token $2 $6 (reverse $4) $7 } -- AST.FunctionDec
+                        | track Id '('')' MaybeType Block               {% createFuntionEntry id_token $2 $5 [] $6 }
+                        | main '(' ')' Block                            {% createFuntionEntry id_token (AST.Id $1) Nothing [] $4 }
 
 ListaParam              :: { [AST.VarDeclaration] }
 ListaParam              : ParamDeclaration                        { [$1] }
