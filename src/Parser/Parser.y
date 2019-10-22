@@ -6,8 +6,9 @@ import qualified AST
 import Util.Error
 import Data.Either
 import qualified Semantic.Data as Sem
-import Parser.Monad
+import qualified Parser.Monad as PMonad
 import qualified Control.Monad.RWS.Lazy as RWS
+import qualified Semantic.Data as SemData 
 
 }
 
@@ -20,7 +21,7 @@ import qualified Control.Monad.RWS.Lazy as RWS
     whole               { WholeToken _ _ _ }
     half                { HalfToken _ _ _ }
     quarter             { QuarterToken _ _ _ }
-    eighth              { EightToken _ _ _ }
+    eight              { EightToken _ _ _ }
     melody              { MelodyToken _ _ _ }
     sample              { SampleToken _ _ _ }
     ThirtySecond        { ThirtySecondToken _ _ _ }
@@ -127,9 +128,16 @@ ExternalInstruction     : FunctionDeclaration                   { AST.ExternalFu
                         | Instruction                           { AST.ExternalInstruction $1 }
 
 FunctionDeclaration     :: { AST.FunctionDeclaration }
-FunctionDeclaration     : track Id '(' ListaVar ')' MaybeType Block     { AST.FunctionDec $2 $6 (reverse $4) $7 }
-                        | track Id '('')' MaybeType Block               { AST.FunctionDec $2 $5 [] $6 }
-                        | main '(' ')' Block                            { AST.FunctionDec (AST.Id $1) Nothing [] $4 }
+FunctionDeclaration     : track Id '(' ListaParam ')' MaybeType Block     {% createFuntionEntry $2 $6 (reverse $4) $7 } -- AST.FunctionDec
+                        | track Id '('')' MaybeType Block               {% createFuntionEntry $2 $5 [] $6 }
+                        | main '(' ')' Block                            {% createFuntionEntry (AST.Id $1) Nothing [] $4 }
+
+ListaParam              :: { [AST.VarDeclaration] }
+ListaParam              : ParamDeclaration                        { [$1] }
+                        | ListaParam ',' ParamDeclaration           { $3 : $1 }
+
+ParamDeclaration        :: { AST.VarDeclaration }
+ParamDeclaration        : Id ':' Type                           {% createParamEntry $1 $3}
 
 Id                      :: { AST.Id }
 Id                      : id                                    { AST.Id $1 }
@@ -139,7 +147,7 @@ MaybeType               : {- empty -}                           { Nothing }
                         | ':' Type                              { Just $2 }
 
 Block                   :: { AST.Block }
-Block                   : '{' Seq '}'                           { AST.Block $ reverse $2 }
+Block                   : '{' Seq '}'                           {% incrementScope >> return (AST.Block $ reverse $2) }
 
 Seq                     :: { [AST.Instruction] }
 Seq                     : Instruction                           { [$1] }
@@ -167,7 +175,8 @@ SimpleInstruction       : Block                                 { AST.BlockInst 
                         | Statement '|'                         { $1 }
 
 Statement               :: { AST.Instruction }
-Statement               : VarDeclaration                        { AST.VarDecInst $1 }
+Statement               : VarDeclaration                        { $1 }
+                        | VarInit                               { AST.VarDecInst $1 }
                         | Asignacion                            { $1 }
                         | IO                                    { $1 }
                         | free Id                               { AST.FreeInst $2 }
@@ -176,11 +185,11 @@ Statement               : VarDeclaration                        { AST.VarDecInst
 
 
 VarDeclaration          :: { AST.VarDeclaration }
-VarDeclaration          : Id ':' Type MaybeAsignar              { AST.VarDec $1 $3 $4 }
+VarDeclaration          : Id ':' Type                           {% createVarEntry $1 $3}
+          
 
-MaybeAsignar            :: { Maybe AST.Expression }    
-MaybeAsignar            : '<->' Expression                      { Just $2 }
-                        | {- empty -}                           { Nothing }
+VarInit                 :: { AST.VarDeclaration }
+VarInit                 : Id ':' Type '<->' Expression          {% createVarEntry $1 $3 $4 >> return (AST.VarDec $1 $3 $4) } -- AST.VarDec
 
 Asignacion              :: { AST.Instruction }
 Asignacion              : LValue '<->' Expression               { AST.AssignInst $1 $3 }
@@ -199,10 +208,10 @@ IO                      : '@' '(' ListExp ')'                   { AST.RecordInst
                         | '|>' '(' ListExp ')'                  { AST.PlayInst $ reverse $3 }
 
 Loop                    :: { AST.Instruction }
-Loop                    : loop Id MaybeType Block in '(' Expression ')'                                       { AST.ForInst $2 $3 $4 Nothing $7 Nothing }
-                        | loop Id MaybeType Block in '(' Expression ',' Expression ')'                        { AST.ForInst $2 $3 $4 (Just $7) $9 Nothing }
-                        | loop Id MaybeType Block in '(' Expression ',' Expression ',' Expression ')'         { AST.ForInst $2 $3 $4 (Just $7) $9 (Just $11) }
-                        | loop '(' Expression ')' Block                                                       { AST.WhileInst $3 $5 }
+Loop                    : loop Id MaybeType Block in '(' Expression ')'                                       {AST.ForInst $2 $3 $4 Nothing $7 Nothing }
+                        | loop Id MaybeType Block in '(' Expression ',' Expression ')'                        {AST.ForInst $2 $3 $4 (Just $7) $9 Nothing }
+                        | loop Id MaybeType Block in '(' Expression ',' Expression ',' Expression ')'         {AST.ForInst $2 $3 $4 (Just $7) $9 (Just $11) }
+                        | loop '(' Expression ')' Block                                                       {AST.WhileInst $3 $5 }
 
 CallFuncion             :: { AST.Expression }
 CallFuncion             : play Id with '(' ListExp ')'          { AST.CallExp $2 $ reverse $5 }
@@ -228,7 +237,7 @@ Type                    :: { AST.Type }
 Type                    : whole                                 { AST.Type $1 Nothing }
                         | half                                  { AST.Type $1 Nothing }
                         | quarter                               { AST.Type $1 Nothing }
-                        | eighth                                { AST.Type $1 Nothing }
+                        | eight                                 { AST.Type $1 Nothing }
                         | ThirtySecond                          { AST.Type $1 Nothing }
                         | SixtyFourth                           { AST.Type $1 Nothing }
                         | melody '<' Type '>'                   { AST.Type $1 (Just $3) }
@@ -284,15 +293,122 @@ IdType                  :: { AST.Type }
 IdType                  : id_type                               { AST.Type $1 Nothing }
 
 ChordLegato             :: { AST.Instruction }
-ChordLegato             : chord ChordLegatoAux                  { AST.ChordDec $2 }
-                        | legato ChordLegatoAux                 { AST.LegatoDec $2 }
+ChordLegato             : chord IdType ChordLegatoAux                  {% createTypeEntry $2 } -- AST.ChordDec
+                        | legato IdType ChordLegatoAux                 {% createTypeEntry $2 } -- AST.LegatoDec
 
-ChordLegatoAux          : IdType '{' ListaVar '}'               { AST.ParamsCL $1 (reverse $3)}
+ChordLegatoAux          : '{' ListaField '}'               { (reverse $2)}
+
+ListaField              :: { [AST.VarDeclaration] }
+ListaField              : FieldDeclaration                        { [$1] }
+                        | ListaField ',' FieldDeclaration           { $3 : $1 }
+
+FieldDeclaration        :: { AST.VarDeclaration }
+FieldDeclaration        : Id ':' Type                           {% createFieldEntry $1 $3}
 
 {
 
+-----------------------------------------------------------------------------------------------
+-- Exceptions----------------------------------------------------------------------------------------
+
+-- | Throws a syntatic error
 parseError :: [Token] -> ParserMonad a
 parseError (tk:_) = do
     srcFile <- RWS.ask
     throwCompilerError srcFile [Error (line tk) (col tk) "Parse error:"]
+
+-- | Throws a semantic error
+semError :: Token -> ParserMonad a
+semError tk = do
+    srcFile <- RWS.ask
+    throwCompilerError srcFile [Error (line tk) (col tk) "Parse error:"]
+   
+-- | Throw a semantic error if Maybe is Nothing
+throwIfNothing :: Maybe a -> Token -> ParserMonad a
+throwIfNothing Nothing = semError
+throwIfNothing (Just a) = return a
+
+create
+
+-----------------------------------------------------------------------------------------------
+-- Semantic analysers
+-----------------------------------------------------------------------------------------------
+
+-- | Analize variable and return AST given
+analyzeVar :: Token -> a -> ParserMonad a
+analyzeVar tk ast = do
+    let tkString = token tk
+    entryMaybe <- F
+-----------------------------------------------------------------------------------------------
+-- Entry Creation
+-----------------------------------------------------------------------------------------------
+createFuntionEntry :: Token -> Maybe SemData.Type -> [a] -> b -> ParserMonad ()
+createFuntionEntry s t xs i= do
+    let funcat = SemData.Function { ast_function = AST.FunctionDec s t xs i }
+    (_, _, lvl) <- RWS.get
+    let entry = SemData.Entry {
+        entry_name = s,
+        entry_category = funcat,
+        entry_scope = lvl,
+        entry_type = t,
+        entry_level = Nothing
+        }
+
+    insertEntry entry
+
+
+createVarEntry :: Token -> Maybe SemData.Type -> ParserMonad ()
+createVarEntry s t e = do
+    (_, _, lvl) <- RWS.get
+    -- Lookup para el entry de del tipo
+    let entry = SemData.Entry {
+        entry_name = s,
+        entry_category = SemData.Var,
+        entry_scope = lvl,
+        entry_type = t,
+        entry_level = Nothing
+    }
+    insertEntry entry
+
+
+createTypeEntry :: Token -> ParserMonad ()
+createTypeEntry s = do
+    incrementScope
+    (_, _, lvl) <- RWS.get
+    let entry = SemData.Entry {
+        entry_name = s,
+        entry_category = SemData.Type,
+        entry_scope = lvl,
+        entry_type = Nothing,
+        entry_level = Nothing
+    }
+    insertEntry entry
+
+createFieldEntry :: Token -> Maybe SemData.Type -> ParserMonad ()
+createFieldEntry tk typ = do
+    (_, _, lvl) <- RWS.get
+    let entry = SemData.Entry {
+        entry_name = tk,
+        entry_category = SemData.Field,
+        entry_scope = lvl,
+        entry_type = typ,
+        entry_level = Nothing
+    }
+    insertEntry entry
+
+createParamEntry :: Token -> Maybe SemData.Type -> ParserMonad ()
+createParamEntry tk typ = do
+    (_, _, lvl) <- RWS.get
+    let entry = SemData.Entry {
+        entry_name = tk,
+        entry_category = SemData.Param,
+        entry_scope = lvl,
+        entry_type = typ,
+        entry_level = Nothing
+    }
+    insertEntry entry
+    
 }
+
+
+
+    

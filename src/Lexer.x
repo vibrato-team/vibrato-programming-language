@@ -38,8 +38,8 @@ tokens :-
     half                                { pushToken HalfToken }
     quarter                             { pushToken QuarterToken }
     eight                               { pushToken EightToken }
-    ThirtySecond                        { pushToken ThirtySecondToken }
-    SixtyFourth                         { pushToken SixtyFourthToken }
+    32th                                { pushToken ThirtySecondToken }
+    64th                                { pushToken SixtyFourthToken }
     Melody                              { pushToken MelodyToken }
     Sample                              { pushToken SampleToken }
 

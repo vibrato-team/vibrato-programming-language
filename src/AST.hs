@@ -196,6 +196,6 @@ instance ASTNode Block where
         putStrLn "Block of instructions:"
         foldl (>>) (putStr "") $ map (printNode (tabs+1)) $ statements block
 
-data ParamsCL =
-    ParamsCL { chordlegato_id :: Type, var_params :: [VarDeclaration] }
-    deriving (Eq, Show)
+-- data ParamsCL =
+--     ParamsCL { chordlegato_id :: Type, var_params :: [VarDeclaration] }
+--     deriving (Eq, Show)
