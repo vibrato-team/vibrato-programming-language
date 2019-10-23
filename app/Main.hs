@@ -22,5 +22,5 @@ main = do
             Right state -> case Lexer.matches state of
                 Left errors -> throwCompilerError srcFile (reverse errors)
                 Right tokens -> do
-                    (ast, _) <- RWS.evalRWST (Parser.parse tokens) srcFile PMonad.initialState
-                    printNode 0 ast)
+                    (table, _) <- RWS.execRWST (Parser.parse tokens) srcFile PMonad.initialState
+                    print table)

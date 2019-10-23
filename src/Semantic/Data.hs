@@ -20,6 +20,7 @@ data Type =
     Compound    { type_entry :: Entry, type_type :: Type }
     deriving (Eq, Show)
 
+-- TODO: Quitar el type de aquí y agregarlo a las categorías
 -- Entry, con scope, categoria, token, tipo, cualquier otra cosa chupalo
 data Entry = Entry {
     entry_name          :: String,          -- Nombre del símbolog

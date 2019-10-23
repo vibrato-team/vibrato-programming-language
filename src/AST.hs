@@ -10,31 +10,6 @@ class ASTNode a where
 putTabs :: Indent -> IO ()
 putTabs indent = putStr $ replicate (4*indent) '.'
 
--- Start Symbol
-newtype Program =
-    Start { external_declarations :: [ExternalInstruction] }
-    deriving (Eq, Show)
-
-instance ASTNode Program where
-    printNode tabs (Start decs) = do
-        putTabs tabs
-        putStrLn "Program:"
-        foldl (>>) (putStr "") $ map (printNode (tabs+1)) decs
-        putStr "\n"
-
--- Global var declarations and function declarations
-data ExternalInstruction =
-    ExternalFunctionDeclaration FunctionDeclaration |
-    ExternalInstruction Instruction
-    deriving (Eq, Show)
-
-instance ASTNode ExternalInstruction where
-    printNode tabs (ExternalFunctionDeclaration funcDec) =
-        printNode tabs funcDec
-
-    printNode tabs (ExternalInstruction inst) =
-        printNode tabs inst
-
 -- Function Declaration
 data FunctionDeclaration =
     FunctionDec {   func_id :: Id, func_type :: Maybe Type, 
@@ -54,8 +29,7 @@ instance ASTNode FunctionDeclaration where
 
 -- Variable declaration
 data VarDeclaration =
-    VarDec {    var_id :: Id, var_type :: Type, 
-                var_init :: Maybe Expression    }
+    VarDec {    var_id :: Id, var_type :: Type }
     deriving (Eq, Show)
 
 instance ASTNode VarDeclaration where
@@ -64,7 +38,6 @@ instance ASTNode VarDeclaration where
         putStrLn "Variable Declaration:"
         printNode (tabs+1) $ var_id varDec
         printNode (tabs+1) $ var_type varDec
-        maybe (putStr "") (printNode (tabs+1)) $ var_init varDec
 
 -- Identifier
 newtype Id = 

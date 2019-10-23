@@ -23,6 +23,18 @@ throwIfNothing (Just a) _ _ = return a
 -- Semantic analysers
 -----------------------------------------------------------------------------------------------
 
+-- | Convert a AST.Type into SemData.Type
+astTypeToSemType :: Maybe AST.Type -> ParserMonad (Maybe Sem.Type)
+astTypeToSemType ( Just (AST.Type tk typeMaybe) ) = do
+    entryMaybe <- PMonad.lookup (token tk)
+    throwIfNothing entryMaybe tk "Type not found:"
+    case typeMaybe of
+        Nothing -> return $ Just $ Sem.Simple (fromJust entryMaybe)
+        Just typeType -> do
+            semTypeMaybe <- astTypeToSemType typeMaybe
+            throwIfNothing semTypeMaybe tk "Semantic error:"
+            return $ Just $ Sem.Compound (fromJust entryMaybe) (fromJust semTypeMaybe)
+
 -- | Checks if variable is declared, throws an error if it is not
 analyzeVar :: Token -> ParserMonad Sem.Entry
 analyzeVar tk = do
