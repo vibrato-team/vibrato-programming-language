@@ -129,9 +129,9 @@ ExternalList            : ExternalList FunctionDeclaration  { }
 
 -- TODO: Agregar los params y los fields en un nuevo scope
 FunctionDeclaration     :: { () }
-FunctionDeclaration     : track Id '(' ListaParam ')' MaybeType Block       {% createFunctionEntry (AST.id_token $2) $6 $2 (reverse $4) $7 }
-                        | track Id '('')' MaybeType Block                   {% createFunctionEntry (AST.id_token $2) $5 $2 [] $6 }
-                        | main '(' ')' Block                                {% let idMain = AST.Id $1 in createFunctionEntry (AST.id_token idMain) Nothing idMain [] $4 }
+FunctionDeclaration     : track Id PushScope '(' ListaParam ')' MaybeType Block       {% createFunctionEntry (AST.id_token $2) $7 $2 (reverse $5) $8 }
+                        | track Id PushScope '('')' MaybeType Block                   {% createFunctionEntry (AST.id_token $2) $6 $2 [] $7 }
+                        | main '(' ')' Block                                          {% let idMain = AST.Id $1 in createFunctionEntry (AST.id_token idMain) Nothing idMain [] $4 }
 
 ListaParam              :: { [AST.VarDeclaration] }
 ListaParam              : ParamDeclaration                          { [$1] }
@@ -150,7 +150,7 @@ MaybeType               : {- empty -}                           { Nothing }
                         | ':' Type                              { Just $2 }
 
 Block                   :: { AST.Block }
-Block                   : '{' Seq '}'                           {% PMonad.incrementScope >> return (AST.Block $ reverse $2) }
+Block                   : '{' Seq '}' PopScope                  { AST.Block $ reverse $2 }
 
 Seq                     :: { [AST.Instruction] }
 Seq                     : Instruction                           { [$1] }
@@ -169,7 +169,7 @@ ClosedCondition         : if '(' Expression ')' ClosedCondition else ClosedCondi
                         | SimpleInstruction                                             { $1 }
 
 SimpleInstruction       :: { AST.Instruction }
-SimpleInstruction       : Block                                 { AST.BlockInst $1 }
+SimpleInstruction       : PushScope Block                  { AST.BlockInst $2 }
                         | Loop                                  { $1 }
                         | '>>'                                  { AST.NextInst }
                         | '|]'                                  { AST.StopInst }
@@ -192,7 +192,6 @@ VarDeclaration          :: { AST.VarDeclaration }
 VarDeclaration          : Id ':' Type                           {% do
                                                                     createVarEntry (AST.id_token $1) (Just $3)
                                                                     return $ AST.VarDec $1 $3}
-          
 
 VarInit                 :: { AST.Instruction }
 VarInit                 : Id ':' Type '<->' Expression          {% do 
@@ -216,17 +215,15 @@ IO                      : '@' '(' ListExp ')'                   { AST.RecordInst
                         | '|>' '(' ListExp ')'                  { AST.PlayInst $ reverse $3 }
 
 Loop                    :: { AST.Instruction }
-Loop                    : loop Id MaybeType Block in '(' Expression ')'                                       {AST.ForInst $2 $3 $4 Nothing $7 Nothing }
-                        | loop Id MaybeType Block in '(' Expression ',' Expression ')'                        {AST.ForInst $2 $3 $4 (Just $7) $9 Nothing }
-                        | loop Id MaybeType Block in '(' Expression ',' Expression ',' Expression ')'         {AST.ForInst $2 $3 $4 (Just $7) $9 (Just $11) }
-                        | loop '(' Expression ')' Block                                                       {AST.WhileInst $3 $5 }
+Loop                    : loop PushScope Id MaybeType Block in '(' Expression ')'                                       {AST.ForInst $3 $4 $5 Nothing $8 Nothing }
+                        | loop PushScope Id MaybeType Block in '(' Expression ',' Expression ')'                        {AST.ForInst $3 $4 $5 (Just $8) $10 Nothing }
+                        | loop PushScope Id MaybeType Block in '(' Expression ',' Expression ',' Expression ')'         {AST.ForInst $3 $4 $5 (Just $8) $10 (Just $12) }
+                        | loop '(' Expression ')' Block                                                                      {AST.WhileInst $3 $5 }
 
 CallFuncion             :: { AST.Expression }
-CallFuncion             : play Id with '(' ListExp ')'          {% analyzeVar (AST.id_token $2) >> return (AST.CallExp $2 $ reverse $5) }
-
-ListaVar                :: { () }
-ListaVar                : VarDeclaration                        { }
-                        | ListaVar ',' VarDeclaration           { }             
+CallFuncion             : play Id with '(' ListExp ')'          {% do
+                                                                    analyzeVar (AST.id_token $2)
+                                                                    return (AST.CallExp $2 $ reverse $5) }
 
 ListExp                 :: { [AST.Expression] }
 ListExp                 : Expression                            { [$1] }
@@ -301,10 +298,10 @@ IdType                  :: { AST.Type }
 IdType                  : id_type                               { AST.Type $1 Nothing }
 
 ChordLegato             :: { () }
-ChordLegato             : chord IdType ChordLegatoFields        {% createTypeEntry $ AST.type_token $2 }
-                        | legato IdType ChordLegatoFields       {% createTypeEntry $ AST.type_token $2 }
+ChordLegato             : chord IdType PushScope ChordLegatoFields        {% createTypeEntry $ AST.type_token $2 }
+                        | legato IdType PushScope ChordLegatoFields       {% createTypeEntry $ AST.type_token $2 }
 
-ChordLegatoFields       : '{' ListaField '}'                 { reverse $2 }
+ChordLegatoFields       : '{' ListaField '}'                    { reverse $2 }
 
 ListaField              :: { [AST.VarDeclaration] }
 ListaField              : FieldDeclaration                      { [$1] }
@@ -314,6 +311,12 @@ FieldDeclaration        :: { AST.VarDeclaration }
 FieldDeclaration        : Id ':' Type                           {% do
                                                                     createFieldEntry (AST.id_token $1) (Just $3) 
                                                                     return $ AST.VarDec $1 $3 }
+
+PushScope               :: { () }
+PushScope               : {- empty -}                           {% PMonad.pushScope }
+
+PopScope                :: { () }
+PopScope                : {- empty -}                           {% PMonad.popScope }
 
 {
 
@@ -361,14 +364,14 @@ createVarEntry tk t =
 
 createTypeEntry :: Token -> ParserMonad ()
 createTypeEntry tk = do
-    PMonad.incrementScope
-    (_, _, lvl) <- RWS.get
+    st@(_, _, lvl) <- RWS.get
+
     let entry = SemData.Entry {
         SemData.entry_name = token tk,
         SemData.entry_category = Sem.Type,
-        SemData.entry_scope = lvl,
+        SemData.entry_scope = lvl - 1,
         SemData.entry_type = Nothing,
-        SemData.entry_level = Nothing
+        SemData.entry_level = Just lvl
     }
     PMonad.insertEntry entry
 

@@ -15,18 +15,18 @@ import qualified Semantic.Data as Sem
 import qualified Control.Monad.RWS.Lazy as RWS
 import qualified Data.Set as Set
 import qualified Data.Map.Lazy as Map
+import Control.Monad.Trans
 import Tokens
 
-
 -- | State of the parser
-type ParserState = (Sem.ScopeSet, Sem.SymbolTable, Int)
+type ParserState = (Sem.Scopes, Sem.SymbolTable, Int)
 
 -- | Monad of the parser
 type ParserMonad = RWS.RWST String () ParserState IO
 
 -- | Initial state with the level pervasive.
 initialState :: ParserState
-initialState = (Set.singleton 0, initialMap, 1)
+initialState = (Sem.Scopes (Set.singleton 0) [0], initialMap, 0)
     where 
         wholeEntry          =    ("whole",      [Sem.Entry "whole"      Sem.Type        0 Nothing Nothing])
         halfEntry           =    ("half",       [Sem.Entry "half"       Sem.Type        0 Nothing Nothing])
@@ -46,18 +46,20 @@ insertEntry entry = do
     RWS.put (scopeSet, table', lvl)
 
 -- | Insert a new scope/level into the set of scopeSet
-insertScope :: Int -> ParserMonad ()
-insertScope newScope = do
-    (scopeSet, table, lvl) <- RWS.get
-    let scopeSet' = Set.insert newScope scopeSet
-    RWS.put (scopeSet', table, lvl)
+pushScope :: ParserMonad ()
+pushScope = do
+    (Sem.Scopes scopeSet scopeStack, table, lvl) <- RWS.get
+    let lvl' = lvl+1
+    let scopes = Sem.Scopes (Set.insert lvl' scopeSet) (lvl' : scopeStack)
 
--- | Delete a scope from the set of scopeSet
-deleteScope :: Int -> ParserMonad ()
-deleteScope scope = do
-    (scopeSet, table, lvl) <- RWS.get
-    let scopeSet' = Set.delete scope scopeSet
-    RWS.put (scopeSet', table, lvl)
+    RWS.put (scopes, table, lvl')
+
+-- | Remove scope
+popScope :: ParserMonad ()
+popScope = do
+    (Sem.Scopes scopeSet (h:t), table, lvl) <- RWS.get
+    let scopes = Sem.Scopes (Set.delete h scopeSet) t
+    RWS.put (scopes, table, lvl)
 
 -- | Get chain from a symbol
 getChain :: String -> ParserMonad (Maybe [Sem.Entry])
@@ -69,7 +71,7 @@ getChain symbol = do
 -- | Look for a symbol in the symbol table and return its scope
 lookup :: String -> ParserMonad (Maybe Sem.Entry)
 lookup symbol = do
-    (scopeSet, _, _) <- RWS.get
+    (Sem.Scopes scopeSet _, _, _) <- RWS.get
     chainMaybe <- getChain symbol
     case chainMaybe of
         Nothing     -> return Nothing
@@ -101,3 +103,7 @@ incrementScope :: ParserMonad ()
 incrementScope = do
     (scopeSet, table, lvl) <- RWS.get
     RWS.put (scopeSet, table, lvl+1)
+
+-- | Entry of a Type
+typeEntry :: Sem.Type -> ParserMonad (Maybe Sem.Entry)
+typeEntry = Parser.Monad.lookup . Sem.type_str
