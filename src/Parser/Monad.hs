@@ -26,7 +26,7 @@ type ParserMonad = RWS.RWST String () ParserState IO
 
 -- | Initial state with the level pervasive.
 initialState :: ParserState
-initialState = (Sem.Scopes (Set.singleton 0) [0], initialMap, 0)
+initialState = (Sem.Scopes (Set.fromList [1, 0]) [1, 0], initialMap, 1)
     where 
         wholeEntry          =    ("whole",      [Sem.Entry "whole"      Sem.Type        0 Nothing Nothing])
         halfEntry           =    ("half",       [Sem.Entry "half"       Sem.Type        0 Nothing Nothing])
@@ -107,3 +107,9 @@ incrementScope = do
 -- | Entry of a Type
 typeEntry :: Sem.Type -> ParserMonad (Maybe Sem.Entry)
 typeEntry = Parser.Monad.lookup . Sem.type_str
+
+-- | Get current scope
+currScope :: ParserMonad Int
+currScope = do
+    (Sem.Scopes _ (curr:_), _, _) <- RWS.get
+    return curr

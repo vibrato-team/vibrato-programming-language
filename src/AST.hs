@@ -76,7 +76,7 @@ data Expression =
     CallExp         {   exp_id :: Id, exp_params :: [Expression] }            |
 
     -- | Dereference an expression
-    DereferenceExp  {   exp_exp :: Expression }                               |
+    DereferenceExp  {   exp_exp :: Expression, exp_token :: Token }                               |
     
     -- | Allocate memory
     NewExp          {   exp_init :: Expression }                              |

@@ -6,7 +6,6 @@ import qualified AST
 import Util.Error
 import Data.Either
 import Data.Maybe
-import qualified Semantic.Data as Sem
 import Parser.Monad (ParserMonad)
 import qualified Parser.Monad as PMonad
 import qualified Control.Monad.RWS.Lazy as RWS
@@ -230,13 +229,13 @@ ListExp                 : Expression                            { [$1] }
                         | ListExp ',' Expression                { $3 : $1 }
 
 Indexing                :: { AST.Expression }
-Indexing                : LValue '[' Expression ']'             { AST.IndexingExp $1 $3 $2 }
+Indexing                : Expression '[' Expression ']'             { AST.IndexingExp $1 $3 $2 }
 
 DotExpression           :: { AST.Expression }
-DotExpression           : LValue '.' Id                         {% let ast = AST.DotExp $1 $3 in analyzeLValue ast >> return ast }
+DotExpression           : Expression '.' Id                         {% let ast = AST.DotExp $1 $3 in analyzeExpression ast >> return ast }
 
 Dereference             :: { AST.Expression }
-Dereference             : LValue '!'                            { AST.DereferenceExp $1 }
+Dereference             : Expression '!'                            { AST.DereferenceExp $1 $2 }
 
 Type                    :: { AST.Type }
 Type                    : whole                                 { AST.Type $1 Nothing }
@@ -297,9 +296,12 @@ Expression              : LValue %prec LVALUE                   { $1 }
 IdType                  :: { AST.Type }
 IdType                  : id_type                               { AST.Type $1 Nothing }
 
+NewType                 :: { () }
+NewType                 : chord IdType                         {% createTypeEntry $ AST.type_token $2 }
+                        | legato IdType                        {% createTypeEntry $ AST.type_token $2 }
+
 ChordLegato             :: { () }
-ChordLegato             : chord IdType PushScope ChordLegatoFields        {% createTypeEntry $ AST.type_token $2 }
-                        | legato IdType PushScope ChordLegatoFields       {% createTypeEntry $ AST.type_token $2 }
+ChordLegato             : NewType PushScope ChordLegatoFields   { }
 
 ChordLegatoFields       : '{' ListaField '}'                    { reverse $2 }
 
@@ -337,26 +339,26 @@ createFunctionEntry :: Token -> Maybe AST.Type -> AST.Id -> [AST.VarDeclaration]
 createFunctionEntry tk funcType funcId params block = do
     let funcat = SemData.Function { SemData.ast_function = AST.FunctionDec funcId funcType params block }
     semType <- astTypeToSemType funcType
-    (_, _, lvl) <- RWS.get
+    curr <- PMonad.currScope
+    
     let entry = SemData.Entry {
         SemData.entry_name = token tk,
         SemData.entry_category = funcat,
-        SemData.entry_scope = lvl,
+        SemData.entry_scope = curr,
         SemData.entry_type = semType,
         SemData.entry_level = Nothing
     }
     PMonad.insertEntry entry
 
-
 createVarEntry :: Token -> Maybe AST.Type -> ParserMonad ()
 createVarEntry tk t =
     do
-        (_, _, lvl) <- RWS.get
+        curr <- PMonad.currScope
         semType <- astTypeToSemType t
         let entry = SemData.Entry {
             SemData.entry_name = token tk,
             SemData.entry_category = SemData.Var,
-            SemData.entry_scope = lvl,
+            SemData.entry_scope = curr,
             SemData.entry_type = semType,
             SemData.entry_level = Nothing
         }
@@ -365,24 +367,30 @@ createVarEntry tk t =
 createTypeEntry :: Token -> ParserMonad ()
 createTypeEntry tk = do
     st@(_, _, lvl) <- RWS.get
+    curr <- PMonad.currScope
+
+    -- liftIO $ putStr "\n" >> print st
 
     let entry = SemData.Entry {
         SemData.entry_name = token tk,
-        SemData.entry_category = Sem.Type,
-        SemData.entry_scope = lvl - 1,
+        SemData.entry_category = SemData.Type,
+        SemData.entry_scope = curr,
         SemData.entry_type = Nothing,
-        SemData.entry_level = Just lvl
+        SemData.entry_level = Just (lvl+1)
     }
     PMonad.insertEntry entry
 
+    -- st' <- RWS.get
+    -- liftIO $ putStr "\n" >> print st'
+
 createFieldEntry :: Token -> Maybe AST.Type -> ParserMonad ()
 createFieldEntry tk typ = do
-    (_, _, lvl) <- RWS.get
+    curr <- PMonad.currScope
     semType <- astTypeToSemType typ
     let entry = SemData.Entry {
         SemData.entry_name = token tk,
         SemData.entry_category = SemData.Field,
-        SemData.entry_scope = lvl,
+        SemData.entry_scope = curr,
         SemData.entry_type = semType,
         SemData.entry_level = Nothing
     }
@@ -390,12 +398,12 @@ createFieldEntry tk typ = do
 
 createParamEntry :: Token -> Maybe AST.Type -> ParserMonad ()
 createParamEntry tk typ = do
-    (_, _, lvl) <- RWS.get
+    curr <- PMonad.currScope
     semType <- astTypeToSemType typ
     let entry = SemData.Entry {
         SemData.entry_name = token tk,
         SemData.entry_category = SemData.Param,
-        SemData.entry_scope = lvl,
+        SemData.entry_scope = curr,
         SemData.entry_type = semType,
         SemData.entry_level = Nothing
     }

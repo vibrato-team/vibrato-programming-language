@@ -47,6 +47,10 @@ analyzeVar :: Token -> ParserMonad Sem.Entry
 analyzeVar tk = do
     let tkString = token tk
     entryMaybe <- PMonad.lookup tkString
+
+    -- st <- RWS.get
+    -- liftIO $ putStr "\n" >> print st
+
     throwIfNothing entryMaybe tk "Variable not in scope:"
     return $ fromJust entryMaybe
 
@@ -55,30 +59,36 @@ analyzeField :: Token -> Int -> ParserMonad Sem.Entry
 analyzeField tk level = do
     let tkString = token tk
     entryMaybe <- PMonad.lookupField tkString level
-    throwIfNothing entryMaybe tk ("Field not in type " ++ show tkString ++ ":")
+    throwIfNothing entryMaybe tk (show tkString ++ "is not a valid field:")
     return $ fromJust entryMaybe
 
 -- | Analizes LValue expression and return its type's entry
-analyzeLValue :: AST.Expression -> ParserMonad Sem.Type
-analyzeLValue (AST.IdExp (AST.Id tk)) = do
+analyzeExpression :: AST.Expression -> ParserMonad Sem.Type
+analyzeExpression (AST.IdExp (AST.Id tk)) = do
     entry <- analyzeVar tk
     let typeMaybe = Sem.entry_type entry
-    throwIfNothing typeMaybe tk "Semantic error:"
+    throwIfNothing typeMaybe tk "Symbol is not a variable:"
     return $ fromJust typeMaybe
 
-analyzeLValue (AST.IndexingExp lval _ bracket) = do
-    lType <- analyzeLValue lval
+analyzeExpression (AST.CallExp funcId params) = analyzeExpression $ AST.IdExp funcId
+
+analyzeExpression (AST.DereferenceExp lval tk) = do
+    lType <- analyzeExpression lval
+    case lType of
+        Sem.Compound "Sample" inner -> return inner
+        _ -> semError tk "Left expression is not a Sample:"
+    
+analyzeExpression (AST.IndexingExp lval _ bracket) = do
+    lType <- analyzeExpression lval
     -- if it is not a melody, error
     case lType of
         Sem.Simple _ -> semError bracket "Expression is not a melody:"
         Sem.Compound _ innerType -> return innerType
 
-analyzeLValue (AST.DereferenceExp lval) = analyzeLValue lval
-
-analyzeLValue (AST.DotExp lval (AST.Id tk)) = do
-    lType           <- analyzeLValue lval          -- Type of the left expression
+analyzeExpression (AST.DotExp lval (AST.Id tk)) = do
+    lType           <- analyzeExpression lval          -- Type of the left expression
     typeEntryMaybe  <- PMonad.typeEntry lType      -- Entry of the type
-    throwIfNothing typeEntryMaybe tk "Type not found for left expression:"
+    throwIfNothing typeEntryMaybe tk "Left expression type not found:"
 
     let levelMaybe  = Sem.entry_level $ fromJust typeEntryMaybe            -- Level opened by record
     throwIfNothing levelMaybe tk "Left expression is not a chord or legato:"
