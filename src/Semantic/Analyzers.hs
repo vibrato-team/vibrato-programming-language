@@ -48,9 +48,6 @@ analyzeVar tk = do
     let tkString = token tk
     entryMaybe <- PMonad.lookup tkString
 
-    -- st <- RWS.get
-    -- liftIO $ putStr "\n" >> print st
-
     throwIfNothing entryMaybe tk "Variable not in scope:"
     return $ fromJust entryMaybe
 
@@ -59,7 +56,8 @@ analyzeField :: Token -> Int -> ParserMonad Sem.Entry
 analyzeField tk level = do
     let tkString = token tk
     entryMaybe <- PMonad.lookupField tkString level
-    throwIfNothing entryMaybe tk (show tkString ++ "is not a valid field:")
+
+    throwIfNothing entryMaybe tk (show tkString ++ " is not a valid field:")
     return $ fromJust entryMaybe
 
 -- | Analizes LValue expression and return its type's entry

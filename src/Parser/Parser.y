@@ -311,7 +311,7 @@ NewType                 : chord IdType                         {% createTypeEntr
                         | legato IdType                        {% createTypeEntry $ AST.type_token $2 }
 
 ChordLegato             :: { () }
-ChordLegato             : NewType PushScope ChordLegatoFields   { }
+ChordLegato             : NewType PushScope ChordLegatoFields PopScope  { }
 
 ChordLegatoFields       : '{' ListaField '}'                    { reverse $2 }
 
@@ -349,12 +349,12 @@ createFunctionEntry :: Token -> Maybe AST.Type -> AST.Id -> [AST.VarDeclaration]
 createFunctionEntry tk funcType funcId params block = do
     let funcat = SemData.Function { SemData.function_block = block, SemData.function_params = params }
     semType <- astTypeToSemType funcType
-    curr <- PMonad.currScope
+    (SemData.Scopes _ (_:prev:_), _, _) <- RWS.get
     
     let entry = SemData.Entry {
         SemData.entry_name = token tk,
         SemData.entry_category = funcat,
-        SemData.entry_scope = curr-1,
+        SemData.entry_scope = prev,
         SemData.entry_type = semType,
         SemData.entry_level = Nothing
     }
