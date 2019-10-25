@@ -6,12 +6,13 @@ import qualified Data.Map.Lazy as Map
 
 -- | Category of each symbol with additional info
 data Category =
-    Function        { ast_function :: AST.FunctionDeclaration }     |
-    Var                                                   |
-    Type                                                  |
-    Constructor                                           | -- ^ Melody and Sample  
-    Field                                                 |
-    Param                                                   -- ^ of a function                                          
+    Function        { function_block :: Maybe AST.Block, function_params :: [AST.VarDeclaration] }     |
+    Var              |
+    Type             |
+    Constructor      | -- ^ Melody and Sample  
+    Field            | -- ^ Member of a struct/union
+    Param            | -- ^ Param of a function  
+    Prelude            -- ^ A prelude function                               
     deriving (Eq, Show)
 
 -- | Type of an entry
@@ -23,7 +24,7 @@ data Type =
 -- | Entry, con scope, categoria, token, tipo, cualquier otra cosa chupalo
 data Entry = Entry {
     entry_name          :: String,          -- Nombre del símbolog
-    entry_category      :: Category,        
+    entry_category      :: Category,    
     entry_scope         :: Int,             -- Nivel donde fue declarado
     entry_type          :: Maybe Type,
     entry_level         :: Maybe Int        -- Nivel correspondiente al tipo (registro) de la variable

@@ -17,6 +17,7 @@ import qualified Data.Set as Set
 import qualified Data.Map.Lazy as Map
 import Control.Monad.Trans
 import Tokens
+import qualified AST
 
 -- | State of the parser
 type ParserState = (Sem.Scopes, Sem.SymbolTable, Int)
@@ -36,7 +37,8 @@ initialState = (Sem.Scopes (Set.fromList [1, 0]) [1, 0], initialMap, 1)
         sixtyFourthEntry    =    ("64th",       [Sem.Entry "64th"       Sem.Type        0 Nothing Nothing])
         melodyEntry         =    ("Melody",     [Sem.Entry "Melody"     Sem.Constructor 0 Nothing Nothing])
         sampleEntry         =    ("Sample",     [Sem.Entry "Sample"     Sem.Constructor 0 Nothing Nothing])
-        initialMap          =    Map.fromList [wholeEntry, halfEntry, quarterEntry, eightEntry, thirySecondEntry, sixtyFourthEntry, melodyEntry, sampleEntry]
+        lengthEntry         =    ("length",     [Sem.Entry "length"    Sem.Prelude      0 (Just $ Sem.Simple "eight")   Nothing ])
+        initialMap          =    Map.fromList   [wholeEntry, halfEntry, quarterEntry, eightEntry, thirySecondEntry, sixtyFourthEntry, melodyEntry, sampleEntry, lengthEntry]
 
 -- | Insert a new entry into the SymbolTable
 insertEntry :: Sem.Entry -> ParserMonad ()
@@ -44,6 +46,12 @@ insertEntry entry = do
     (scopeSet, table, lvl) <- RWS.get
     let table' = Map.insertWith (++) (Sem.entry_name entry) [entry] table
     RWS.put (scopeSet, table', lvl)
+
+-- | Update entry
+updateEntry :: ([Sem.Entry] -> Maybe [Sem.Entry]) -> String -> ParserMonad ()
+updateEntry f k = do
+    (s, table, l) <- RWS.get
+    RWS.put (s, Map.update f k table, l)
 
 -- | Insert a new scope/level into the set of scopeSet
 pushScope :: ParserMonad ()

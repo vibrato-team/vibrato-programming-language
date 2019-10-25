@@ -128,13 +128,23 @@ ExternalList            : ExternalList FunctionDeclaration  { }
 
 -- TODO: Agregar los params y los fields en un nuevo scope
 FunctionDeclaration     :: { () }
-FunctionDeclaration     : track Id PushScope '(' ListaParam ')' MaybeType Block       {% createFunctionEntry (AST.id_token $2) $7 $2 (reverse $5) $8 }
-                        | track Id PushScope '('')' MaybeType Block                   {% createFunctionEntry (AST.id_token $2) $6 $2 [] $7 }
-                        | main '(' ')' Block                                          {% let idMain = AST.Id $1 in createFunctionEntry (AST.id_token idMain) Nothing idMain [] $4 }
+FunctionDeclaration     : Signature Block                                   {% do 
+                                                                                -- add block to function entry
+                                                                                let addBlock [e] = Just [e { SemData.entry_category = (SemData.entry_category e) { SemData.function_block = Just $2 } }]
+                                                                                PMonad.updateEntry addBlock $1 }
+
+                        | main PushScope '(' ')' Block                      {% let idMain = AST.Id $1 in createFunctionEntry (AST.id_token idMain) Nothing idMain [] (Just $5) }
+
+Signature               :: { String }
+Signature               : track Id PushScope '(' ListaParam ')' MaybeType             {% do
+                                                                                            let tk = AST.id_token $2
+                                                                                            createFunctionEntry tk $7 $2 (reverse $5) Nothing
+                                                                                            return $ token tk }
 
 ListaParam              :: { [AST.VarDeclaration] }
 ListaParam              : ParamDeclaration                          { [$1] }
                         | ListaParam ',' ParamDeclaration           { $3 : $1 }
+                        | {- empty -}                               { [] }
 
 ParamDeclaration        :: { AST.VarDeclaration }
 ParamDeclaration        : Id ':' Type                           {% do
@@ -335,16 +345,16 @@ parseError (tk:_) = do
 -- Entry Creation
 -----------------------------------------------------------------------------------------------
 -- TODO: Recibir el AST como parametro para eficiencia de memoria
-createFunctionEntry :: Token -> Maybe AST.Type -> AST.Id -> [AST.VarDeclaration] -> AST.Block -> ParserMonad ()
+createFunctionEntry :: Token -> Maybe AST.Type -> AST.Id -> [AST.VarDeclaration] -> Maybe AST.Block -> ParserMonad ()
 createFunctionEntry tk funcType funcId params block = do
-    let funcat = SemData.Function { SemData.ast_function = AST.FunctionDec funcId funcType params block }
+    let funcat = SemData.Function { SemData.function_block = block, SemData.function_params = params }
     semType <- astTypeToSemType funcType
     curr <- PMonad.currScope
     
     let entry = SemData.Entry {
         SemData.entry_name = token tk,
         SemData.entry_category = funcat,
-        SemData.entry_scope = curr,
+        SemData.entry_scope = curr-1,
         SemData.entry_type = semType,
         SemData.entry_level = Nothing
     }
