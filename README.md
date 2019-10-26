@@ -488,7 +488,7 @@ dict: Arpeggio<quarter> <-> {
     "abc" -> 0|
     "efg" -> n|
     ...
-}
+}|
 ```
 
 A un arpeggio se le pueden agregar nuevos pares dinámicamente de la siquiente manera:
