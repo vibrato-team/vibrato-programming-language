@@ -484,7 +484,7 @@ Funcionque toma un legato y devuelve un string con el tipo de dato que se este u
 ### Arpeggio
 Una variable de tipo `Arpeggio<tipo_0>`, donde `tipo_0` es un tipo cualquiera, es un diccionario que mapea `Melody<half>` a `tipo_0`. La sintaxis para **crear** un arpeggio sería así:
 ```vibrato
-dict: Arpeggio<quarter> <-> {|
+dict: Arpeggio<quarter> <-> {
     "abc" -> 0|
     "efg" -> n|
     ...
