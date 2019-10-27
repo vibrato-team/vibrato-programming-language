@@ -127,9 +127,8 @@ ExternalList            : ExternalList FunctionDeclaration  { }
                         | {- empty -}                       { }
 
 -- TODO: Agregar los params y los fields en un nuevo scope
-FunctionDeclaration     :: { () }
-FunctionDeclaration     : Signature Block                                   {% do 
-                                                                                -- add block to function entry
+FunctionDeclaration     :: { () }                                           -- add block to function entry
+FunctionDeclaration     : Signature Block                                   {% do
                                                                                 let addBlock [e] = Just [e { SemData.entry_category = (SemData.entry_category e) { SemData.function_block = Just $2 } }]
                                                                                 PMonad.updateEntry addBlock $1 }
 
@@ -341,29 +340,35 @@ parseError :: [Token] -> PMonad.ParserMonad a
 parseError (tk:_) = do
     srcFile <- RWS.ask
     throwCompilerError srcFile [Error (line tk) (col tk) "Parse error:"]
+
 -----------------------------------------------------------------------------------------------
 -- Entry Creation
 -----------------------------------------------------------------------------------------------
 -- TODO: Recibir el AST como parametro para eficiencia de memoria
 createFunctionEntry :: Token -> Maybe AST.Type -> AST.Id -> [AST.VarDeclaration] -> Maybe AST.Block -> ParserMonad ()
 createFunctionEntry tk funcType funcId params block = do
-    let funcat = SemData.Function { SemData.function_block = block, SemData.function_params = params }
-    semType <- astTypeToSemType funcType
-    (SemData.Scopes _ (_:prev:_), _, _) <- RWS.get
-    
-    let entry = SemData.Entry {
-        SemData.entry_name = token tk,
-        SemData.entry_category = funcat,
-        SemData.entry_scope = prev,
-        SemData.entry_type = semType,
-        SemData.entry_level = Nothing
-    }
-    PMonad.insertEntry entry
+    a <- verifyFunctionEntry (token tk) 
+    if a then do 
+        let funcat = SemData.Function { SemData.function_block = block, SemData.function_params = params }
+        semType <- astTypeToSemType funcType
+        (SemData.Scopes _ (_:prev:_), _, _) <- RWS.get
+        
+        let entry = SemData.Entry {
+            SemData.entry_name = token tk,
+            SemData.entry_category = funcat,
+            SemData.entry_scope = prev,
+            SemData.entry_type = semType,
+            SemData.entry_level = Nothing
+        }
+        PMonad.insertEntry entry
+    else
+        semError tk "Error Semantico: Funcion ya declarada"
 
 createVarEntry :: Token -> Maybe AST.Type -> ParserMonad ()
-createVarEntry tk t =
-    do
-        curr <- PMonad.currScope
+createVarEntry tk t = do
+    curr <- PMonad.currScope
+    result <- verifyVarEntry (token tk) curr
+    if result then do 
         semType <- astTypeToSemType t
         let entry = SemData.Entry {
             SemData.entry_name = token tk,
@@ -373,54 +378,119 @@ createVarEntry tk t =
             SemData.entry_level = Nothing
         }
         PMonad.insertEntry entry
+    else
+        semError tk "Error Semantico: Variable ya declarada en el mismo scope"
 
 createTypeEntry :: Token -> ParserMonad ()
 createTypeEntry tk = do
-    st@(_, _, lvl) <- RWS.get
-    curr <- PMonad.currScope
+    result <- verifyTypeEntry (token tk)
+    if result then do
+        st@(_, _, lvl) <- RWS.get
+        curr <- PMonad.currScope
 
-    -- liftIO $ putStr "\n" >> print st
+        -- liftIO $ putStr "\n" >> print st
 
-    let entry = SemData.Entry {
-        SemData.entry_name = token tk,
-        SemData.entry_category = SemData.Type,
-        SemData.entry_scope = curr,
-        SemData.entry_type = Nothing,
-        SemData.entry_level = Just (lvl+1)
-    }
-    PMonad.insertEntry entry
-
+        let entry = SemData.Entry {
+            SemData.entry_name = token tk,
+            SemData.entry_category = SemData.Type,
+            SemData.entry_scope = curr,
+            SemData.entry_type = Nothing,
+            SemData.entry_level = Just (lvl+1)
+        }
+        PMonad.insertEntry entry
+    else
+        semError tk "Error Semantico: Campo ya declarado en el mismo scope"
     -- st' <- RWS.get
     -- liftIO $ putStr "\n" >> print st'
 
 createFieldEntry :: Token -> Maybe AST.Type -> ParserMonad ()
 createFieldEntry tk typ = do
     curr <- PMonad.currScope
-    semType <- astTypeToSemType typ
-    let entry = SemData.Entry {
-        SemData.entry_name = token tk,
-        SemData.entry_category = SemData.Field,
-        SemData.entry_scope = curr,
-        SemData.entry_type = semType,
-        SemData.entry_level = Nothing
-    }
-    PMonad.insertEntry entry
+    result <- verifyFieldEntry (token tk) curr
+    if result then do
+        semType <- astTypeToSemType typ
+        let entry = SemData.Entry {
+            SemData.entry_name = token tk,
+            SemData.entry_category = SemData.Field,
+            SemData.entry_scope = curr,
+            SemData.entry_type = semType,
+            SemData.entry_level = Nothing
+        }
+        PMonad.insertEntry entry
+    else
+        semError tk "Error Semantico: Campo ya declarado en el mismo scope"
 
 createParamEntry :: Token -> Maybe AST.Type -> ParserMonad ()
 createParamEntry tk typ = do
     curr <- PMonad.currScope
-    semType <- astTypeToSemType typ
-    let entry = SemData.Entry {
-        SemData.entry_name = token tk,
-        SemData.entry_category = SemData.Param,
-        SemData.entry_scope = curr,
-        SemData.entry_type = semType,
-        SemData.entry_level = Nothing
-    }
-    PMonad.insertEntry entry
+    result <- verifyParamsEntry (token tk) curr
+    if result then do
+        semType <- astTypeToSemType typ
+        let entry = SemData.Entry {
+            SemData.entry_name = token tk,
+            SemData.entry_category = SemData.Param,
+            SemData.entry_scope = curr,
+            SemData.entry_type = semType,
+            SemData.entry_level = Nothing
+        }
+        PMonad.insertEntry entry
+    else
+        semError tk "Error Semantico: Campo ya declarado en el mismo scope"
     
+
+
+        
+-----------------------------------------------------------------------------------------------
+-- Verification redeclarations
+-----------------------------------------------------------------------------------------------
+verifyFunctionEntry :: String -> ParserMonad (Bool)
+verifyFunctionEntry name = do
+    entry <- PMonad.lookup name
+    case entry of
+        Nothing -> return True
+        Just (SemData.Entry _ (SemData.Function _ _) _ _ _) -> return False
+        Just _ -> return True
+
+verifyVarEntry :: String -> Int -> ParserMonad (Bool)
+verifyVarEntry name current_scope = do
+    entry <- PMonad.lookup name
+    case entry of
+        Nothing -> return True
+        Just (SemData.Entry _ SemData.Var scope _ _) -> return $ scope /= current_scope
+        Just _ -> return True
+
+verifyTypeEntry :: String -> ParserMonad (Bool)
+verifyTypeEntry name = do
+    entry <- PMonad.lookup name
+    case entry of
+        Nothing -> return True
+        Just (SemData.Entry _ SemData.Type _ _ _) -> return False
+        Just _ -> return True
+
+verifyFieldEntry :: String -> Int -> ParserMonad (Bool)
+verifyFieldEntry name current_scope = do
+    entry <- PMonad.lookup name
+    case entry of
+        Nothing -> return True
+        Just (SemData.Entry _ SemData.Field scope _ _) -> return $ scope /= current_scope
+        Just _ -> return True
+
+verifyParamsEntry :: String -> Int -> ParserMonad (Bool)
+verifyParamsEntry name current_scope = do
+    entry <- PMonad.lookup name
+    case entry of
+        Nothing -> return True
+        Just (SemData.Entry _ SemData.Param scope _ _) -> return $ scope /= current_scope
+        Just _ -> return True
+
+
+
+-- addBlock :: [a] -> Maybe [b]
+-- addBlock [] = Nothing
+
+-- addBlock items =
+
+--------------------------------------------
+----------------- END ----------------------
+--------------------------------------------
 }
-
-
-
-    

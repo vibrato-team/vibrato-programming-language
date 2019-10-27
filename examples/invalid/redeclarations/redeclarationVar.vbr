@@ -1,0 +1,10 @@
+track a(){
+    -- a: quarter | 
+    |>("Sueltale Rick") |
+}
+
+moderato(){
+    a: quarter <-> 10 |
+    |>(a) |
+    a: whole | 
+}
