@@ -129,6 +129,8 @@ data Instruction =
     VarDecInst      {   inst_dec :: VarDeclaration  }                         |
     AssignInst      {   inst_left :: Expression, inst_right :: Expression }   |
 
+    CallFuncInst    { inst_call :: Expression }                               |
+
     ReturnInst      {   inst_exp :: Expression }                              |
     NextInst                                                                  |
     StopInst                                                                  |

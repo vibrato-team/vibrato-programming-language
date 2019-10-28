@@ -196,6 +196,7 @@ Statement               : VarDeclaration                        { AST.VarDecInst
                                                                     return (AST.FreeInst $2) }
                         | LValue '#'                            { AST.SharpExp $1 }
                         | LValue '&'                            { AST.FlatExp $1 }
+                        | CallFuncion                           { AST.CallFuncInst $1 }
 
 
 VarDeclaration          :: { AST.VarDeclaration }
@@ -235,9 +236,14 @@ CallFuncion             : play Id with '(' ListExp ')'          {% do
                                                                     analyzeVar (AST.id_token $2)
                                                                     return (AST.CallExp $2 $ reverse $5) }
 
+                        | play Id                               {% do
+                                                                    analyzeVar (AST.id_token $2)
+                                                                    return (AST.CallExp $2 [] )}
+
 ListExp                 :: { [AST.Expression] }
 ListExp                 : Expression                            { [$1] }
                         | ListExp ',' Expression                { $3 : $1 }
+                        | {-empty-}                             { [] }
 
 Indexing                :: { AST.Expression }
 Indexing                : Expression '[' Expression ']'             { AST.IndexingExp $1 $3 $2 }
