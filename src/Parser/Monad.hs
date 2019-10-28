@@ -29,15 +29,15 @@ type ParserMonad = RWS.RWST String () ParserState IO
 initialState :: ParserState
 initialState = (Sem.Scopes (Set.fromList [1, 0]) [1, 0], initialMap, 1)
     where 
-        wholeEntry          =    ("whole",      [Sem.Entry "whole"      Sem.Type        0 Nothing Nothing])
-        halfEntry           =    ("half",       [Sem.Entry "half"       Sem.Type        0 Nothing Nothing])
-        quarterEntry        =    ("quarter",    [Sem.Entry "quarter"    Sem.Type        0 Nothing Nothing])
-        eightEntry          =    ("eight",      [Sem.Entry "eight"      Sem.Type        0 Nothing Nothing])
-        thirySecondEntry    =    ("32th",       [Sem.Entry "32th"       Sem.Type        0 Nothing Nothing])
-        sixtyFourthEntry    =    ("64th",       [Sem.Entry "64th"       Sem.Type        0 Nothing Nothing])
-        melodyEntry         =    ("Melody",     [Sem.Entry "Melody"     Sem.Constructor 0 Nothing Nothing])
-        sampleEntry         =    ("Sample",     [Sem.Entry "Sample"     Sem.Constructor 0 Nothing Nothing])
-        lengthEntry         =    ("length",     [Sem.Entry "length"    Sem.Prelude      0 (Just $ Sem.Simple "eight")   Nothing ])
+        wholeEntry          =    ("whole",      [Sem.Entry "whole"      Sem.Type                    0 Nothing                       Nothing])
+        halfEntry           =    ("half",       [Sem.Entry "half"       Sem.Type                    0 Nothing                       Nothing])
+        quarterEntry        =    ("quarter",    [Sem.Entry "quarter"    Sem.Type                    0 Nothing                       Nothing])
+        eightEntry          =    ("eight",      [Sem.Entry "eight"      Sem.Type                    0 Nothing                       Nothing])
+        thirySecondEntry    =    ("32th",       [Sem.Entry "32th"       Sem.Type                    0 Nothing                       Nothing])
+        sixtyFourthEntry    =    ("64th",       [Sem.Entry "64th"       Sem.Type                    0 Nothing                       Nothing])
+        melodyEntry         =    ("Melody",     [Sem.Entry "Melody"     Sem.Constructor             0 Nothing                       Nothing])
+        sampleEntry         =    ("Sample",     [Sem.Entry "Sample"     Sem.Constructor             0 Nothing                       Nothing])
+        lengthEntry         =    ("length",     [Sem.Entry "length"     Sem.Prelude                 0 (Just $ Sem.Simple "eight")   Nothing ])
         initialMap          =    Map.fromList   [wholeEntry, halfEntry, quarterEntry, eightEntry, thirySecondEntry, sixtyFourthEntry, melodyEntry, sampleEntry, lengthEntry]
 
 -- | Insert a new entry into the SymbolTable
@@ -61,6 +61,7 @@ pushScope = do
     let scopes = Sem.Scopes (Set.insert lvl' scopeSet) (lvl' : scopeStack)
 
     RWS.put (scopes, table, lvl')
+
 
 -- | Remove scope
 popScope :: ParserMonad ()

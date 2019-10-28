@@ -43,6 +43,8 @@ tokens :-
     Melody                              { pushToken MelodyToken }
     Sample                              { pushToken SampleToken }
 
+    TT                                  { pushToken TTToken }
+
     -- Instrucciones
 
     -- Asignacion

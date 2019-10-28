@@ -61,6 +61,9 @@ instance ASTNode Type where
 
 -- Expression
 data Expression =
+    -- | NUll expression
+    NullExp                                                                   |
+
     -- | Literal expression
     Literal         {   exp_token :: Token }                                  |
 
