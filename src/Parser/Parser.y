@@ -435,7 +435,7 @@ createParamEntry tk typ = do
         }
         PMonad.insertEntry entry
     else
-        semError tk "Error Semantico: Campo ya declarado en el mismo scope"
+        semError tk "Error Semantico: Parametro ya declarado en el mismo scope"
     
 
 
