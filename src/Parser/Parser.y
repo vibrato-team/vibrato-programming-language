@@ -29,6 +29,8 @@ import Semantic.Analyzers
     ThirtySecond        { ThirtySecondToken _ _ _ }
     SixtyFourth         { SixtyFourthToken _ _ _ }
 
+    TT                  { TTToken _ _ _ }
+
     '<->'               { AssignToken _ _ _ }
     '{'                 { OpenCurlyToken _ _ _ }
     '}'                 { CloseCurlyToken _ _ _ }
@@ -128,7 +130,7 @@ ExternalList            : ExternalList FunctionDeclaration  { }
 
 -- TODO: Agregar los params y los fields en un nuevo scope
 FunctionDeclaration     :: { () }                                           -- add block to function entry
-FunctionDeclaration     : Signature Block                                   {% do
+FunctionDeclaration     : Signature Block PopScope                          {% do
                                                                                 let addBlock [e] = Just [e { SemData.entry_category = (SemData.entry_category e) { SemData.function_block = Just $2 } }]
                                                                                 PMonad.updateEntry addBlock $1 }
 
@@ -158,7 +160,7 @@ MaybeType               : {- empty -}                           { Nothing }
                         | ':' Type                              { Just $2 }
 
 Block                   :: { AST.Block }
-Block                   : '{' Seq '}' PopScope                  { AST.Block $ reverse $2 }
+Block                   : PushScope '{' Seq '}' PopScope                  { AST.Block $ reverse $3 }
 
 Seq                     :: { [AST.Instruction] }
 Seq                     : Instruction                           { [$1] }
@@ -177,7 +179,7 @@ ClosedCondition         : if '(' Expression ')' ClosedCondition else ClosedCondi
                         | SimpleInstruction                                             { $1 }
 
 SimpleInstruction       :: { AST.Instruction }
-SimpleInstruction       : PushScope Block                  { AST.BlockInst $2 }
+SimpleInstruction       : Block                 { AST.BlockInst $1 }
                         | Loop                                  { $1 }
                         | '>>'                                  { AST.NextInst }
                         | '|]'                                  { AST.StopInst }
@@ -194,6 +196,7 @@ Statement               : VarDeclaration                        { AST.VarDecInst
                                                                     return (AST.FreeInst $2) }
                         | LValue '#'                            { AST.SharpExp $1 }
                         | LValue '&'                            { AST.FlatExp $1 }
+                        | CallFuncion                           { AST.CallFuncInst $1 }
 
 
 VarDeclaration          :: { AST.VarDeclaration }
@@ -223,9 +226,9 @@ IO                      : '@' '(' ListExp ')'                   { AST.RecordInst
                         | '|>' '(' ListExp ')'                  { AST.PlayInst $ reverse $3 }
 
 Loop                    :: { AST.Instruction }
-Loop                    : loop PushScope Id MaybeType Block in '(' Expression ')'                                       {AST.ForInst $3 $4 $5 Nothing $8 Nothing }
-                        | loop PushScope Id MaybeType Block in '(' Expression ',' Expression ')'                        {AST.ForInst $3 $4 $5 (Just $8) $10 Nothing }
-                        | loop PushScope Id MaybeType Block in '(' Expression ',' Expression ',' Expression ')'         {AST.ForInst $3 $4 $5 (Just $8) $10 (Just $12) }
+Loop                    : loop PushScope Id MaybeType Block PopScope in '(' Expression ')'                                       {AST.ForInst $3 $4 $5 Nothing $9 Nothing }
+                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ')'                        {AST.ForInst $3 $4 $5 (Just $9) $11 Nothing }
+                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ',' Expression ')'         {AST.ForInst $3 $4 $5 (Just $9) $11 (Just $13) }
                         | loop '(' Expression ')' Block                                                                      {AST.WhileInst $3 $5 }
 
 CallFuncion             :: { AST.Expression }
@@ -233,9 +236,14 @@ CallFuncion             : play Id with '(' ListExp ')'          {% do
                                                                     analyzeVar (AST.id_token $2)
                                                                     return (AST.CallExp $2 $ reverse $5) }
 
+                        | play Id                               {% do
+                                                                    analyzeVar (AST.id_token $2)
+                                                                    return (AST.CallExp $2 [] )}
+
 ListExp                 :: { [AST.Expression] }
 ListExp                 : Expression                            { [$1] }
                         | ListExp ',' Expression                { $3 : $1 }
+                        | {-empty-}                             { [] }
 
 Indexing                :: { AST.Expression }
 Indexing                : Expression '[' Expression ']'             { AST.IndexingExp $1 $3 $2 }
@@ -272,6 +280,7 @@ LiteralMelody           : '[' ListExp ']'                       { AST.LiteralMel
 
 Expression              :: { AST.Expression }
 Expression              : LValue %prec LVALUE                   { $1 }
+                        | TT                                    { AST.NullExp }
                         -- Boolean
                         | not Expression                        { AST.NotExp $2 }
                         | Expression and Expression             { AST.AndExp $1 $3 } 
@@ -351,6 +360,7 @@ createFunctionEntry tk funcType funcId params block = do
     if a then do 
         let funcat = SemData.Function { SemData.function_block = block, SemData.function_params = params }
         semType <- astTypeToSemType funcType
+
         (SemData.Scopes _ (_:prev:_), _, _) <- RWS.get
         
         let entry = SemData.Entry {
@@ -388,8 +398,6 @@ createTypeEntry tk = do
         st@(_, _, lvl) <- RWS.get
         curr <- PMonad.currScope
 
-        -- liftIO $ putStr "\n" >> print st
-
         let entry = SemData.Entry {
             SemData.entry_name = token tk,
             SemData.entry_category = SemData.Type,
@@ -400,8 +408,6 @@ createTypeEntry tk = do
         PMonad.insertEntry entry
     else
         semError tk "Error Semantico: Campo ya declarado en el mismo scope"
-    -- st' <- RWS.get
-    -- liftIO $ putStr "\n" >> print st'
 
 createFieldEntry :: Token -> Maybe AST.Type -> ParserMonad ()
 createFieldEntry tk typ = do

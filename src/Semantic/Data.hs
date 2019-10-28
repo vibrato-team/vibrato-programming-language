@@ -12,7 +12,7 @@ data Category =
     Constructor      | -- ^ Melody and Sample  
     Field            | -- ^ Member of a struct/union
     Param            | -- ^ Param of a function  
-    Prelude            -- ^ A prelude function                               
+    Prelude            -- ^ A prelude function
     deriving (Eq, Show)
 
 -- | Type of an entry

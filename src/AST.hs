@@ -61,6 +61,9 @@ instance ASTNode Type where
 
 -- Expression
 data Expression =
+    -- | NUll expression
+    NullExp                                                                   |
+
     -- | Literal expression
     Literal         {   exp_token :: Token }                                  |
 
@@ -125,6 +128,8 @@ instance ASTNode Expression where
 data Instruction =
     VarDecInst      {   inst_dec :: VarDeclaration  }                         |
     AssignInst      {   inst_left :: Expression, inst_right :: Expression }   |
+
+    CallFuncInst    { inst_call :: Expression }                               |
 
     ReturnInst      {   inst_exp :: Expression }                              |
     NextInst                                                                  |
