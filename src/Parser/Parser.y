@@ -148,9 +148,12 @@ ListaParam              : ParamDeclaration                          { [$1] }
                         | {- empty -}                               { [] }
 
 ParamDeclaration        :: { AST.VarDeclaration }
-ParamDeclaration        : Id ':' Type                           {% do
-                                                                    createParamEntry (AST.id_token $1) (Just $3)
-                                                                    return $ AST.VarDec $1 $3 }
+ParamDeclaration        : Id ':' ParamRef Type                      {% do
+                                                                    createParamEntry (AST.id_token $1) (Just $4) $3
+                                                                    return $ AST.VarDec $1 $4 }
+ParamRef                :: { Bool }
+ParamRef                : '>'                                       { True }
+                        | {- empty -}                               { False }
 
 Id                      :: { AST.Id }
 Id                      : id                                    { AST.Id $1 }
@@ -426,12 +429,13 @@ createFieldEntry tk typ = do
     else
         semError tk "Error Semantico: Campo ya declarado en el mismo scope"
 
-createParamEntry :: Token -> Maybe AST.Type -> ParserMonad ()
-createParamEntry tk typ = do
+createParamEntry :: Token -> Maybe AST.Type -> Bool -> ParserMonad ()
+createParamEntry tk typ ref = do
     curr <- PMonad.currScope
     result <- verifyParamsEntry (token tk) curr
     if result then do
-        semType <- astTypeToSemType typ
+        semType <- astTypeToSemTypeParam typ ref
+        liftIO $ print semType
         let entry = SemData.Entry {
             SemData.entry_name = token tk,
             SemData.entry_category = SemData.Param,

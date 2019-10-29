@@ -30,6 +30,7 @@ astTypeToSemType ( Just (AST.Type tk typeMaybe) ) = do
     let entry_name = Sem.entry_name . fromJust
 
     entryMaybe <- PMonad.lookup (token tk)
+
     throwIfNothing entryMaybe tk "Type not found:"
 
     case typeMaybe of
@@ -41,6 +42,34 @@ astTypeToSemType ( Just (AST.Type tk typeMaybe) ) = do
             return $ Just $ Sem.Compound (entry_name entryMaybe) (fromJust semTypeMaybe)
 
 astTypeToSemType Nothing = return Nothing
+
+astTypeToSemTypeParam :: Maybe AST.Type -> Bool -> ParserMonad (Maybe Sem.Type)
+astTypeToSemTypeParam ( Just (AST.Type tk typeMaybe) ) ref = do
+    let entry_name' = Sem.entry_name . fromJust
+    
+    entryMaybe <- PMonad.lookup (token tk)
+    throwIfNothing entryMaybe tk "Type not found:"
+
+    if ref then do
+        entrySample <- PMonad.lookup "Sample"
+        throwIfNothing entrySample tk "Type not found:"
+        case typeMaybe of
+            Nothing -> return $ Just $ Sem.Compound (entry_name' entrySample) (Sem.Simple (entry_name' entryMaybe))
+
+            Just typeType -> do
+                semTypeMaybe <- astTypeToSemType typeMaybe
+                throwIfNothing semTypeMaybe tk "Semantic error:"
+                return $ Just $ Sem.Compound "sample" (Sem.Compound (entry_name' entryMaybe) (fromJust semTypeMaybe))
+    else
+        case typeMaybe of
+            Nothing -> return $ Just $ Sem.Simple (entry_name' entryMaybe)
+
+            Just typeType -> do
+                semTypeMaybe <- astTypeToSemType typeMaybe
+                throwIfNothing semTypeMaybe tk "Semantic error:"
+                return $ Just $ Sem.Compound (entry_name' entryMaybe) (fromJust semTypeMaybe)
+
+astTypeToSemTypeParam Nothing _= return Nothing
 
 -- | Checks if variable is declared, throws an error if it is not
 analyzeVar :: Token -> ParserMonad Sem.Entry
