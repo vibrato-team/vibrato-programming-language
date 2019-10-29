@@ -11,11 +11,16 @@ import Control.Monad.Trans
 import qualified Data.Set as Set
 import qualified Data.Map.Lazy as Map
 
+import System.Environment
+import System.Exit
+import System.IO
 
 -- Main function. Currently it is only testing the lexer.
 main :: IO ()
 main = do
-    srcFile <- getContents
+    args <- getArgs
+    handle <- openFile (head args) ReadMode  
+    srcFile <- hGetContents handle
     let lexResult = Lexer.runAlexScan srcFile in (
         case lexResult of
             Left err -> error err
@@ -24,3 +29,5 @@ main = do
                 Right tokens -> do
                     (table, _) <- RWS.execRWST (Parser.parse tokens) srcFile PMonad.initialState
                     print table)
+    
+    hClose handle
