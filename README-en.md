@@ -7,7 +7,7 @@ Imperative programming language based on music theory.
     1. [Whole](#whole)
     2. [Half](#half)
     3. [Quarter](#quarter)
-    4. [Eight](#eight)
+    4. [Eighth](#eighth)
     4. [32th](#32th)
     5. [64th](#64th)
     6. [Melodies](#melodies)
@@ -81,7 +81,7 @@ Example:
 x0: quarter <-> x1 * x2 + 4|
 ```
 
-### Eight
+### Eighth
 They are the notes that last an eighth measure and their values belong to the range [-2^63, 2^63 - 1] of the integers complement 2. Supports the arithmetic operators `+`, `-`, `*`, `/` and `mod`. Default value: `0`.
 Example:
 ```vibrato
@@ -304,73 +304,73 @@ Prints:
 1
 ```
 
-## Sintaxis
-### Identificadores
-Un identificador de variable es una cadena de caracteres de cualquier longitud compuesta únicamente de las letras desde la `A` hasta la `Z` (mayúsculas o minúsculas), los dígitos del `0` al `9`, y el caracter `_`. Puede tener al final cero o más `'`.
+## Syntax
+### Identifiers
+A variable identifier is a string of characters of any length consisting solely of the letters from `A` to `Z` (upper or lower case), the digits from `0` to `9`, and the character `_` . It can have at the end zero or more `'`.
 
-Los identificadores no pueden comenzar por un dígito y son sensibles a mayúsculas.
+Identifiers cannot start with a digit and are case sensitive.
 
-### Rests (Silencios)
-Los silencios son líneas o bloques de texto que son ignoradas durante la ejecución y sirven para documentar el código fuente. A cada silencio se le asocia una figura musical para especificar la duración del mismo. Los distintos tipos de silencios son:
+### Rests
+Silences are lines or blocks of text that are ignored during execution and are used to document the source code. Each silence is associated with a musical figure to specify its duration. The different types of silences are:
 
-#### De una línea
+#### Of one line
 
-- Silencio de blanca
+- Silence of whole note
 ```
--- blablabla
-```
-
-- Silencio de negra
-```
-~ blablabla
+-- blahblahblah
 ```
 
-#### De varias líneas
-- Silencio de corchea
+- Silence of half note
 ```
-*/ blablabla
-blabalbla /*
+~ blahblahblah
 ```
 
-- Silencio de semicorchea
+#### Multi-line
+- Silence of eighth note
 ```
-**/ blablablabla
-blabalbal /**
-```
-
-- Silencio de fusa
-```
-***/ blablabla
-blablabal /***
+*/ blahblahblah
+blahblahblah /*
 ```
 
-- Silencio de semifusa
+- Silence sixteenth
 ```
-****/ blablabla
-blabalbalbla /****
+**/ blahblahblahblah
+blahblahblah /**
 ```
 
-### Chords (Acordes)
-Un acorde es una estructura de datos que se utiliza para organizar y almacenar distintos tipos de datos. La estructura general es la siguiente:
+- Silence of thirty-second note
+```
+***/ blahblahblah
+blahblahblah /***
+```
+
+- Silence of sixty-fourth
+```
+****/ blahblahblah
+blahblahblahblah /****
+```
+
+### Chords
+A chord is a data structure that is used to organize and store different types of data. The general structure is as follows:
 
 ```vibrato
-chord Identificador {
-    id_1: tipo_1,
-    id_2: tipo_2,
+chord Identifier {
+    id_1: type_1,
+    id_2: type_2,
     ...
-    id_n: tipo_n
+    id_n: type_n
 }
 ```
 
-Para un literal de acorde se usa la siguiente sintaxis:
+For a chord literal the following syntax is used:
 ```vibrato
-Identificador (parametro_1, parametro_2, ... parametro_n)
+Identifier (parameter_1, parameter_2, ... parameter_n)
 ```
-Por ejemplo:
+For example:
 ```vibrato
 x <-> Sol (3.0, 'c', c0)|
 ```
-donde `x` es una variable de tipo `Sol`, `c0` es una variable de tipo caracter y `Sol` está definido así:
+where `x` is a variable of type `Sol`, `c0` is a variable of type character and `Sol` is defined as follows:
 ```vibrato
 chord Sol {
     x: 64th,
@@ -379,99 +379,99 @@ chord Sol {
 }
 ```
 
-Para acceder a un atributo de un acorde se usa el `.` al estilo C. Ejemplo:
+To access an attribute of a chord, `.` style C most be used. For example:
 ```vibrato
 val: 64th <-> sol.x|
 ```
 
 ### Legato
-Un legato es una estructura de datos que se utiliza para almacenar uno de los tipos de datos presentes en la misma. La estructura general es la siguiente:
+A legato is a data structure that is used to store one of the types of data present in it. The general structure is as follows:
 ```vibrato
-legato Identificador {
-    id_1: tipo_1,
-    id_2: tipo_2,
+legato Identifier {
+    id_1: type_1,
+    id_2: type_2,
     ...
-    id_n: tipo_n
+    id_n: type_n
 }
 ```
 
-### Operadores
-Los operadores de cada tipo se muestran en orden descendente de precedencia.
-#### Aritméticos
-- Negativo `-` (unario)
-- Modulo `mod`, División `/`, Multiplicación `*`
-- Potencia `^`
-- Suma `+`, Resta `-`
+### Operators
+Operators of each type are displayed in descending order of precedence.
+#### Arithmetic
+- Negative `-` (unary)
+- Module `mod`, Division `/`, Multiplication `*`
+- Power `^`
+- Add `+`, Subtract `-`
 
-#### Lógicos
-- Negación `not`
-- Conjunción `and`
-- Disyunción `or`
+#### Logic
+- Denial `not`
+- Conjunction `and`
+- Disjunction `or`
 
-#### De comparación
-- Igual a `=`, Distinto a `/=`
-- Menor que `<`, Mayor que `>`, Menor o igual que `<=`, Mayor o igual que `>=`
+#### For comparison
+- Equal to `=`, other than `/=`
+- Less than `<`, Greater than `>`, Less than or equal to `<=`, Greater than or equal to `>=`
 
-#### Para melodías
-- indexación:
+#### For melodies
+- Indexing:
 ```
-val: whole <-> melodia[idx]|
+val: whole <-> melody[idx]|
 ```
 
-#### Para acordes
-- Acceder atributo: `acorde.atributo`
+#### For chords
+- Access attribute: `chord.attribute`
 
-#### Para samples
-- Dereferenciar: `sample!`
+#### For samples
+- Dereference: `sample!`
 
-#### Precedencia de operadores
-El orden de evaluación de operaciones en Vibrato es: dereferencia, acceder atributo de acorde, operadores sobre bool, operadores comparativos, operadores unarios aritméticos, operadores aritméticos restantes, operadores unarios restantes, operadores sobre melodías restantes, respetando el orden de precedencia de cada operador en cada una de ellas
+#### Operator precedence
+The order of evaluation of operations in Vibrato is: dereference, access chord attribute, bool operators, comparative operators, arithmetic unary operators, remaining arithmetic operators, remaining unary operators, operators on remaining melodies, respecting the order of precedence of each operator in each of them.
 
-## Preludio
-El programador tendrá acceso a las siguientes funciones _built-in_:
+## Prelude
+The programmer will have access to the following built-in functions:
 
-### `to_ascii` y `from_ascii`
+### `to_ascii` and `from_ascii`
 ```vibrato
 |> (to_ascii('A'))|
 |> (from_ascii(66))|
 ```
-Imprime
+Prints
 ```
 65
 B
 ```
-### length 
-El operador unario prefijo `length` permite obtener la longitud de una melodía, retornando un valor de tipo `quarter`.
-Ejemplo:
+### Length 
+The unary operator prefix `length` allows to obtain the length of a melody, returning a value of `quarter` type.
+For example:
 ```vibrato
 |> (length ['a', 'b', 'c'])|
 ```
-Imprime
+Prints
 ```
 3
 ```
-### concat
-El operador binario infijo `<|>`, también llamado _concat_, recibe dos melodías del mismo tipo y las concatena en la primera dimensión.
-Ejemplo:
+### Concat
+The binary operator infix `<|>`, also called _concat_, receives two melodies of the same type and concatenates them in the first dimension.
+For example:
 ```vibrato
 arr: Melody<Melody<whole>> <-> [[maj, min], [maj, maj, min], [min]]|
 brr: Melody<Melody<whole>> <-> [[min, min, min, min], [maj]]|
 
 crr: Melody<Melody<whole>> <-> arr <|> brr|    -- crr = [[maj, min], [maj, maj, min], [min], [min, min, min, min], [maj]]
 ```
-## Ejemplos
-Ver carpeta [examples](https://github.com/vibrato-team/vibrato-programming-language/tree/master/examples)
+## Examples
+See folder [examples](https://github.com/vibrato-team/vibrato-programming-language/tree/master/examples)
 
 ## Extras
 
-### Sobrecarga de funciones
-Se podrá declarar más de una función con mismo identificador pero distintos argumentos.
+### Function overload
+More than one function can be declared with the same identifier but different arguments.
 
-### Crear Operadores
-Se va a poder definir operadores entre tipos de datos solo si el operador no esta definido
+### Create operators
+It will be possible to define operators between data types only if the operator is not defined.
 
 ### `from_legato`
-Funcionque toma un legato y devuelve un string con el tipo de dato que se este usando en el legato.
+Function that takes a legato and returns a string with the type of data that is being used in the legato.
 ```vibrato
 |> (from_legato(L))|
 ```
@@ -480,7 +480,7 @@ Funcionque toma un legato y devuelve un string con el tipo de dato que se este u
 ```
 
 ### Arpeggio
-Una variable de tipo `Arpeggio<tipo_0>`, donde `tipo_0` es un tipo cualquiera, es un diccionario que mapea `Melody<half>` a `tipo_0`. La sintaxis para **crear** un arpeggio sería así:
+A variable of type `Arpeggio <type_0>`, where `type_0` is any type, is a dictionary that maps `Melody <half>` to `type_0`. The syntax for **creating** an arpeggio would be like this:
 ```vibrato
 dict: Arpeggio<quarter> <-> {
     "abc" -> 0|
@@ -489,41 +489,41 @@ dict: Arpeggio<quarter> <-> {
 }|
 ```
 
-A un arpeggio se le pueden agregar nuevos pares dinámicamente de la siquiente manera:
+To an arpeggio, new pairs can be added dynamically in the following way:
 ```vibrato
 dict <~> ("v1br4t0", 140)|
 dict <~> ("tr3m0l0", 300)|
 ```
 
-Para acceder a un valor se hace de la siguiente manera:
+To access a value:
 ```vibrato
 x: quarter <-> dict["efg"]|
 ``` 
 
-### Generación de archivo MIDI
+### MIDI file generation
 ___
-#### Nota
-Como MVP se podría ignorar todo tipo de iteraciones, _jumps_ y valores de expresiones en tiempo de compilación. Se le asigna unos pitch aleatorios a las variables y se lee de arriba hacia abajo siguiendo las demás reglas mencionadas abajo.
+#### Note
+As MVP, all kinds of iterations, _jumps_ and values of expressions could be ignored at compile time. The variables are assigned a random pitch and have to be read from top to bottom following the other rules mentioned below.
 ___
 
-Al compilar un programa pasandole el flag `--midi` o `-m` al compilador, se generará un archivo `.midi` con una _pieza musical_ inspirada en el código fuente. La figura musical y valor de cada variable y comentario ayudarán a componer dicha pieza. 
+When compiling a program by passing the `--midi` or` -m` flag to the compiler, a `.midi` file will be generated with a _piece of music_ inspired by the source code. The musical figure and value of each variable and comment will help to compose this piece.
 
-Las **reglas** a seguir para generar el MIDI son tentativamente las siguientes: 
+The ** rules ** to follow to generate the MIDI are tentatively the following:
 
-- la figura musical determinará la duración de la nota y el valor se mapeará a un _pitch_
-- si la variable no se le puede determinar un valor en tiempo de compilación, se escogerá un pitch aleatorio
-- se ignorará la semántica de los ifs y se procesarán todas las instrucciones dentro de un `if` como si estuviesen fuera del mismo
-- para los `loop` se repetirá el contenido 2 veces, pero si el valor de la expresión es posible de determinar en tiempo de compilación dicho valor será el número de veces que se repetirá el contenido.
-- si una instrucción utiliza una expresión cuyo valor se conoce en tiempo de compilación, ese valor será el pitch. Si no se conoce su valor, tendrá un pitch aleatorio.
-- si la instrucción es una asignación, solo sonará el lado derecho.
-- el procesamiento o interpretación del código será comenzando desde la primera línea hasta la última.
-- si se invoca un track, el contenido del mismo sonará siguiendo las reglas antes mencionadas.
+- The musical figure will determine the duration of the note and the value will be mapped to a pitch.
+- If the variable cannot be determined at compile time, a random pitch will be chosen.
+- The semantics of the ifs will be ignored and all the instructions within an `if` will be processed as if they were outside it.
+- For the `loops` the content will be repeated 2 times, but if the value of the expression is impossible to determine at compile time, that value will be the number of times the content will be repeated.
+- If an instruction uses an expression whose value is known at compile time, that value will be the pitch. If its value is unknown, it will have a random pitch.
+- If the instruction is an assignment, only the right side will sound.
+- The processing or interpretation of the code will be done starting from the first line to the last.
+- If a track is invoked, its content will sound following the rules mentioned before.
 
-Por ejemplo, si se compila con `--midi` el programa
+For example, if the program is compiled with `--midi`
 
-```vibrato
-**/ Este es un ejemplo ilustrativo,
-útil para demostrar la importancia de la elección de las figuras musicales. /**
+``` vibrato
+**/ This is an illustrative example,
+Useful to demonstrate the importance of the choice of musical figures. /**
 
 moderato() {
     n0: quarter|
@@ -536,19 +536,19 @@ moderato() {
     loop {
         mrr[i] <-> n0 mod 10|
         n0 <-> n0*n1|
-        i#|                 ~ Aumentar indice en uno
+        i#|                 ~ Increase index by one
     }x(10)
 }
 ```
 
-se obtendrá una canción que
-- comenzará con 3 (número de líneas del bloque de comentario) silencios de semicorchea
-- luego 2 negras cuyo pitch es aleatorio
-- luego 10 fusas cuyos pitches son aleatorios
-- luego sonará otra vez 2 negras con pitch aleatorio
-- luego una negra con pitch 0
-- luego sonará 10 veces
-    - una fusa con pitch aleatorio
-    - una negra con pitch aleatorio
-    - una negra con el pitch de `i` + 1
-    - un silencio de negra
+It will be obtained a song that:
+- starts with 3 (number of lines in the comment block) silences of sixteenth note
+- then 2 quarter notes whose pitch is random
+- then 10 thirty-second notes whose pitches are random
+- then again 2 quarter notes with random pitch
+- then a quarter note with pitch 0
+- then it will play 10 times:
+     - a thirty-second note with random pitch
+     - a quarter note with random pitch
+     - a quarter note with the pitch of `i` + 1
+     - a silence of quarter note
