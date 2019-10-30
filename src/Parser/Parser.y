@@ -130,9 +130,7 @@ ExternalList            : ExternalList FunctionDeclaration  { }
 
 -- TODO: Agregar los params y los fields en un nuevo scope
 FunctionDeclaration     :: { () }                                           -- add block to function entry
-FunctionDeclaration     : Signature Block PopScope                          {% do
-                                                                                let addBlock [e] = Just [e { SemData.entry_category = (SemData.entry_category e) { SemData.function_block = Just $2 } }]
-                                                                                PMonad.updateEntry addBlock $1 }
+FunctionDeclaration     : Signature Block PopScope                          {% PMonad.updateEntry (addBlock $2) $1 }
 
                         | main PushScope '(' ')' Block                      {% let idMain = AST.Id $1 in createFunctionEntry (AST.id_token idMain) Nothing idMain [] (Just $5) }
 
@@ -495,10 +493,15 @@ verifyParamsEntry name current_scope = do
 
 
 
--- addBlock :: [a] -> Maybe [b]
--- addBlock [] = Nothing
-
--- addBlock items =
+addBlock :: AST.Block -> [SemData.Entry] -> Maybe [SemData.Entry]
+addBlock block lst =
+    let e = head $ filter condition lst in (
+        Just [e { SemData.entry_category = (SemData.entry_category e) { SemData.function_block = Just block } }] )
+    where 
+        condition e = 
+            case SemData.entry_category e of
+                SemData.Function Nothing _ -> True
+                _ -> False
 
 --------------------------------------------
 ----------------- END ----------------------
