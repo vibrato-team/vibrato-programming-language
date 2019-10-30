@@ -15,19 +15,22 @@ import System.Environment
 import System.Exit
 import System.IO
 
--- Main function. Currently it is only testing the lexer.
+-- Main function.
 main :: IO ()
 main = do
     args <- getArgs
     handle <- openFile (head args) ReadMode  
     srcFile <- hGetContents handle
-    let lexResult = Lexer.runAlexScan srcFile in (
-        case lexResult of
-            Left err -> error err
-            Right state -> case Lexer.matches state of
-                Left errors -> throwCompilerError srcFile (reverse errors)
-                Right tokens -> do
-                    (table, _) <- RWS.execRWST (Parser.parse tokens) srcFile PMonad.initialState
-                    print table)
+    let lexResult = Lexer.runAlexScan srcFile
+    case lexResult of
+        Left err -> error err
+        Right state -> case Lexer.matches state of
+            Left errors -> throwCompilerError srcFile (reverse errors)
+            Right tokens -> do
+                ((_, table, _), _) <- RWS.execRWST (Parser.parse tokens) srcFile PMonad.initialState
+                printTable table
     
     hClose handle
+
+printTable ::(Show a, Show b) => Map.Map a [b] -> IO ()
+printTable table = mapM_ (\(str, entry) -> print str >> mapM_ (\a -> putStr "\t" >> print a) entry ) (Map.toList table)
