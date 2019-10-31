@@ -6,6 +6,7 @@ world.
 
 track world() {
     |>("world!")|
+    ||
 }
 
 moderato() {
