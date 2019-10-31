@@ -220,7 +220,8 @@ LValue                  : Indexing                              { $1 }
                         | Id                                    {% analyzeVar (AST.id_token $1) >> return (AST.IdExp $1) }
 
 Return                  :: { AST.Instruction }
-Return                  : Expression '||'                       { AST.ReturnInst $1 }
+Return                  : Expression '||'                       { AST.ReturnInst $ Just $1 }
+                        | '||'                                  { AST.ReturnInst Nothing }
 
 IO                      :: { AST.Instruction }
 IO                      : '@' '(' ListExp ')'                   { AST.RecordInst $ reverse $3 }

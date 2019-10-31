@@ -131,7 +131,7 @@ data Instruction =
 
     CallFuncInst    { inst_call :: Expression }                               |
 
-    ReturnInst      {   inst_exp :: Expression }                              |
+    ReturnInst      {   inst_maybe_exp :: Maybe Expression }                  |
     NextInst                                                                  |
     StopInst                                                                  |
 
