@@ -11,7 +11,8 @@ data Category =
     Type             |
     Constructor      | -- ^ Melody and Sample  
     Field            | -- ^ Member of a struct/union
-    Param            | -- ^ Param of a function  
+    Param            | -- ^ Param of a function
+    Literal          | -- ^ For True and False
     Prelude            -- ^ A prelude function
     deriving (Eq, Show)
 
