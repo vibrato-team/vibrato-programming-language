@@ -105,7 +105,8 @@ import Semantic.Analyzers
 
 
 %nonassoc '<->'
-%nonassoc '>' '<' '=' '/=' '<=' '>='
+%nonassoc '=' '/=' 
+%nonassoc '>' '<' '<=' '>='
 %left LVALUE
 %right '['
 %left ']'
