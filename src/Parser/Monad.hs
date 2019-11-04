@@ -32,16 +32,19 @@ initialState = (Sem.Scopes (Set.fromList [1, 0]) [1, 0], initialMap, 1)
         wholeEntry          =    ("whole",      [Sem.Entry "whole"      Sem.Type            0 Nothing                       Nothing])
         halfEntry           =    ("half",       [Sem.Entry "half"       Sem.Type            0 Nothing                       Nothing])
         quarterEntry        =    ("quarter",    [Sem.Entry "quarter"    Sem.Type            0 Nothing                       Nothing])
-        eighthEntry          =    ("eighth",      [Sem.Entry "eighth"      Sem.Type            0 Nothing                       Nothing])
+        eighthEntry         =    ("eighth",     [Sem.Entry "eighth"     Sem.Type            0 Nothing                       Nothing])
         thirySecondEntry    =    ("32th",       [Sem.Entry "32th"       Sem.Type            0 Nothing                       Nothing])
         sixtyFourthEntry    =    ("64th",       [Sem.Entry "64th"       Sem.Type            0 Nothing                       Nothing])
+        nullTypeEntry       =    ("null",       [Sem.Entry "null"       Sem.Type            0 Nothing                       Nothing])
         melodyEntry         =    ("Melody",     [Sem.Entry "Melody"     Sem.Constructor     0 Nothing                       Nothing])
         sampleEntry         =    ("Sample",     [Sem.Entry "Sample"     Sem.Constructor     0 Nothing                       Nothing])
-        lengthEntry         =    ("length",     [Sem.Entry "length"     Sem.Prelude         0 (Just $ Sem.Simple "eighth")   Nothing])
+        lengthEntry         =    ("length",     [Sem.Entry "length"     Sem.Prelude         0 (Just $ Sem.Simple "eighth")  Nothing])
         trueEntry           =    ("maj",        [Sem.Entry "maj"        Sem.Literal         0 (Just $ Sem.Simple "whole")   Nothing])
         falseEntry          =    ("min",        [Sem.Entry "min"        Sem.Literal         0 (Just $ Sem.Simple "whole")   Nothing])
+        nullEntry           =    ("TT",         [Sem.Entry "TT"         Sem.Literal         0 (Just $ Sem.Simple "null")    Nothing])
         initialMap          =    Map.fromList   [wholeEntry, halfEntry, quarterEntry, eighthEntry, thirySecondEntry, 
-                                                sixtyFourthEntry, melodyEntry, sampleEntry, lengthEntry, trueEntry, falseEntry]
+                                                sixtyFourthEntry, nullTypeEntry, melodyEntry, sampleEntry, lengthEntry, 
+                                                trueEntry, falseEntry, nullEntry]
 
 -- | Insert a new entry into the SymbolTable
 insertEntry :: Sem.Entry -> ParserMonad ()

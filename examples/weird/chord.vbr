@@ -14,7 +14,7 @@ chord C {
     brr: Melody< Sample<B> > -- arreglo de apuntadores de b
 }
 
-track allocate_c(bs: Melody<Sample<B> >): Sample<C> {
+track allocate_c(bs: >Melody<Sample<B> >): Sample<C> {
     new C(bs)||
 }
 

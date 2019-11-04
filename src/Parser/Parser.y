@@ -155,6 +155,11 @@ ParamRef                : '>'                                       { True }
 
 Id                      :: { AST.Id }
 Id                      : id                                    { AST.Id $1 }
+                        -- Boolean literals
+                        | maj                                   { AST.Id $1 }
+                        | min                                   { AST.Id $1 }
+                        -- Null expression
+                        | TT                                    { AST.Id $1 }
 
 MaybeType               :: { Maybe AST.Type }
 MaybeType               : {- empty -}                           { Nothing }
@@ -270,8 +275,6 @@ Type                    : whole                                 { AST.Type $1 No
 Literal                 :: { AST.Expression }
 Literal                 : int                                   { AST.Literal $1 }
                         | float                                 { AST.Literal $1 }
-                        | maj                                   { AST.Literal $1 }
-                        | min                                   { AST.Literal $1 }
                         | string                                { AST.Literal $1 }
                         | char                                  { AST.Literal $1 }
                         | LiteralMelody                         { $1 }
@@ -283,7 +286,6 @@ LiteralMelody           : '[' ListExp ']'                       { AST.LiteralMel
 
 Expression              :: { AST.Expression }
 Expression              : LValue %prec LVALUE                   { $1 }
-                        | TT                                    { AST.NullExp }
                         -- Boolean
                         | not Expression                        { AST.NotExp $2 }
                         | Expression and Expression             { AST.AndExp $1 $3 } 
