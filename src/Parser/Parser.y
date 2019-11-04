@@ -23,7 +23,7 @@ import Semantic.Analyzers
     whole               { WholeToken _ _ _ }
     half                { HalfToken _ _ _ }
     quarter             { QuarterToken _ _ _ }
-    eight              { EightToken _ _ _ }
+    eighth              { EightToken _ _ _ }
     melody              { MelodyToken _ _ _ }
     sample              { SampleToken _ _ _ }
     ThirtySecond        { ThirtySecondToken _ _ _ }
@@ -122,7 +122,7 @@ import Semantic.Analyzers
 %%
 
 Start                   :: { () }
-Start                   : ExternalList                      {  }
+Start                   : ExternalList MainDeclaration      { }
 
 ExternalList            :: { () }
 ExternalList            : ExternalList FunctionDeclaration  { }             
@@ -132,8 +132,7 @@ ExternalList            : ExternalList FunctionDeclaration  { }
 -- TODO: Agregar los params y los fields en un nuevo scope
 FunctionDeclaration     :: { () }                                           -- add block to function entry
 FunctionDeclaration     : Signature Block PopScope                          {% PMonad.updateEntry (addBlock $2) $1 }
-
-                        | main PushScope '(' ')' Block                      {% let idMain = AST.Id $1 in createFunctionEntry (AST.id_token idMain) Nothing idMain [] (Just $5) }
+MainDeclaration         : main PushScope '(' ')' Block                      {% let idMain = AST.Id $1 in createFunctionEntry (AST.id_token idMain) Nothing idMain [] (Just $5) }
 
 Signature               :: { String }
 Signature               : track Id PushScope '(' ListaParam ')' MaybeType             {% do
@@ -261,7 +260,7 @@ Type                    :: { AST.Type }
 Type                    : whole                                 { AST.Type $1 Nothing }
                         | half                                  { AST.Type $1 Nothing }
                         | quarter                               { AST.Type $1 Nothing }
-                        | eight                                 { AST.Type $1 Nothing }
+                        | eighth                                 { AST.Type $1 Nothing }
                         | ThirtySecond                          { AST.Type $1 Nothing }
                         | SixtyFourth                           { AST.Type $1 Nothing }
                         | melody '<' Type '>'                   { AST.Type $1 (Just $3) }
@@ -349,6 +348,7 @@ PopScope                : {- empty -}                           {% PMonad.popSco
 
 -- | Throws a syntatic error
 parseError :: [Token] -> PMonad.ParserMonad a
+parseError [] = error $ "Source file is not syntatically written well."
 parseError (tk:_) = do
     srcFile <- RWS.ask
     throwCompilerError srcFile [Error (line tk) (col tk) "Parse error:"]
@@ -375,7 +375,7 @@ createFunctionEntry tk funcType funcId params block = do
         }
         PMonad.insertEntry entry
     else
-        semError tk "Error Semantico: Funcion ya declarada"
+        semError tk "Function already declared:"
 
 createVarEntry :: Token -> Maybe AST.Type -> ParserMonad ()
 createVarEntry tk t = do
@@ -392,7 +392,7 @@ createVarEntry tk t = do
         }
         PMonad.insertEntry entry
     else
-        semError tk "Error Semantico: Variable ya declarada en el mismo scope"
+        semError tk "Variable already declared in the same scope:"
 
 createTypeEntry :: Token -> ParserMonad ()
 createTypeEntry tk = do
@@ -410,7 +410,7 @@ createTypeEntry tk = do
         }
         PMonad.insertEntry entry
     else
-        semError tk "Error Semantico: Campo ya declarado en el mismo scope"
+        semError tk "Type already declared in same scope:"
 
 createFieldEntry :: Token -> Maybe AST.Type -> ParserMonad ()
 createFieldEntry tk typ = do
@@ -427,7 +427,7 @@ createFieldEntry tk typ = do
         }
         PMonad.insertEntry entry
     else
-        semError tk "Error Semantico: Campo ya declarado en el mismo scope"
+        semError tk "Field already declared in same scope:"
 
 createParamEntry :: Token -> Maybe AST.Type -> Bool -> ParserMonad ()
 createParamEntry tk typ ref = do
@@ -445,7 +445,7 @@ createParamEntry tk typ ref = do
         }
         PMonad.insertEntry entry
     else
-        semError tk "Error Semantico: Parametro ya declarado en el mismo scope"
+        semError tk "Parameter already defined in same track:"
     
 
 
