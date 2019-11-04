@@ -1,0 +1,9 @@
+chord D {
+    x: quarter
+}
+
+moderato() {
+    d: D|
+    d.x <-> 1|
+    |> (d.x)|
+}

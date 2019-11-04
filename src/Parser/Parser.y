@@ -1,18 +1,23 @@
 {
-module Parser.Parser(parse, ParserMonad) where
+module Parser.Parser(parse, PMonad.ParserMonad) where
 import Lexer
 import Tokens
 import qualified AST
 import Util.Error
 import Data.Either
-import qualified Semantic.Data as Sem
+import Data.Maybe
+import Parser.Monad (ParserMonad)
+import qualified Parser.Monad as PMonad
 import qualified Control.Monad.RWS.Lazy as RWS
+import Control.Monad.Trans
+import qualified Semantic.Data as SemData 
+import Semantic.Analyzers
 }
 
 %name parse
 %error { parseError }
 %tokentype { Token }
-%monad { ParserMonad }
+%monad { PMonad.ParserMonad }
 
 %token
     whole               { WholeToken _ _ _ }
@@ -23,6 +28,8 @@ import qualified Control.Monad.RWS.Lazy as RWS
     sample              { SampleToken _ _ _ }
     ThirtySecond        { ThirtySecondToken _ _ _ }
     SixtyFourth         { SixtyFourthToken _ _ _ }
+
+    TT                  { TTToken _ _ _ }
 
     '<->'               { AssignToken _ _ _ }
     '{'                 { OpenCurlyToken _ _ _ }
@@ -98,7 +105,8 @@ import qualified Control.Monad.RWS.Lazy as RWS
 
 
 %nonassoc '<->'
-%nonassoc '>' '<' '=' '/=' '<=' '>='
+%nonassoc '=' '/=' 
+%nonassoc '>' '<' '<=' '>='
 %left LVALUE
 %right '['
 %left ']'
@@ -113,31 +121,52 @@ import qualified Control.Monad.RWS.Lazy as RWS
 
 %%
 
-Start                   :: { AST.Program }
-Start                   : ExternalList                      { AST.Start $ reverse $1 }
+Start                   :: { () }
+Start                   : ExternalList MainDeclaration      { }
 
-ExternalList            :: { [AST.ExternalInstruction] }
-ExternalList            : ExternalInstruction                   { [$1] }
-                        | ExternalList ExternalInstruction      { $2 : $1 }
+ExternalList            :: { () }
+ExternalList            : ExternalList FunctionDeclaration  { }             
+                        | ExternalList ChordLegato          { }
+                        | {- empty -}                       { }
 
-ExternalInstruction     :: { AST.ExternalInstruction }
-ExternalInstruction     : FunctionDeclaration                   { AST.ExternalFunctionDeclaration $1 }
-                        | Instruction                           { AST.ExternalInstruction $1 }
+-- TODO: Agregar los params y los fields en un nuevo scope
+FunctionDeclaration     :: { () }                                           -- add block to function entry
+FunctionDeclaration     : Signature Block PopScope                          {% PMonad.updateEntry (addBlock $2) $1 }
+MainDeclaration         : main PushScope '(' ')' Block                      {% let idMain = AST.Id $1 in createFunctionEntry (AST.id_token idMain) Nothing idMain [] (Just $5) }
 
-FunctionDeclaration     :: { AST.FunctionDeclaration }
-FunctionDeclaration     : track Id '(' ListaVar ')' MaybeType Block     { AST.FunctionDec $2 $6 (reverse $4) $7 }
-                        | track Id '('')' MaybeType Block               { AST.FunctionDec $2 $5 [] $6 }
-                        | main '(' ')' Block                            { AST.FunctionDec (AST.Id $1) Nothing [] $4 }
+Signature               :: { String }
+Signature               : track Id PushScope '(' ListaParam ')' MaybeType             {% do
+                                                                                            let tk = AST.id_token $2
+                                                                                            createFunctionEntry tk $7 $2 (reverse $5) Nothing
+                                                                                            return $ token tk }
+
+ListaParam              :: { [AST.VarDeclaration] }
+ListaParam              : ParamDeclaration                          { [$1] }
+                        | ListaParam ',' ParamDeclaration           { $3 : $1 }
+                        | {- empty -}                               { [] }
+
+ParamDeclaration        :: { AST.VarDeclaration }
+ParamDeclaration        : Id ':' ParamRef Type                      {% do
+                                                                    createParamEntry (AST.id_token $1) (Just $4) $3
+                                                                    return $ AST.VarDec $1 $4 }
+ParamRef                :: { Bool }
+ParamRef                : '>'                                       { True }
+                        | {- empty -}                               { False }
 
 Id                      :: { AST.Id }
 Id                      : id                                    { AST.Id $1 }
+                        -- Boolean literals
+                        | maj                                   { AST.Id $1 }
+                        | min                                   { AST.Id $1 }
+                        -- Null expression
+                        | TT                                    { AST.Id $1 }
 
 MaybeType               :: { Maybe AST.Type }
 MaybeType               : {- empty -}                           { Nothing }
                         | ':' Type                              { Just $2 }
 
 Block                   :: { AST.Block }
-Block                   : '{' Seq '}'                           { AST.Block $ reverse $2 }
+Block                   : PushScope '{' Seq '}' PopScope                  { AST.Block $ reverse $3 }
 
 Seq                     :: { [AST.Instruction] }
 Seq                     : Instruction                           { [$1] }
@@ -156,29 +185,35 @@ ClosedCondition         : if '(' Expression ')' ClosedCondition else ClosedCondi
                         | SimpleInstruction                                             { $1 }
 
 SimpleInstruction       :: { AST.Instruction }
-SimpleInstruction       : Block                                 { AST.BlockInst $1 }
+SimpleInstruction       : Block                 { AST.BlockInst $1 }
                         | Loop                                  { $1 }
                         | '>>'                                  { AST.NextInst }
                         | '|]'                                  { AST.StopInst }
-                        | ChordLegato                           { $1 }
                         | Return                                { $1 }
                         | Statement '|'                         { $1 }
 
 Statement               :: { AST.Instruction }
 Statement               : VarDeclaration                        { AST.VarDecInst $1 }
+                        | VarInit                               { $1 }
                         | Asignacion                            { $1 }
                         | IO                                    { $1 }
-                        | free Id                               { AST.FreeInst $2 }
+                        | free Id                               {% do
+                                                                    analyzeVar (AST.id_token $2)
+                                                                    return (AST.FreeInst $2) }
                         | LValue '#'                            { AST.SharpExp $1 }
                         | LValue '&'                            { AST.FlatExp $1 }
+                        | CallFuncion                           { AST.CallFuncInst $1 }
 
 
 VarDeclaration          :: { AST.VarDeclaration }
-VarDeclaration          : Id ':' Type MaybeAsignar              { AST.VarDec $1 $3 $4 }
+VarDeclaration          : Id ':' Type                           {% do
+                                                                    createVarEntry (AST.id_token $1) (Just $3)
+                                                                    return $ AST.VarDec $1 $3}
 
-MaybeAsignar            :: { Maybe AST.Expression }    
-MaybeAsignar            : '<->' Expression                      { Just $2 }
-                        | {- empty -}                           { Nothing }
+VarInit                 :: { AST.Instruction }
+VarInit                 : Id ':' Type '<->' Expression          {% do 
+                                                                    createVarEntry (AST.id_token $1) (Just $3)
+                                                                    return $ AST.AssignInst (AST.IdExp $1) $5 }
 
 Asignacion              :: { AST.Instruction }
 Asignacion              : LValue '<->' Expression               { AST.AssignInst $1 $3 }
@@ -187,46 +222,50 @@ LValue                  :: { AST.Expression }
 LValue                  : Indexing                              { $1 }
                         | DotExpression                         { $1 }
                         | Dereference                           { $1 }
-                        | Id                                    { AST.IdExp $1 }
+                        | Id                                    {% analyzeVar (AST.id_token $1) >> return (AST.IdExp $1) }
 
 Return                  :: { AST.Instruction }
-Return                  : Expression '||'                       { AST.ReturnInst $1 }
+Return                  : Expression '||'                       { AST.ReturnInst $ Just $1 }
+                        | '||'                                  { AST.ReturnInst Nothing }
 
 IO                      :: { AST.Instruction }
 IO                      : '@' '(' ListExp ')'                   { AST.RecordInst $ reverse $3 }
                         | '|>' '(' ListExp ')'                  { AST.PlayInst $ reverse $3 }
 
 Loop                    :: { AST.Instruction }
-Loop                    : loop Id MaybeType Block in '(' Expression ')'                                       { AST.ForInst $2 $3 $4 Nothing $7 Nothing }
-                        | loop Id MaybeType Block in '(' Expression ',' Expression ')'                        { AST.ForInst $2 $3 $4 (Just $7) $9 Nothing }
-                        | loop Id MaybeType Block in '(' Expression ',' Expression ',' Expression ')'         { AST.ForInst $2 $3 $4 (Just $7) $9 (Just $11) }
-                        | loop '(' Expression ')' Block                                                       { AST.WhileInst $3 $5 }
+Loop                    : loop PushScope Id MaybeType Block PopScope in '(' Expression ')'                                       {AST.ForInst $3 $4 $5 Nothing $9 Nothing }
+                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ')'                        {AST.ForInst $3 $4 $5 (Just $9) $11 Nothing }
+                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ',' Expression ')'         {AST.ForInst $3 $4 $5 (Just $9) $11 (Just $13) }
+                        | loop '(' Expression ')' Block                                                                      {AST.WhileInst $3 $5 }
 
 CallFuncion             :: { AST.Expression }
-CallFuncion             : play Id with '(' ListExp ')'          { AST.CallExp $2 $ reverse $5 }
+CallFuncion             : play Id with '(' ListExp ')'          {% do
+                                                                    analyzeVar (AST.id_token $2)
+                                                                    return (AST.CallExp $2 $ reverse $5) }
 
-ListaVar                :: { [AST.VarDeclaration] }
-ListaVar                : VarDeclaration                        { [$1] }
-                        | ListaVar ',' VarDeclaration           { $3 : $1 }             
+                        | play Id                               {% do
+                                                                    analyzeVar (AST.id_token $2)
+                                                                    return (AST.CallExp $2 [] )}
 
 ListExp                 :: { [AST.Expression] }
 ListExp                 : Expression                            { [$1] }
                         | ListExp ',' Expression                { $3 : $1 }
+                        | {-empty-}                             { [] }
 
 Indexing                :: { AST.Expression }
-Indexing                : Expression '[' Expression ']'             { AST.IndexingExp $1 $3 }
+Indexing                : Expression '[' Expression ']'             { AST.IndexingExp $1 $3 $2 }
 
 DotExpression           :: { AST.Expression }
-DotExpression           : Expression '.' Id                         { AST.DotExp $1 $3 }
+DotExpression           : Expression '.' Id                         {% let ast = AST.DotExp $1 $3 in analyzeExpression ast >> return ast }
 
 Dereference             :: { AST.Expression }
-Dereference             : Expression '!'                            { AST.DereferenceExp $1 }
+Dereference             : Expression '!'                            { AST.DereferenceExp $1 $2 }
 
 Type                    :: { AST.Type }
 Type                    : whole                                 { AST.Type $1 Nothing }
                         | half                                  { AST.Type $1 Nothing }
                         | quarter                               { AST.Type $1 Nothing }
-                        | eighth                                { AST.Type $1 Nothing }
+                        | eighth                                 { AST.Type $1 Nothing }
                         | ThirtySecond                          { AST.Type $1 Nothing }
                         | SixtyFourth                           { AST.Type $1 Nothing }
                         | melody '<' Type '>'                   { AST.Type $1 (Just $3) }
@@ -236,15 +275,14 @@ Type                    : whole                                 { AST.Type $1 No
 Literal                 :: { AST.Expression }
 Literal                 : int                                   { AST.Literal $1 }
                         | float                                 { AST.Literal $1 }
-                        | maj                                   { AST.Literal $1 }
-                        | min                                   { AST.Literal $1 }
                         | string                                { AST.Literal $1 }
                         | char                                  { AST.Literal $1 }
                         | LiteralMelody                         { $1 }
                         | Type '(' ListExp ')'                  { AST.Literal' (reverse $3) $1 }
+                        | Type                                  { AST.Literal' [] $1 }
 
 LiteralMelody           :: { AST.Expression }
-LiteralMelody           : '[' ListExp ']'                           { AST.LiteralMelody $2 }
+LiteralMelody           : '[' ListExp ']'                       { AST.LiteralMelody $2 }
 
 Expression              :: { AST.Expression }
 Expression              : LValue %prec LVALUE                   { $1 }
@@ -281,22 +319,196 @@ Expression              : LValue %prec LVALUE                   { $1 }
 IdType                  :: { AST.Type }
 IdType                  : id_type                               { AST.Type $1 Nothing }
 
-ChordLegato             :: { AST.Instruction }
-ChordLegato             : chord ChordLegatoAux                  { AST.ChordDec $2 }
-                        | legato ChordLegatoAux                 { AST.LegatoDec $2 }
+NewType                 :: { () }
+NewType                 : chord IdType                         {% createTypeEntry $ AST.type_token $2 }
+                        | legato IdType                        {% createTypeEntry $ AST.type_token $2 }
 
-ChordLegatoAux          : IdType '{' ListaVar '}'               { AST.ParamsCL $1 (reverse $3)}
+ChordLegato             :: { () }
+ChordLegato             : NewType PushScope ChordLegatoFields PopScope  { }
+
+ChordLegatoFields       : '{' ListaField '}'                    { reverse $2 }
+
+ListaField              :: { [AST.VarDeclaration] }
+ListaField              : FieldDeclaration                      { [$1] }
+                        | ListaField ',' FieldDeclaration       { $3 : $1 }
+
+FieldDeclaration        :: { AST.VarDeclaration }
+FieldDeclaration        : Id ':' Type                           {% do
+                                                                    createFieldEntry (AST.id_token $1) (Just $3) 
+                                                                    return $ AST.VarDec $1 $3 }
+
+PushScope               :: { () }
+PushScope               : {- empty -}                           {% PMonad.pushScope }
+
+PopScope                :: { () }
+PopScope                : {- empty -}                           {% PMonad.popScope }
 
 {
 
--- State
-type ParserState = (Sem.ScopeSet, Sem.SymbolTable)
+-----------------------------------------------------------------------------------------------
+-- Exceptions
+-----------------------------------------------------------------------------------------------
 
--- Monad
-type ParserMonad = RWS.RWST String () ParserState IO
-
-parseError :: [Token] -> ParserMonad a
+-- | Throws a syntatic error
+parseError :: [Token] -> PMonad.ParserMonad a
+parseError [] = error $ "Source file is not syntatically written well."
 parseError (tk:_) = do
     srcFile <- RWS.ask
     throwCompilerError srcFile [Error (line tk) (col tk) "Parse error:"]
+
+-----------------------------------------------------------------------------------------------
+-- Entry Creation
+-----------------------------------------------------------------------------------------------
+-- TODO: Recibir el AST como parametro para eficiencia de memoria
+createFunctionEntry :: Token -> Maybe AST.Type -> AST.Id -> [AST.VarDeclaration] -> Maybe AST.Block -> ParserMonad ()
+createFunctionEntry tk funcType funcId params block = do
+    a <- verifyFunctionEntry (token tk) 
+    if a then do 
+        let funcat = SemData.Function { SemData.function_block = block, SemData.function_params = params }
+        semType <- astTypeToSemType funcType
+
+        (SemData.Scopes _ (_:prev:_), _, _) <- RWS.get
+        
+        let entry = SemData.Entry {
+            SemData.entry_name = token tk,
+            SemData.entry_category = funcat,
+            SemData.entry_scope = prev,
+            SemData.entry_type = semType,
+            SemData.entry_level = Nothing
+        }
+        PMonad.insertEntry entry
+    else
+        semError tk "Function already declared:"
+
+createVarEntry :: Token -> Maybe AST.Type -> ParserMonad ()
+createVarEntry tk t = do
+    curr <- PMonad.currScope
+    result <- verifyVarEntry (token tk) curr
+    if result then do 
+        semType <- astTypeToSemType t
+        let entry = SemData.Entry {
+            SemData.entry_name = token tk,
+            SemData.entry_category = SemData.Var,
+            SemData.entry_scope = curr,
+            SemData.entry_type = semType,
+            SemData.entry_level = Nothing
+        }
+        PMonad.insertEntry entry
+    else
+        semError tk "Variable already declared in the same scope:"
+
+createTypeEntry :: Token -> ParserMonad ()
+createTypeEntry tk = do
+    result <- verifyTypeEntry (token tk)
+    if result then do
+        st@(_, _, lvl) <- RWS.get
+        curr <- PMonad.currScope
+
+        let entry = SemData.Entry {
+            SemData.entry_name = token tk,
+            SemData.entry_category = SemData.Type,
+            SemData.entry_scope = curr,
+            SemData.entry_type = Nothing,
+            SemData.entry_level = Just (lvl+1)
+        }
+        PMonad.insertEntry entry
+    else
+        semError tk "Type already declared in same scope:"
+
+createFieldEntry :: Token -> Maybe AST.Type -> ParserMonad ()
+createFieldEntry tk typ = do
+    curr <- PMonad.currScope
+    result <- verifyFieldEntry (token tk) curr
+    if result then do
+        semType <- astTypeToSemType typ
+        let entry = SemData.Entry {
+            SemData.entry_name = token tk,
+            SemData.entry_category = SemData.Field,
+            SemData.entry_scope = curr,
+            SemData.entry_type = semType,
+            SemData.entry_level = Nothing
+        }
+        PMonad.insertEntry entry
+    else
+        semError tk "Field already declared in same scope:"
+
+createParamEntry :: Token -> Maybe AST.Type -> Bool -> ParserMonad ()
+createParamEntry tk typ ref = do
+    curr <- PMonad.currScope
+    result <- verifyParamsEntry (token tk) curr
+    if result then do
+        semType <- astTypeToSemTypeParam typ ref
+        liftIO $ print semType
+        let entry = SemData.Entry {
+            SemData.entry_name = token tk,
+            SemData.entry_category = SemData.Param,
+            SemData.entry_scope = curr,
+            SemData.entry_type = semType,
+            SemData.entry_level = Nothing
+        }
+        PMonad.insertEntry entry
+    else
+        semError tk "Parameter already defined in same track:"
+    
+
+
+        
+-----------------------------------------------------------------------------------------------
+-- Verification redeclarations
+-----------------------------------------------------------------------------------------------
+verifyFunctionEntry :: String -> ParserMonad (Bool)
+verifyFunctionEntry name = do
+    entry <- PMonad.lookup name
+    case entry of
+        Nothing -> return True
+        Just (SemData.Entry _ (SemData.Function _ _) _ _ _) -> return False
+        Just _ -> return True
+
+verifyVarEntry :: String -> Int -> ParserMonad (Bool)
+verifyVarEntry name current_scope = do
+    entry <- PMonad.lookup name
+    case entry of
+        Nothing -> return True
+        Just (SemData.Entry _ SemData.Var scope _ _) -> return $ scope /= current_scope
+        Just _ -> return True
+
+verifyTypeEntry :: String -> ParserMonad (Bool)
+verifyTypeEntry name = do
+    entry <- PMonad.lookup name
+    case entry of
+        Nothing -> return True
+        Just (SemData.Entry _ SemData.Type _ _ _) -> return False
+        Just _ -> return True
+
+verifyFieldEntry :: String -> Int -> ParserMonad (Bool)
+verifyFieldEntry name current_scope = do
+    entry <- PMonad.lookup name
+    case entry of
+        Nothing -> return True
+        Just (SemData.Entry _ SemData.Field scope _ _) -> return $ scope /= current_scope
+        Just _ -> return True
+
+verifyParamsEntry :: String -> Int -> ParserMonad (Bool)
+verifyParamsEntry name current_scope = do
+    entry <- PMonad.lookup name
+    case entry of
+        Nothing -> return True
+        Just (SemData.Entry _ SemData.Param scope _ _) -> return $ scope /= current_scope
+        Just _ -> return True
+
+
+
+addBlock :: AST.Block -> [SemData.Entry] -> Maybe [SemData.Entry]
+addBlock block lst =
+    let e = head $ filter condition lst in (
+        Just [e { SemData.entry_category = (SemData.entry_category e) { SemData.function_block = Just block } }] )
+    where 
+        condition e = 
+            case SemData.entry_category e of
+                SemData.Function Nothing _ -> True
+                _ -> False
+
+--------------------------------------------
+----------------- END ----------------------
+--------------------------------------------
 }

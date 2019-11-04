@@ -1,0 +1,3 @@
+track f () {
+    |>("Bye world!")|
+}

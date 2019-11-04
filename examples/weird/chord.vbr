@@ -1,0 +1,35 @@
+-- A
+chord A {
+    value: whole -- bool
+}
+
+-- B
+chord B {
+    arr: Melody<A>,
+    value: quarter -- int
+}
+
+-- C
+chord C {
+    brr: Melody< Sample<B> > -- arreglo de apuntadores de b
+}
+
+track allocate_c(bs: >Melody<Sample<B> >): Sample<C> {
+    new C(bs)||
+}
+
+moderato() {
+    -- maj es true, min es false en vibrato
+    b0: Sample<B> <-> new B([A(maj), A(min), A(min), A(maj), A(min)], 0) | -- apuntador de B
+    b1: Sample<B> <-> new B([A(maj), A(min), A(maj)], 1) |
+    b2: Sample<B> <-> TT | -- NULL
+    b3: Sample<B> <-> new B |
+    b3!.arr <-> [A(min), A(maj), A(min)]|
+    b3!.value <-> 3|
+
+    a: quarter|
+    @(a)|
+
+    |>(play allocate_c with ([b0,b1,b2,b3])!.brr[3]!.value, '\n',
+        play allocate_c with ([b2, b1])!.brr[0]!.arr[a].value = a > 0 )|
+}

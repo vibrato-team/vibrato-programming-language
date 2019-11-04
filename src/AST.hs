@@ -10,31 +10,6 @@ class ASTNode a where
 putTabs :: Indent -> IO ()
 putTabs indent = putStr $ replicate (4*indent) '.'
 
--- Start Symbol
-newtype Program =
-    Start { external_declarations :: [ExternalInstruction] }
-    deriving (Eq, Show)
-
-instance ASTNode Program where
-    printNode tabs (Start decs) = do
-        putTabs tabs
-        putStrLn "Program:"
-        foldl (>>) (putStr "") $ map (printNode (tabs+1)) decs
-        putStr "\n"
-
--- Global var declarations and function declarations
-data ExternalInstruction =
-    ExternalFunctionDeclaration FunctionDeclaration |
-    ExternalInstruction Instruction
-    deriving (Eq, Show)
-
-instance ASTNode ExternalInstruction where
-    printNode tabs (ExternalFunctionDeclaration funcDec) =
-        printNode tabs funcDec
-
-    printNode tabs (ExternalInstruction inst) =
-        printNode tabs inst
-
 -- Function Declaration
 data FunctionDeclaration =
     FunctionDec {   func_id :: Id, func_type :: Maybe Type, 
@@ -54,8 +29,7 @@ instance ASTNode FunctionDeclaration where
 
 -- Variable declaration
 data VarDeclaration =
-    VarDec {    var_id :: Id, var_type :: Type, 
-                var_init :: Maybe Expression    }
+    VarDec {    var_id :: Id, var_type :: Type }
     deriving (Eq, Show)
 
 instance ASTNode VarDeclaration where
@@ -64,7 +38,6 @@ instance ASTNode VarDeclaration where
         putStrLn "Variable Declaration:"
         printNode (tabs+1) $ var_id varDec
         printNode (tabs+1) $ var_type varDec
-        maybe (putStr "") (printNode (tabs+1)) $ var_init varDec
 
 -- Identifier
 newtype Id = 
@@ -88,35 +61,44 @@ instance ASTNode Type where
 
 -- Expression
 data Expression =
-    -- Literal expression
+
+    -- | Literal expression
     Literal         {   exp_token :: Token }                                  |
 
+    -- | Type constructor for scalars and records
     Literal'        { exp_exps :: [Expression], exp_type :: Type }            |
     
     LiteralMelody   {   exp_values :: [Expression] }                          |
 
-    -- Identifier
+    -- | Identifier
     IdExp           {   exp_id :: Id }                                        |
 
-    -- Call function
+    -- | Call function
     CallExp         {   exp_id :: Id, exp_params :: [Expression] }            |
 
-    -- Pointers expression
-    DereferenceExp  {   exp_exp :: Expression }                               |
+    -- | Dereference an expression
+    DereferenceExp  {   exp_exp :: Expression, exp_token :: Token }                               |
+    
+    -- | Allocate memory
     NewExp          {   exp_init :: Expression }                              |
 
-    -- array expression
-    IndexingExp     {   exp_left :: Expression, exp_right :: Expression }     |
+    -- | Indexing an array
+    IndexingExp     {   exp_left :: Expression, exp_right :: Expression, 
+                        exp_bracket :: Token }                                |
 
-    -- Accessing a struct field
+    -- | Accessing a struct field
     DotExp          {   exp_left :: Expression, exp_id :: Id }                |
 
-    -- Boolean expression
+    -- | Negation
     NotExp          {   exp_exp :: Expression }                               |
+    
+    -- | Conjunction
     AndExp          {   exp_left :: Expression, exp_right :: Expression }     |
+    
+    -- | Disjunction
     OrExp           {   exp_left :: Expression, exp_right :: Expression }     |
 
-    -- Arithmetic expression
+    -- Arithmetic expressions
     NegativeExp     {   exp_exp :: Expression }                               |
     SubstractionExp {   exp_left :: Expression, exp_right :: Expression }     |
     AdditionExp     {   exp_left :: Expression, exp_right :: Expression }     |
@@ -145,7 +127,9 @@ data Instruction =
     VarDecInst      {   inst_dec :: VarDeclaration  }                         |
     AssignInst      {   inst_left :: Expression, inst_right :: Expression }   |
 
-    ReturnInst      {   inst_exp :: Expression }                              |
+    CallFuncInst    { inst_call :: Expression }                               |
+
+    ReturnInst      {   inst_maybe_exp :: Maybe Expression }                  |
     NextInst                                                                  |
     StopInst                                                                  |
 
@@ -172,8 +156,8 @@ data Instruction =
 
     BlockInst       {   inst_block :: Block }                                 |
 
-    ChordDec        { inst_list :: ParamsCL }                                 |
-    LegatoDec       { inst_list :: ParamsCL }                                 |
+    ChordDec                                                                  |
+    LegatoDec                                                                 |
 
     -- Bemoles y Sostenidos
     SharpExp        {   inst_exp :: Expression }                              |
@@ -195,7 +179,3 @@ instance ASTNode Block where
         putTabs tabs
         putStrLn "Block of instructions:"
         foldl (>>) (putStr "") $ map (printNode (tabs+1)) $ statements block
-
-data ParamsCL =
-    ParamsCL { chordlegato_id :: Type, var_params :: [VarDeclaration] }
-    deriving (Eq, Show)

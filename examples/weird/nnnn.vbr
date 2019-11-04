@@ -1,0 +1,16 @@
+-- Ejemplo rebuscado reusaNdo `N` 
+
+-- Registro llamado N
+chord N {
+    n: Sample<N> -- atributo llamado n de tipo *N
+}
+
+-- Función llamada n, que recibe un n de tipo N y retorna N
+track n (n: N): N {
+    n.n! <-> n|        -- nuevo valor del apuntador `n.n` será `n`
+    n||                -- retorna n
+}
+
+moderato() {
+    n: N|
+}

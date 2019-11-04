@@ -1,0 +1,11 @@
+track f () {
+    |>("Bob") |
+}
+
+track f(){
+    |> ("Esponja Patalones Cuadrados") |
+}
+
+moderato(){
+    play f with () |
+}

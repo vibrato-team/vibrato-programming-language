@@ -1,0 +1,11 @@
+chord A {
+    value: whole
+}
+
+chord A {
+    v: quarter
+}
+
+moderato() {
+    a: A <-> A(maj)|
+}

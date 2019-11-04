@@ -1,0 +1,6 @@
+track f (a: quarter, b: quarter, c: quarter, a: whole, z: whole) {
+
+}
+moderato() {
+    
+}

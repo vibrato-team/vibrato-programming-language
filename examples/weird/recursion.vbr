@@ -1,0 +1,18 @@
+track g (x: eighth): eighth {
+    if (x /= 0) {
+        x||
+    }
+    play g with (play g with (x) * play g with (x)) ||
+}
+
+track f (x: Melody<eighth>): whole {
+    b: whole <-> maj|
+    loop x: quarter {
+        b <-> b and play g with (x[x]) = 0| -- esto debería ser un error de tipos
+    } in (play length with (x))
+    b||
+}
+
+moderato() {
+    |>(play f with ([2, 3, 1, 0, -1, 10]))|
+}

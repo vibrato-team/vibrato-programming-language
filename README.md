@@ -7,7 +7,7 @@ Lenguaje de programación imperativo basado en teoría musical.
     1. [Whole (Redonda)](#whole-redonda)
     2. [Half (Blanca)](#half-blanca)
     3. [Quarter (Negra)](#quarter-negra)
-    4. [Eight (Corchea)](#eight-corchea)
+    4. [Eight (Corchea)](#eighth-corchea)
     4. [32th (Fusa)](#32th-fusa)
     5. [64th (Semifusa)](#64th-semifusa)
     6. [Melodies (Melodías)](#melodies-melodías)
@@ -154,7 +154,7 @@ Un bloque es una instrucción que tiene dentro una secuencia de instrucciones.
 ```
 Permite obtener datos escritos por el usuario vía entrada estándar, almacenando los valores en cada una de las variables pasadas a la instrucción de record, denotada por `@`. Los valores se obtienen de los tokens de la línea ingresada por el usuario.
 
-Esta instrucción funciona únicamente con variables de tipo whole, half, quarter, eight, 32th y 64th.
+Esta instrucción funciona únicamente con variables de tipo whole, half, quarter, eighth, 32th y 64th.
 
 ### Salida
 ```vibrato
@@ -172,7 +172,7 @@ else <instrucción_1>|
 `Condicion` siempre va a ser una expresión de tipo `whole`.
 
 ### Iteración determinada
-La iteracion determinada va a repetir un bloque segun el inicio, fin y salto. Inicio y salto son opcionales. luego de `loop` se debe indicar el nombre de la variable de iteracion, seguido de `:` y el tipo de dato, que en este caso solo de tipo entero, es decir, `quarter` y `eight`, por defecto agarra tipo `quarter`.
+La iteracion determinada va a repetir un bloque segun el inicio, fin y salto. Inicio y salto son opcionales. luego de `loop` se debe indicar el nombre de la variable de iteracion, seguido de `:` y el tipo de dato, que en este caso solo de tipo entero, es decir, `quarter` y `eighth`, por defecto agarra tipo `quarter`.
 ```
 loop <id>:<tipo> {
     |>("Hard Rock Sofa!")|

@@ -1,0 +1,10 @@
+chord A {
+    a: quarter,
+    b: whole,
+    c: eighth,
+    a: quarter
+}
+
+moderato() {
+
+}

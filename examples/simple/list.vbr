@@ -1,0 +1,14 @@
+chord List {
+    next: Sample<List>,
+    value: quarter
+}
+
+moderato() {
+    lst: List <-> List(new List(new List(TT, 2), 1), 0)|
+
+    -- this should print 0 1 2
+    loop (lst /= TT) {
+        |>(lst.value)|
+        lst <-> lst.next|
+    }
+}

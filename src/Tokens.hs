@@ -22,6 +22,9 @@ data Token =
     SixtyFourthToken { token :: String, line :: Int, col :: Int } |
     MelodyToken { token :: String, line :: Int, col :: Int } |
     SampleToken { token :: String, line :: Int, col :: Int } |
+
+    -- | Tritone token
+    TTToken { token :: String, line :: Int, col :: Int  }     |
     
     -- Instrucciones
     AssignToken { token :: String, line :: Int, col :: Int } |

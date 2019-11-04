@@ -1,0 +1,18 @@
+***/
+Un simple
+ hello      
+world.  
+    /***
+
+track world() {
+    |>("world!")|
+    ||
+}
+
+moderato() {
+    str_to_play': Melody<half> <-> "Hello "|
+    |> (str_to_play')|
+    play world with ()|
+    |> ('\n')|
+}
+
