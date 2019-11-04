@@ -1,0 +1,12 @@
+track f(n: quarter) {
+    if (n > 0)
+        play g with (n)|
+}
+
+track g(n: quarter) {
+    play f with (n/2)|
+}
+
+moderato() {
+    play f (20)|
+}

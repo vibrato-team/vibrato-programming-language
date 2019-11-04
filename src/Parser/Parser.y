@@ -276,6 +276,7 @@ Literal                 : int                                   { AST.Literal $1
                         | char                                  { AST.Literal $1 }
                         | LiteralMelody                         { $1 }
                         | Type '(' ListExp ')'                  { AST.Literal' (reverse $3) $1 }
+                        | Type                                  { AST.Literal' [] $1 }
 
 LiteralMelody           :: { AST.Expression }
 LiteralMelody           : '[' ListExp ']'                       { AST.LiteralMelody $2 }
