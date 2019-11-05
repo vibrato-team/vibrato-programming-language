@@ -44,7 +44,7 @@ ___
 ## Programa (ejemplo)
 ```vibrato
 moderato() {
-    |> ("Hello World!")
+    |> ("Hello World!")|
 }
 ```
 
@@ -52,8 +52,8 @@ moderato() {
 moderato() {
     n: quarter|
     m: quarter|
-     (n, m)|
-    |> (n * m)
+    @ (n, m)|
+    |> (n * m)|
 }
 ```
 
@@ -93,7 +93,7 @@ Son las notas que duran un treintavo de compás completo y sus valores son numer
 Ejemplo:
 ```vibrato
 f0: 32th <-> 3.0|
-f1: 32th <-> 3.141592
+f1: 32th <-> 3.141592|
 ```
 
 ### 64th (Semifusa)
@@ -390,8 +390,8 @@ val: 64th <-> sol.x|
 Un legato es una estructura de datos que se utiliza para almacenar uno de los tipos de datos presentes en la misma. La estructura general es la siguiente:
 ```vibrato
 legato Identificador {
-    id_1: tipo_1|
-    id_2: tipo_2|
+    id_1: tipo_1,
+    id_2: tipo_2,
     ...
     id_n: tipo_n
 }
@@ -488,7 +488,7 @@ dict: Arpeggio<quarter> <-> {
     "abc" -> 0|
     "efg" -> n|
     ...
-}
+}|
 ```
 
 A un arpeggio se le pueden agregar nuevos pares dinámicamente de la siquiente manera:
