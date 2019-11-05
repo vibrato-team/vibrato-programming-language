@@ -499,14 +499,14 @@ verifyParamsEntry name current_scope = do
 
 
 addBlock :: AST.Block -> [SemData.Entry] -> Maybe [SemData.Entry]
-addBlock block lst =
-    let e = head $ filter condition lst in (
-        Just [e { SemData.entry_category = (SemData.entry_category e) { SemData.function_block = Just block } }] )
+addBlock block lst = Just $ map mapping lst
     where 
         condition e = 
             case SemData.entry_category e of
                 SemData.Function Nothing _ -> True
                 _ -> False
+        mapping e = if condition e then e { SemData.entry_category = (SemData.entry_category e) { SemData.function_block = Just block } }
+                else e
 
 --------------------------------------------
 ----------------- END ----------------------
