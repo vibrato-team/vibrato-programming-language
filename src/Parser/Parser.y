@@ -156,7 +156,7 @@ ParamRef                : '>'                                       { True }
 Id                      :: { AST.Id }
 Id                      : id                                    { AST.Id $1 }
                         -- Boolean literals
-                        | maj                                   { AST.Id $1 }
+                        | maj                                   { AST.Id $1}
                         | min                                   { AST.Id $1 }
                         -- Null expression
                         | TT                                    { AST.Id $1 }
@@ -198,7 +198,7 @@ Statement               : VarDeclaration                        { AST.VarDecInst
                         | Asignacion                            { $1 }
                         | IO                                    { $1 }
                         | free Id                               {% do
-                                                                    analyzeVar (AST.id_token $2)
+                                                                    checkVarIsDeclared (AST.id_token $2)
                                                                     return (AST.FreeInst $2) }
                         | LValue '#'                            { AST.SharpExp $1 }
                         | LValue '&'                            { AST.FlatExp $1 }
@@ -213,16 +213,22 @@ VarDeclaration          : Id ':' Type                           {% do
 VarInit                 :: { AST.Instruction }
 VarInit                 : Id ':' Type '<->' Expression          {% do 
                                                                     createVarEntry (AST.id_token $1) (Just $3)
-                                                                    return $ AST.AssignInst (AST.IdExp $1) $5 }
+                                                                    return $ AST.AssignInst (AST.IdExp $1 $3) $5 }
 
 Asignacion              :: { AST.Instruction }
-Asignacion              : LValue '<->' Expression               { AST.AssignInst $1 $3 }
+Asignacion              : LValue '<->' Expression               {%do
+                                                                    let expected = [AST.exp_type $3]
+                                                                    checkExpType $1 expected $2
+                                                                    return $ AST.AssignInst $1 $3 }
 
 LValue                  :: { AST.Expression }
 LValue                  : Indexing                              { $1 }
                         | DotExpression                         { $1 }
                         | Dereference                           { $1 }
-                        | Id                                    {% analyzeVar (AST.id_token $1) >> return (AST.IdExp $1) }
+                        | Id                                    {% do
+                                                                    checkVarIsDeclared (AST.id_token $1)
+                                                                    idType <- PMonad.lookup $ token $ AST.id_token $1
+                                                                    return $ (AST.IdExp $1 (fromJust $ SemData.entry_type $ fromJust idType)) }
 
 Return                  :: { AST.Instruction }
 Return                  : Expression '||'                       { AST.ReturnInst $ Just $1 }
@@ -240,12 +246,25 @@ Loop                    : loop PushScope Id MaybeType Block PopScope in '(' Expr
 
 CallFuncion             :: { AST.Expression }
 CallFuncion             : play Id with '(' ListExp ')'          {% do
-                                                                    analyzeVar (AST.id_token $2)
-                                                                    return (AST.CallExp $2 $ reverse $5) }
+                                                                    entry <- checkVarIsDeclared (AST.id_token $2)
+                                                                    let category = SemData.entry_category entry
+
+                                                                    case category of
+                                                                        SemData.Function _ params ->
+                                                                            if length $5 /= length params
+                                                                                then semError $4 "Wrong number of arguments:"
+                                                                                else return $ AST.CallExp $2 (reverse $5) (fromJust $ SemData.entry_type entry) 
+                                                                        _ -> semError $1 "Calling a not track expression:"}
 
                         | play Id                               {% do
-                                                                    analyzeVar (AST.id_token $2)
-                                                                    return (AST.CallExp $2 [] )}
+                                                                    entry <- checkVarIsDeclared (AST.id_token $2)
+                                                                    let category = SemData.entry_category entry
+                                                                    case category of
+                                                                        SemData.Function _ params ->
+                                                                            if length params == 0
+                                                                                then return $ AST.CallExp $2 [] (fromJust $ SemData.entry_type entry) 
+                                                                                else semError (AST.id_token $2) "Wrong number of arguments:"
+                                                                        _ -> semError $1 "Calling a not track expression:" }
 
 ListExp                 :: { [AST.Expression] }
 ListExp                 : Expression                            { [$1] }
@@ -253,75 +272,142 @@ ListExp                 : Expression                            { [$1] }
                         | {-empty-}                             { [] }
 
 Indexing                :: { AST.Expression }
-Indexing                : Expression '[' Expression ']'             { AST.IndexingExp $1 $3 $2 }
+Indexing                : Expression '[' Expression ']'             {% do 
+                                                                        let expType = AST.exp_type $1
+                                                                        if AST.type_str expType /= "Melody"
+                                                                            then semError $2 "Indexing a not melody expression:"
+                                                                            else return $ AST.IndexingExp $1 $3 $2 (AST.type_type $ AST.exp_type $1) }
 
 DotExpression           :: { AST.Expression }
-DotExpression           : Expression '.' Id                         {% let ast = AST.DotExp $1 $3 in analyzeExpression ast >> return ast }
+DotExpression           : Expression '.' Id                         {% do
+                                                                        let lType = AST.exp_type $1
+                                                                        entryMaybe <- PMonad.lookup $ AST.type_str lType
+                                                                        let entry = fromJust entryMaybe
+                                                                        let levelMaybe = SemData.entry_level entry
+                                                                        throwIfNothing levelMaybe $2 "Expression is not a chord or legato:"
+
+                                                                        fieldEntry <- analyzeField (AST.id_token $3) (fromJust levelMaybe)
+                                                                        return $ AST.DotExp $1 $3 (fromJust $ SemData.entry_type fieldEntry) }
 
 Dereference             :: { AST.Expression }
-Dereference             : Expression '!'                            { AST.DereferenceExp $1 $2 }
+Dereference             : Expression '!'                            {% do 
+                                                                        let expType = AST.exp_type $1
+                                                                        if AST.type_str expType /= "Sample"
+                                                                            then semError $2 "Dereferencing a not sample expression:"
+                                                                            else return $ AST.DereferenceExp $1 $2 (AST.type_type $ AST.exp_type $1) }
 
 Type                    :: { AST.Type }
-Type                    : whole                                 { AST.Type $1 Nothing }
-                        | half                                  { AST.Type $1 Nothing }
-                        | quarter                               { AST.Type $1 Nothing }
-                        | eighth                                 { AST.Type $1 Nothing }
-                        | ThirtySecond                          { AST.Type $1 Nothing }
-                        | SixtyFourth                           { AST.Type $1 Nothing }
-                        | melody '<' Type '>'                   { AST.Type $1 (Just $3) }
-                        | sample '<' Type '>'                   { AST.Type $1 (Just $3) }
+Type                    : whole                                 { AST.Simple (token $1) }
+                        | half                                  { AST.Simple (token $1) }
+                        | quarter                               { AST.Simple (token $1) }
+                        | eighth                                { AST.Simple (token $1) }
+                        | ThirtySecond                          { AST.Simple (token $1) }
+                        | SixtyFourth                           { AST.Simple (token $1) }
+                        | melody '<' Type '>'                   { AST.Compound (token $1) $3 }
+                        | sample '<' Type '>'                   { AST.Compound (token $1) $3 }
                         | IdType                                { $1 }
 
 Literal                 :: { AST.Expression }
-Literal                 : int                                   { AST.Literal $1 }
-                        | float                                 { AST.Literal $1 }
-                        | string                                { AST.Literal $1 }
-                        | char                                  { AST.Literal $1 }
+Literal                 : int                                   { AST.Literal $1 (AST.Simple "quarter") }
+                        | float                                 { AST.Literal $1 (AST.Simple "eighth") }
+                        | string                                { AST.Literal $1 (AST.Compound "Melody" $ AST.Simple "half") }
+                        | char                                  { AST.Literal $1 (AST.Simple "half") }
                         | LiteralMelody                         { $1 }
                         | Type '(' ListExp ')'                  { AST.Literal' (reverse $3) $1 }
                         | Type                                  { AST.Literal' [] $1 }
 
+-- TODO: chequear que todos los elementos de la ListExp sean del mismo tipo.
 LiteralMelody           :: { AST.Expression }
-LiteralMelody           : '[' ListExp ']'                       { AST.LiteralMelody $2 }
+LiteralMelody           : '[' ListExp ']'                       { AST.LiteralMelody $2 (AST.Compound "Melody" $ AST.Simple "quarter") }
 
 Expression              :: { AST.Expression }
 Expression              : LValue %prec LVALUE                   { $1 }
                         -- Boolean
-                        | not Expression                        { AST.NotExp $2 }
-                        | Expression and Expression             { AST.AndExp $1 $3 } 
-                        | Expression or Expression              { AST.OrExp $1 $3 }
+                        | not Expression                        {%do
+                                                                    let expected = AST.Simple "whole"
+                                                                    checkExpType $2 [expected] $1
+                                                                    return $ AST.NotExp $2 expected }
+                        | Expression and Expression             {%do
+                                                                    let expected = AST.Simple "whole"
+                                                                    checkExpType $1 [expected] $2
+                                                                    checkExpType $3 [expected] $2
+                                                                    return $ AST.AndExp $1 $3 expected } 
+                        | Expression or Expression              {%do
+                                                                    let expected = AST.Simple "whole"
+                                                                    checkExpType $1 [expected] $2
+                                                                    checkExpType $3 [expected] $2
+                                                                    return $ AST.OrExp $1 $3 expected } 
 
                         -- Aritmetivos
-                        | '-' Expression %prec NEG              { AST.NegativeExp $2 }
-                        | Expression '-' Expression             { AST.SubstractionExp $1 $3 }
-                        | Expression mod Expression             { AST.ModExp $1 $3 }
-                        | Expression '/' Expression             { AST.DivExp $1 $3 }
-                        | Expression '*' Expression             { AST.MultExp $1 $3 }
-                        | Expression '^' Expression             { AST.PowExp $1 $3 }             
-                        | Expression '+' Expression             { AST.AdditionExp $1 $3 }
+                        | '-' Expression %prec NEG              {%do
+                                                                    checkExpType $2 AST.numberTypes $1
+                                                                    return $ AST.NegativeExp $2 (AST.exp_type $2) }
+
+                        | Expression '-' Expression             {%do
+                                                                    checkExpType $1 AST.numberTypes $2
+                                                                    checkExpType $3 AST.numberTypes $2
+                                                                    return $ AST.SubstractionExp $1 $3 (max (AST.exp_type $1) (AST.exp_type $3)) }
+                        | Expression mod Expression             {%do
+                                                                    checkExpType $1 [AST.Simple "quarter", AST.Simple "eighth"] $2
+                                                                    checkExpType $3 [AST.Simple "quarter", AST.Simple "eighth"] $2
+                                                                    return $ AST.ModExp $1 $3 (max (AST.exp_type $1) (AST.exp_type $3)) }
+                        | Expression '/' Expression             {%do
+                                                                    checkExpType $1 AST.numberTypes $2
+                                                                    checkExpType $3 AST.numberTypes $2
+                                                                    return $ AST.DivExp $1 $3 (max (AST.exp_type $1) (AST.exp_type $3)) }
+                        | Expression '*' Expression             {%do
+                                                                    checkExpType $1 AST.numberTypes $2
+                                                                    checkExpType $3 AST.numberTypes $2
+                                                                    return $ AST.MultExp $1 $3 (max (AST.exp_type $1) (AST.exp_type $3)) }
+                        | Expression '^' Expression             {%do
+                                                                    checkExpType $1 AST.numberTypes $2
+                                                                    checkExpType $3 [AST.Simple "quarter", AST.Simple "eighth"] $2
+                                                                    return $ AST.PowExp $1 $3 (AST.exp_type $1) }             
+                        | Expression '+' Expression             {%do
+                                                                    checkExpType $1 AST.numberTypes $2
+                                                                    checkExpType $3 AST.numberTypes $2
+                                                                    return $ AST.AdditionExp $1 $3 (max (AST.exp_type $1) (AST.exp_type $3)) }
 
                         -- Relacionales
-                        | Expression '=' Expression             { AST.EqualExp $1 $3 }
-                        | Expression '/=' Expression            { AST.NotEqualExp $1 $3 }
-                        | Expression '<' Expression             { AST.LessExp $1 $3 }
-                        | Expression '>' Expression             { AST.GreaterExp $1 $3 }
-                        | Expression '<=' Expression            { AST.LessEqualExp $1 $3 }
-                        | Expression '>=' Expression            { AST.GreaterEqualExp $1 $3 }
+                        | Expression '=' Expression             {%do
+                                                                    let expected = [AST.exp_type $1]
+                                                                    checkExpType $3 expected $2
+                                                                    return $ AST.EqualExp $1 $3 (AST.Simple "whole") }
+                        | Expression '/=' Expression            {%do
+                                                                    let expected = [AST.exp_type $1]
+                                                                    checkExpType $3 expected $2
+                                                                    return $ AST.NotEqualExp $1 $3 (AST.Simple "whole") }
+                        | Expression '<' Expression             {%do
+                                                                    checkExpType $1 AST.numberTypes $2
+                                                                    checkExpType $3 AST.numberTypes $2
+                                                                    return $ AST.LessExp $1 $3 (AST.Simple "whole") }
+                        | Expression '>' Expression             {%do
+                                                                    checkExpType $1 AST.numberTypes $2
+                                                                    checkExpType $3 AST.numberTypes $2
+                                                                    return $ AST.GreaterExp $1 $3 (AST.Simple "whole") }
+                        | Expression '<=' Expression            {%do
+                                                                    checkExpType $1 AST.numberTypes $2
+                                                                    checkExpType $3 AST.numberTypes $2
+                                                                    return $ AST.LessEqualExp $1 $3 (AST.Simple "whole") }
+                        | Expression '>=' Expression            {%do
+                                                                    checkExpType $1 AST.numberTypes $2
+                                                                    checkExpType $3 AST.numberTypes $2
+                                                                    return $ AST.GreaterEqualExp $1 $3 (AST.Simple "whole") }
 
                         -- Micelaneos
                         | Literal                               { $1 }
                         | '(' Expression ')'                    { $2 }
 
-                        | new Literal                           { AST.NewExp $2 }
+                        | new Literal                           { AST.NewExp $2 (AST.Compound "Sample" (AST.exp_type $2)) }
 
                         | CallFuncion                           { $1 }
 
 IdType                  :: { AST.Type }
-IdType                  : id_type                               { AST.Type $1 Nothing }
+IdType                  : id_type                               { AST.Simple (token $1) }
 
 NewType                 :: { () }
-NewType                 : chord IdType                         {% createTypeEntry $ AST.type_token $2 }
-                        | legato IdType                        {% createTypeEntry $ AST.type_token $2 }
+NewType                 : chord IdType                         {% createTypeEntry $1 (AST.type_str $2) }
+                        | legato IdType                        {% createTypeEntry $1 (AST.type_str $2) }
 
 ChordLegato             :: { () }
 ChordLegato             : NewType PushScope ChordLegatoFields PopScope  { }
@@ -359,14 +445,12 @@ parseError (tk:_) = do
 -----------------------------------------------------------------------------------------------
 -- Entry Creation
 -----------------------------------------------------------------------------------------------
--- TODO: Recibir el AST como parametro para eficiencia de memoria
+
 createFunctionEntry :: Token -> Maybe AST.Type -> AST.Id -> [AST.VarDeclaration] -> Maybe AST.Block -> ParserMonad ()
-createFunctionEntry tk funcType funcId params block = do
+createFunctionEntry tk semType funcId params block = do
     a <- verifyFunctionEntry (token tk) 
     if a then do 
         let funcat = SemData.Function { SemData.function_block = block, SemData.function_params = params }
-        semType <- astTypeToSemType funcType
-
         (SemData.Scopes _ (_:prev:_), _, _) <- RWS.get
         
         let entry = SemData.Entry {
@@ -381,11 +465,10 @@ createFunctionEntry tk funcType funcId params block = do
         semError tk "Function already declared:"
 
 createVarEntry :: Token -> Maybe AST.Type -> ParserMonad ()
-createVarEntry tk t = do
+createVarEntry tk semType = do
     curr <- PMonad.currScope
     result <- verifyVarEntry (token tk) curr
     if result then do 
-        semType <- astTypeToSemType t
         let entry = SemData.Entry {
             SemData.entry_name = token tk,
             SemData.entry_category = SemData.Var,
@@ -397,15 +480,15 @@ createVarEntry tk t = do
     else
         semError tk "Variable already declared in the same scope:"
 
-createTypeEntry :: Token -> ParserMonad ()
-createTypeEntry tk = do
-    result <- verifyTypeEntry (token tk)
+createTypeEntry :: Token -> String -> ParserMonad ()
+createTypeEntry tk typeStr = do
+    result <- verifyTypeEntry typeStr
     if result then do
         st@(_, _, lvl) <- RWS.get
         curr <- PMonad.currScope
 
         let entry = SemData.Entry {
-            SemData.entry_name = token tk,
+            SemData.entry_name = typeStr,
             SemData.entry_category = SemData.Type,
             SemData.entry_scope = curr,
             SemData.entry_type = Nothing,
@@ -416,11 +499,10 @@ createTypeEntry tk = do
         semError tk "Type already declared in same scope:"
 
 createFieldEntry :: Token -> Maybe AST.Type -> ParserMonad ()
-createFieldEntry tk typ = do
+createFieldEntry tk semType = do
     curr <- PMonad.currScope
     result <- verifyFieldEntry (token tk) curr
     if result then do
-        semType <- astTypeToSemType typ
         let entry = SemData.Entry {
             SemData.entry_name = token tk,
             SemData.entry_category = SemData.Field,
@@ -433,15 +515,13 @@ createFieldEntry tk typ = do
         semError tk "Field already declared in same scope:"
 
 createParamEntry :: Token -> Maybe AST.Type -> Bool -> ParserMonad ()
-createParamEntry tk typ ref = do
+createParamEntry tk semType ref = do
     curr <- PMonad.currScope
     result <- verifyParamsEntry (token tk) curr
     if result then do
-        semType <- astTypeToSemTypeParam typ ref
-        liftIO $ print semType
         let entry = SemData.Entry {
             SemData.entry_name = token tk,
-            SemData.entry_category = SemData.Param,
+            SemData.entry_category = SemData.Param ref,
             SemData.entry_scope = curr,
             SemData.entry_type = semType,
             SemData.entry_level = Nothing
@@ -493,7 +573,7 @@ verifyParamsEntry name current_scope = do
     entry <- PMonad.lookup name
     case entry of
         Nothing -> return True
-        Just (SemData.Entry _ SemData.Param scope _ _) -> return $ scope /= current_scope
+        Just (SemData.Entry _ (SemData.Param _) scope _ _) -> return $ scope /= current_scope
         Just _ -> return True
 
 
@@ -508,6 +588,16 @@ addBlock block lst = Just $ map mapping lst
         mapping e = if condition e then e { SemData.entry_category = (SemData.entry_category e) { SemData.function_block = Just block } }
                 else e
 
+--------------------------------------------
+-----------Chequear tipos ------------------
+--------------------------------------------
+
+checkExpType :: AST.Expression -> [AST.Type] -> Token -> ParserMonad AST.Type
+checkExpType exp expected tk = do
+    let expType = AST.exp_type exp
+    if filter (==expType) expected == []
+        then semError tk $ "Expression is not of type " ++ (AST.type_str $ expected!!0) ++ ":"
+        else return expType
 --------------------------------------------
 ----------------- END ----------------------
 --------------------------------------------

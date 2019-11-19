@@ -6,20 +6,14 @@ import qualified Data.Map.Lazy as Map
 
 -- | Category of each symbol with additional info
 data Category =
-    Function        { function_block :: Maybe AST.Block, function_params :: [AST.VarDeclaration] }     |
+    Function         { function_block :: Maybe AST.Block, function_params :: [AST.VarDeclaration] }     |
     Var              |
     Type             |
     Constructor      | -- ^ Melody and Sample  
     Field            | -- ^ Member of a struct/union
-    Param            | -- ^ Param of a function
+    Param            { param_ref :: Bool }| -- ^ Param of a function
     Literal          | -- ^ For True and False
     Prelude            -- ^ A prelude function
-    deriving (Eq, Show)
-
--- | Type of an entry
-data Type =
-    Simple      { type_str :: String } |
-    Compound    { type_str :: String, type_type :: Type }
     deriving (Eq, Show)
 
 -- | Entry, con scope, categoria, token, tipo, cualquier otra cosa chupalo
@@ -27,7 +21,7 @@ data Entry = Entry {
     entry_name          :: String,          -- Nombre del símbolog
     entry_category      :: Category,    
     entry_scope         :: Int,             -- Nivel donde fue declarado
-    entry_type          :: Maybe Type,
+    entry_type          :: Maybe AST.Type,
     entry_level         :: Maybe Int        -- Nivel correspondiente al tipo (registro) de la variable
 } deriving (Eq, Show)
 

@@ -7,8 +7,8 @@ track g (x: eighth): eighth {
 
 track f (x: Melody<eighth>): whole {
     b: whole <-> maj|
-    loop x: quarter {
-        b <-> b and play g with (x[x]) = 0| -- esto debería ser un error de tipos
+    loop i: quarter {
+        b <-> b and play g with (x[i]) = 0| -- esto debería ser un error de tipos
     } in (play length with (x))
     b||
 }
