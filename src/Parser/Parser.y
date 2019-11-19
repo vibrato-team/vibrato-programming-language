@@ -177,11 +177,17 @@ Instruction             : OpenCondition                         { $1 }
                         | ClosedCondition                       { $1 }
 
 OpenCondition           :: { AST.Instruction }
-OpenCondition           : if '(' Expression ')' Instruction                         { AST.IfInst $3 $5 Nothing }
-                        | if '(' Expression ')' ClosedCondition else OpenCondition  { AST.IfInst $3 $5 (Just $7) }
+OpenCondition           : if '(' Expression ')' Instruction                         {%do
+                                                                                        checkExpType $3 [AST.Simple "whole"] $2
+                                                                                        return $ AST.IfInst $3 $5 Nothing }
+                        | if '(' Expression ')' ClosedCondition else OpenCondition  {%do
+                                                                                        checkExpType $3 [AST.Simple "whole"] $2
+                                                                                        return $ AST.IfInst $3 $5 (Just $7) }
 
 ClosedCondition         :: { AST.Instruction }
-ClosedCondition         : if '(' Expression ')' ClosedCondition else ClosedCondition    { AST.IfInst $3 $5 (Just $7) }
+ClosedCondition         : if '(' Expression ')' ClosedCondition else ClosedCondition    {%do
+                                                                                            checkExpType $3 [AST.Simple "whole"] $2
+                                                                                            return $ AST.IfInst $3 $5 (Just $7) }
                         | SimpleInstruction                                             { $1 }
 
 SimpleInstruction       :: { AST.Instruction }
@@ -213,12 +219,13 @@ VarDeclaration          : Id ':' Type                           {% do
 VarInit                 :: { AST.Instruction }
 VarInit                 : Id ':' Type '<->' Expression          {% do 
                                                                     createVarEntry (AST.id_token $1) (Just $3)
-                                                                    return $ AST.AssignInst (AST.IdExp $1 $3) $5 }
+                                                                    let idExp = AST.IdExp $1 $3
+                                                                    checkEquality idExp $5 $4
+                                                                    return $ AST.AssignInst idExp $5 }
 
 Asignacion              :: { AST.Instruction }
 Asignacion              : LValue '<->' Expression               {%do
-                                                                    let expected = [AST.exp_type $3]
-                                                                    checkExpType $1 expected $2
+                                                                    checkEquality $1 $3 $2
                                                                     return $ AST.AssignInst $1 $3 }
 
 LValue                  :: { AST.Expression }
@@ -239,10 +246,21 @@ IO                      : '@' '(' ListExp ')'                   { AST.RecordInst
                         | '|>' '(' ListExp ')'                  { AST.PlayInst $ reverse $3 }
 
 Loop                    :: { AST.Instruction }
-Loop                    : loop PushScope Id MaybeType Block PopScope in '(' Expression ')'                                       {AST.ForInst $3 $4 $5 Nothing $9 Nothing }
-                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ')'                        {AST.ForInst $3 $4 $5 (Just $9) $11 Nothing }
-                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ',' Expression ')'         {AST.ForInst $3 $4 $5 (Just $9) $11 (Just $13) }
-                        | loop '(' Expression ')' Block                                                                      {AST.WhileInst $3 $5 }
+Loop                    : loop PushScope Id MaybeType Block PopScope in '(' Expression ')'                                       {%do
+                                                                                                                                    checkExpType $9 AST.numberTypes $8
+                                                                                                                                    return $ AST.ForInst $3 $4 $5 Nothing $9 Nothing }
+                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ')'                        {%do
+                                                                                                                                    checkExpType $9 AST.numberTypes $8
+                                                                                                                                    checkExpType $11 AST.numberTypes $10
+                                                                                                                                    return $ AST.ForInst $3 $4 $5 (Just $9) $11 Nothing }
+                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ',' Expression ')'         {%do
+                                                                                                                                    checkExpType $9 AST.numberTypes $8
+                                                                                                                                    checkExpType $11 AST.numberTypes $10
+                                                                                                                                    checkExpType $13 AST.numberTypes $12
+                                                                                                                                    return $ AST.ForInst $3 $4 $5 (Just $9) $11 (Just $13) }
+                        | loop '(' Expression ')' Block                                                                          {% do
+                                                                                                                                    checkExpType $3 [AST.Simple "whole"] $2
+                                                                                                                                    return $ AST.WhileInst $3 $5 }
 
 CallFuncion             :: { AST.Expression }
 CallFuncion             : play Id with '(' ListExp ')'          {% do
@@ -371,11 +389,11 @@ Expression              : LValue %prec LVALUE                   { $1 }
                         -- Relacionales
                         | Expression '=' Expression             {%do
                                                                     let expected = [AST.exp_type $1]
-                                                                    checkExpType $3 expected $2
+                                                                    checkEquality $1 $3 $2
                                                                     return $ AST.EqualExp $1 $3 (AST.Simple "whole") }
                         | Expression '/=' Expression            {%do
                                                                     let expected = [AST.exp_type $1]
-                                                                    checkExpType $3 expected $2
+                                                                    checkEquality $1 $3 $2
                                                                     return $ AST.NotEqualExp $1 $3 (AST.Simple "whole") }
                         | Expression '<' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
@@ -598,6 +616,15 @@ checkExpType exp expected tk = do
     if filter (==expType) expected == []
         then semError tk $ "Expression is not of type " ++ (AST.type_str $ expected!!0) ++ ":"
         else return expType
+
+checkEquality :: AST.Expression -> AST.Expression -> Token -> ParserMonad AST.Type
+checkEquality idExp exp tk =
+    let astType = AST.exp_type idExp in(
+    if AST.type_str astType `elem` ["Sample", "null"]
+        then checkExpType exp [astType, AST.Simple "null"] tk
+        else if AST.type_str astType `elem` ["Melody", "empty_list"]
+            then checkExpType exp [astType, AST.Simple "empty_list"] tk
+            else checkExpType exp [astType] tk)
 --------------------------------------------
 ----------------- END ----------------------
 --------------------------------------------
