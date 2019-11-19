@@ -3,6 +3,17 @@ chord List {
     value: quarter
 }
 
+**/
+Obtener elemento n-ésimo de una lista enlazada.
+/**
+track get_nth(head: Sample<List>, n: quarter): Sample<List> {
+    idx: quarter <-> 0|
+    loop x {
+        head <-> head!.next|
+    } in (n)
+    head||
+}
+
 moderato() {
     lst: Sample<List> <-> new List(new List(new List(TT, 2), 1), 0)|
 

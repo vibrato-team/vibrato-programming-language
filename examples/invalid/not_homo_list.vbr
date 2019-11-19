@@ -1,0 +1,4 @@
+moderato() {
+    arr: Melody<quarter> <-> [1, 'a', maj]|
+    |>(arr[0])|
+}

@@ -13,7 +13,7 @@ data Category =
     Field            | -- ^ Member of a struct/union
     Param            { param_ref :: Bool }| -- ^ Param of a function
     Literal          | -- ^ For True and False
-    Prelude            -- ^ A prelude function
+    Prelude          [AST.Type]  -- ^ A prelude function with a list of params' types.
     deriving (Eq, Show)
 
 -- | Entry, con scope, categoria, token, tipo, cualquier otra cosa chupalo

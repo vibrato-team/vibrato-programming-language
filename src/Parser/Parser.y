@@ -108,16 +108,16 @@ import Semantic.Analyzers
 %nonassoc '=' '/=' 
 %nonassoc '>' '<' '<=' '>='
 %left LVALUE
-%right '['
-%left ']'
 %left '+' '-'
 %left '*' '/' mod
 %left '^'
 %left NEG '#' '&'
 %left and or
 %right not
-%left '.'
+%right '['
+%left ']'
 %left '!'
+%left '.'
 
 %%
 
@@ -336,7 +336,14 @@ Literal                 : int                                   { AST.Literal $1
 
 -- TODO: chequear que todos los elementos de la ListExp sean del mismo tipo.
 LiteralMelody           :: { AST.Expression }
-LiteralMelody           : '[' ListExp ']'                       { AST.LiteralMelody $2 (AST.Compound "Melody" $ AST.Simple "quarter") }
+LiteralMelody           : '[' ListExp ']'                       {%do
+                                                                    case $2 of
+                                                                        [] -> return $ AST.LiteralMelody [] (AST.Simple "empty_list")
+                                                                        (e:es) -> do
+                                                                            let expType = AST.exp_type e
+                                                                            if all (==expType) $ map AST.exp_type $2
+                                                                                then return $ AST.LiteralMelody [] (AST.Compound "Melody" expType)
+                                                                                else semError $1 "Not homogeneous melodies are not allowed:" }
 
 Expression              :: { AST.Expression }
 Expression              : LValue %prec LVALUE                   { $1 }

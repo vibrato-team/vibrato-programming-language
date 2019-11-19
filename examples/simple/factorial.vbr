@@ -1,9 +1,9 @@
 **/
 Factorial recursivo.
 /**
-track fact(numero: quarter): quarter {
+track fact(numero: quarter): eighth {
     if (numero = 0) 1||
-    else numero * play fact with (numero-1)||
+    else numero * play fact with (numero-1)|| -- castea numero en eighth
 }
 
 moderato() {

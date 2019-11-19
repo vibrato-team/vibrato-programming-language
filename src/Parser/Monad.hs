@@ -39,12 +39,11 @@ initialState = (Sem.Scopes (Set.fromList [1, 0]) [1, 0], initialMap, 1)
         emptyListEntry      =    ("empty_list", [Sem.Entry "empty_list" Sem.Type            0 Nothing                       Nothing])
         melodyEntry         =    ("Melody",     [Sem.Entry "Melody"     Sem.Constructor     0 Nothing                       Nothing])
         sampleEntry         =    ("Sample",     [Sem.Entry "Sample"     Sem.Constructor     0 Nothing                       Nothing])
-        lengthEntry         =    ("length",     [Sem.Entry "length"     Sem.Prelude         0 (Just $ AST.Simple "eighth")  Nothing])
         trueEntry           =    ("maj",        [Sem.Entry "maj"        Sem.Literal         0 (Just $ AST.Simple "whole")   Nothing])
         falseEntry          =    ("min",        [Sem.Entry "min"        Sem.Literal         0 (Just $ AST.Simple "whole")   Nothing])
         nullEntry           =    ("TT",         [Sem.Entry "TT"         Sem.Literal         0 (Just $ AST.Simple "null")    Nothing])
         initialMap          =    Map.fromList   [wholeEntry, halfEntry, quarterEntry, eighthEntry, thirySecondEntry, 
-                                                sixtyFourthEntry, nullTypeEntry, melodyEntry, sampleEntry, lengthEntry, 
+                                                sixtyFourthEntry, nullTypeEntry, melodyEntry, sampleEntry, 
                                                 trueEntry, falseEntry, nullEntry]
 
 -- | Insert a new entry into the SymbolTable
