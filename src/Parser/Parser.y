@@ -476,7 +476,7 @@ createFunctionEntry tk semType funcId params block = do
     a <- verifyFunctionEntry (token tk) 
     if a then do 
         let funcat = SemData.Function { SemData.function_block = block, SemData.function_params = params }
-        (SemData.Scopes _ (_:prev:_), _, _) <- RWS.get
+        (PMonad.ParserState (SemData.Scopes _ (_:prev:_)) _ _ _) <- RWS.get
         
         let entry = SemData.Entry {
             SemData.entry_name = token tk,
@@ -509,7 +509,7 @@ createTypeEntry :: Token -> String -> ParserMonad ()
 createTypeEntry tk typeStr = do
     result <- verifyTypeEntry typeStr
     if result then do
-        st@(_, _, lvl) <- RWS.get
+        st@(PMonad.ParserState _ _ lvl _) <- RWS.get
         curr <- PMonad.currScope
 
         let entry = SemData.Entry {
