@@ -36,14 +36,14 @@ initialState = (Sem.Scopes (Set.fromList [1, 0]) [1, 0], initialMap, 1)
         thirySecondEntry    =    ("32th",       [Sem.Entry "32th"       Sem.Type            0 Nothing                       Nothing])
         sixtyFourthEntry    =    ("64th",       [Sem.Entry "64th"       Sem.Type            0 Nothing                       Nothing])
         nullTypeEntry       =    ("null",       [Sem.Entry "null"       Sem.Type            0 Nothing                       Nothing])
+        emptyListEntry      =    ("empty_list", [Sem.Entry "empty_list" Sem.Type            0 Nothing                       Nothing])
         melodyEntry         =    ("Melody",     [Sem.Entry "Melody"     Sem.Constructor     0 Nothing                       Nothing])
         sampleEntry         =    ("Sample",     [Sem.Entry "Sample"     Sem.Constructor     0 Nothing                       Nothing])
-        lengthEntry         =    ("length",     [Sem.Entry "length"     Sem.Prelude         0 (Just $ Sem.Simple "eighth")  Nothing])
-        trueEntry           =    ("maj",        [Sem.Entry "maj"        Sem.Literal         0 (Just $ Sem.Simple "whole")   Nothing])
-        falseEntry          =    ("min",        [Sem.Entry "min"        Sem.Literal         0 (Just $ Sem.Simple "whole")   Nothing])
-        nullEntry           =    ("TT",         [Sem.Entry "TT"         Sem.Literal         0 (Just $ Sem.Simple "null")    Nothing])
+        trueEntry           =    ("maj",        [Sem.Entry "maj"        Sem.Literal         0 (Just $ AST.Simple "whole")   Nothing])
+        falseEntry          =    ("min",        [Sem.Entry "min"        Sem.Literal         0 (Just $ AST.Simple "whole")   Nothing])
+        nullEntry           =    ("TT",         [Sem.Entry "TT"         Sem.Literal         0 (Just $ AST.Simple "null")    Nothing])
         initialMap          =    Map.fromList   [wholeEntry, halfEntry, quarterEntry, eighthEntry, thirySecondEntry, 
-                                                sixtyFourthEntry, nullTypeEntry, melodyEntry, sampleEntry, lengthEntry, 
+                                                sixtyFourthEntry, nullTypeEntry, melodyEntry, sampleEntry, 
                                                 trueEntry, falseEntry, nullEntry]
 
 -- | Insert a new entry into the SymbolTable
@@ -120,8 +120,8 @@ incrementScope = do
     RWS.put (scopeSet, table, lvl+1)
 
 -- | Entry of a Type
-typeEntry :: Sem.Type -> ParserMonad (Maybe Sem.Entry)
-typeEntry = Parser.Monad.lookup . Sem.type_str
+typeEntry :: AST.Type -> ParserMonad (Maybe Sem.Entry)
+typeEntry = Parser.Monad.lookup . AST.type_str
 
 -- | Get current scope
 currScope :: ParserMonad Int

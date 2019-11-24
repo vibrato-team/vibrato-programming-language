@@ -1,6 +1,7 @@
 module AST where
 import Tokens
 import Data.Maybe
+import Data.List
 
 type Indent = Int
 
@@ -49,71 +50,80 @@ instance ASTNode Id where
         putTabs tabs
         putStrLn $ "Identifier: " ++ show (token $ id_token identifier)
 
--- Type
-data Type = 
-    Type    { type_token :: Token, type_type :: Maybe Type } 
+data Type =
+    Simple      { type_str :: String } |
+    Compound    { type_str :: String, type_type :: Type }
     deriving (Eq, Show)
 
 instance ASTNode Type where
-    printNode tabs dataType = do
+    printNode tabs tp = do
         putTabs tabs
-        putStrLn $ "Data Type: " ++ show (token $ type_token dataType)
+        print tp
+        
+numberTypes = [AST.Simple "quarter", AST.Simple "eighth", AST.Simple "32th", AST.Simple "64th"]
+
+instance Ord Type where
+    compare a b =
+        case fmap (\x -> (>x)) (a `elemIndex` numberTypes) <*> (a `elemIndex` numberTypes) of
+            Nothing -> EQ
+            Just True -> LT
+            Just False -> GT
 
 -- Expression
 data Expression =
 
     -- | Literal expression
-    Literal         {   exp_token :: Token }                                  |
+    Literal         {   exp_token :: Token, exp_type :: Type }                                  |
 
     -- | Type constructor for scalars and records
     Literal'        { exp_exps :: [Expression], exp_type :: Type }            |
     
-    LiteralMelody   {   exp_values :: [Expression] }                          |
+    LiteralMelody   {   exp_values :: [Expression], exp_type :: Type }                          |
 
     -- | Identifier
-    IdExp           {   exp_id :: Id }                                        |
+    IdExp           {   exp_id :: Id, exp_type :: Type }                                        |
 
     -- | Call function
-    CallExp         {   exp_id :: Id, exp_params :: [Expression] }            |
+    CallExp         {   exp_id :: Id, exp_params :: [Expression], exp_type :: Type }            |
 
     -- | Dereference an expression
-    DereferenceExp  {   exp_exp :: Expression, exp_token :: Token }                               |
+    DereferenceExp  {   exp_exp :: Expression, exp_token :: Token, exp_type :: Type }                               |
     
     -- | Allocate memory
-    NewExp          {   exp_init :: Expression }                              |
+    NewExp          {   exp_init :: Expression, exp_type :: Type }                              |
 
     -- | Indexing an array
     IndexingExp     {   exp_left :: Expression, exp_right :: Expression, 
-                        exp_bracket :: Token }                                |
+                        exp_bracket :: Token, exp_type :: Type }                                |
 
     -- | Accessing a struct field
-    DotExp          {   exp_left :: Expression, exp_id :: Id }                |
+    DotExp          {   exp_left :: Expression, exp_id :: Id, exp_type :: Type }                |
 
     -- | Negation
-    NotExp          {   exp_exp :: Expression }                               |
+    NotExp          {   exp_exp :: Expression, exp_type :: Type }                               |
     
     -- | Conjunction
-    AndExp          {   exp_left :: Expression, exp_right :: Expression }     |
+    AndExp          {   exp_left :: Expression, exp_right :: Expression, exp_type :: Type }     |
     
     -- | Disjunction
-    OrExp           {   exp_left :: Expression, exp_right :: Expression }     |
+    OrExp           {   exp_left :: Expression, exp_right :: Expression, exp_type :: Type }     |
 
     -- Arithmetic expressions
-    NegativeExp     {   exp_exp :: Expression }                               |
-    SubstractionExp {   exp_left :: Expression, exp_right :: Expression }     |
-    AdditionExp     {   exp_left :: Expression, exp_right :: Expression }     |
-    ModExp          {   exp_left :: Expression, exp_right :: Expression }     |
-    MultExp         {   exp_left :: Expression, exp_right :: Expression }     |
-    DivExp          {   exp_left :: Expression, exp_right :: Expression }     |
-    PowExp          {   exp_left :: Expression, exp_right :: Expression }     |
+    NegativeExp     {   exp_exp :: Expression, exp_type :: Type }                               |
+    SubstractionExp {   exp_left :: Expression, exp_right :: Expression, exp_type :: Type }     |
+    AdditionExp     {   exp_left :: Expression, exp_right :: Expression, exp_type :: Type }     |
+    ModExp          {   exp_left :: Expression, exp_right :: Expression, exp_type :: Type }     |
+    MultExp         {   exp_left :: Expression, exp_right :: Expression, exp_type :: Type }     |
+    DivExp          {   exp_left :: Expression, exp_right :: Expression, exp_type :: Type }     |
+    PowExp          {   exp_left :: Expression, exp_right :: Expression, exp_type :: Type }     |
 
     -- Relational
-    EqualExp        {   exp_left :: Expression, exp_right :: Expression }     |
-    NotEqualExp     {   exp_left :: Expression, exp_right :: Expression }     |
-    LessExp         {   exp_left :: Expression, exp_right :: Expression }     |
-    GreaterExp      {   exp_left :: Expression, exp_right :: Expression }     |
-    LessEqualExp    {   exp_left :: Expression, exp_right :: Expression }     |
-    GreaterEqualExp {   exp_left :: Expression, exp_right :: Expression }            
+    EqualExp        {   exp_left :: Expression, exp_right :: Expression, exp_type :: Type }     |
+    NotEqualExp     {   exp_left :: Expression, exp_right :: Expression, exp_type :: Type }     |
+    LessExp         {   exp_left :: Expression, exp_right :: Expression, exp_type :: Type }     |
+    GreaterExp      {   exp_left :: Expression, exp_right :: Expression, exp_type :: Type }     |
+    LessEqualExp    {   exp_left :: Expression, exp_right :: Expression, exp_type :: Type }     |
+    GreaterEqualExp {   exp_left :: Expression, exp_right :: Expression, exp_type :: Type }            
 
     deriving (Eq, Show)
 

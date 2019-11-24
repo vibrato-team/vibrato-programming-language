@@ -115,6 +115,16 @@ crr: Melody<whole> <-> Melody<whole> (4)|
 
 The values within the literals created with the last syntax will be the default if there is a default value for the type.
 
+#### Concat melodies
+The binary operator infix `<|>`, also called _concat_, receives two melodies of the same type and concatenates them in the first dimension.
+For example:
+```vibrato
+arr: Melody<Melody<whole>> <-> [[maj, min], [maj, maj, min], [min]]|
+brr: Melody<Melody<whole>> <-> [[min, min, min, min], [maj]]|
+
+crr: Melody<Melody<whole>> <-> arr <|> brr|    -- crr = [[maj, min], [maj, maj, min], [min], [min, min, min, min], [maj]]
+```
+
 ### Sample
 A sample is a variable that points or references another variable by storing its memory address. If the variable `x` points to the variable `y`, it is said that "`x` is a sample of `y`" or "`x` samples `y`". Default value: the `TT` token, also called _TriTono_ (equivalent to `NULL` in C).
 Example:
@@ -450,15 +460,7 @@ Prints
 ```
 3
 ```
-### Concat
-The binary operator infix `<|>`, also called _concat_, receives two melodies of the same type and concatenates them in the first dimension.
-For example:
-```vibrato
-arr: Melody<Melody<whole>> <-> [[maj, min], [maj, maj, min], [min]]|
-brr: Melody<Melody<whole>> <-> [[min, min, min, min], [maj]]|
 
-crr: Melody<Melody<whole>> <-> arr <|> brr|    -- crr = [[maj, min], [maj, maj, min], [min], [min, min, min, min], [maj]]
-```
 ## Examples
 See folder [examples](https://github.com/vibrato-team/vibrato-programming-language/tree/master/examples)
 

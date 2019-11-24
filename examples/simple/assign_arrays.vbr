@@ -1,0 +1,4 @@
+moderato() {
+    arr: Melody<whole>|
+    arr <-> [maj, maj, min]|
+}

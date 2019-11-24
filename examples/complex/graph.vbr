@@ -6,17 +6,6 @@ chord List {
     value: quarter
 }
 
-**/
-Obtener elemento n-ésimo de una lista enlazada.
-/**
-track get_nth(head: Sample<List>, n: quarter): Sample<List> {
-    idx: quarter <-> 0|
-    loop x {
-        head! <-> head!.next|
-    } in (n)
-    head||
-}
-
 */
 Grafo
 /*
@@ -34,10 +23,9 @@ track has_cycle(
     vis: Sample<Melody<whole> >, 
     u: quarter
 ): whole {
-    idx: quarter <-> 0|
-    loop x {
-        u_list: Sample<List> <-> g.adyList![u]|
-        v: quarter <-> (play get_nth with (u_list, idx))!.value|
+    u_list: Sample<List> <-> g.adyList![u]|
+    loop (u_list /= TT) {
+        v: quarter <-> u_list!.value|
         if (not vis![v]) {
             vis![v] <-> maj|
             if (play has_cycle with (g, vis, v)) {
@@ -46,8 +34,8 @@ track has_cycle(
         } else {
             maj||
         }
-        idx#|
-    } in (0, play length with (g.adyList![u]))
+        u_list <-> u_list!.next|
+    }
 
     min||
 }

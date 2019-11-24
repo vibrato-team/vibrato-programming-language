@@ -7,7 +7,7 @@ Lenguaje de programación imperativo basado en teoría musical.
     1. [Whole (Redonda)](#whole-redonda)
     2. [Half (Blanca)](#half-blanca)
     3. [Quarter (Negra)](#quarter-negra)
-    4. [Eight (Corchea)](#eighth-corchea)
+    4. [Eighth (Corchea)](#eighth-corchea)
     4. [32th (Fusa)](#32th-fusa)
     5. [64th (Semifusa)](#64th-semifusa)
     6. [Melodies (Melodías)](#melodies-melodías)
@@ -81,7 +81,7 @@ Ejemplo:
 x0: quarter <-> x1 * x2 + 4|
 ```
 
-### Eight (Corchea)
+### Eighth (Corchea)
 Son las notas que duran un octavo de compás y sus valores pertenecen al rango [-2^63, 2^63 - 1] de los enteros complemento a 2. Soporta los operadores aritméticos `+`, `-`, `*`, `/` y `mod`. Valor default: `0`.
 Ejemplo:
 ```vibrato
@@ -115,6 +115,16 @@ crr: Melody<whole> <-> Melody<whole> (4)|
 ```
 
 Los valores dentro de los literales creados con la última sintaxis serán los default en caso de existir un valor default para el tipo.
+
+#### Concatenar melodías
+El operador binario infijo `<|>`, también llamado _concat_, recibe dos melodías del mismo tipo y las concatena en la primera dimensión.
+Ejemplo:
+```vibrato
+arr: Melody<Melody<whole>> <-> [[maj, min], [maj, maj, min], [min]]|
+brr: Melody<Melody<whole>> <-> [[min, min, min, min], [maj]]|
+
+crr: Melody<Melody<whole>> <-> arr <|> brr|    -- crr = [[maj, min], [maj, maj, min], [min], [min, min, min, min], [maj]]
+```
 
 ### Sample
 Un sample es una variable que apunta o referencia a otra variable almacenando su dirección de memoria. Si la variable `x` apunta a la variable `y`, se dice que "`x` es un sample de `y`" o "`x` _samplea_ a `y`". Valor default: el token `TT`, también llamado _TriTono_ (equivale al `NULL` en C).
@@ -452,15 +462,7 @@ Imprime
 ```
 3
 ```
-### concat
-El operador binario infijo `<|>`, también llamado _concat_, recibe dos melodías del mismo tipo y las concatena en la primera dimensión.
-Ejemplo:
-```vibrato
-arr: Melody<Melody<whole>> <-> [[maj, min], [maj, maj, min], [min]]|
-brr: Melody<Melody<whole>> <-> [[min, min, min, min], [maj]]|
 
-crr: Melody<Melody<whole>> <-> arr <|> brr|    -- crr = [[maj, min], [maj, maj, min], [min], [min, min, min, min], [maj]]
-```
 ## Ejemplos
 Ver carpeta [examples](https://github.com/vibrato-team/vibrato-programming-language/tree/master/examples)
 
