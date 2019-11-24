@@ -24,7 +24,7 @@ data ParserState = ParserState {
     state_scopes :: Sem.Scopes,
     state_table :: Sem.SymbolTable,
     state_lvl :: Int,
-    state_type :: Maybe AST.Type
+    state_ret_type :: Maybe AST.Type
 }
 
 -- | Monad of the parser
@@ -133,3 +133,12 @@ currScope :: ParserMonad Int
 currScope = do
     (ParserState (Sem.Scopes _ (curr:_)) _ _ _) <- RWS.get
     return curr
+
+-- | Add a return type to state
+addReturnType :: Maybe AST.Type -> ParserMonad ()
+addReturnType retType = do
+    state <- RWS.get
+    RWS.put $ state { state_ret_type = retType }
+
+-- | Clear return type from state
+clearReturnType = addReturnType Nothing

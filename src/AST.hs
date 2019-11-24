@@ -53,7 +53,11 @@ instance ASTNode Id where
 data Type =
     Simple      { type_str :: String } |
     Compound    { type_str :: String, type_type :: Type }
-    deriving (Eq, Show)
+    deriving (Eq)
+
+instance Show Type where
+    show (Simple str) = str
+    show (Compound str type') = str ++ "<" ++ show type' ++ ">"
 
 instance ASTNode Type where
     printNode tabs tp = do

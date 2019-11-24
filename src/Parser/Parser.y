@@ -131,13 +131,16 @@ ExternalList            : ExternalList FunctionDeclaration  { }
 
 -- TODO: Agregar los params y los fields en un nuevo scope
 FunctionDeclaration     :: { () }                                           -- add block to function entry
-FunctionDeclaration     : Signature Block PopScope                          {% PMonad.updateEntry (addBlock $2) $1 }
+FunctionDeclaration     : Signature Block PopScope                          {% do
+                                                                                PMonad.updateEntry (addBlock $2) $1
+                                                                                PMonad.clearReturnType }
 MainDeclaration         : main PushScope '(' ')' Block                      {% let idMain = AST.Id $1 in createFunctionEntry (AST.id_token idMain) Nothing idMain [] (Just $5) }
 
 Signature               :: { String }
 Signature               : track Id PushScope '(' ListaParam ')' MaybeType             {% do
                                                                                             let tk = AST.id_token $2
                                                                                             createFunctionEntry tk $7 $2 (reverse $5) Nothing
+                                                                                            PMonad.addReturnType $7
                                                                                             return $ token tk }
 
 ListaParam              :: { [AST.VarDeclaration] }
@@ -238,8 +241,18 @@ LValue                  : Indexing                              { $1 }
                                                                     return $ (AST.IdExp $1 (fromJust $ SemData.entry_type $ fromJust idType)) }
 
 Return                  :: { AST.Instruction }
-Return                  : Expression '||'                       { AST.ReturnInst $ Just $1 }
-                        | '||'                                  { AST.ReturnInst Nothing }
+Return                  : Expression '||'                       {% do
+                                                                    state <- RWS.get
+                                                                    case PMonad.state_ret_type state of
+                                                                        Nothing -> semError $2 $ show (AST.exp_type $1) ++ " return instruction inside void track:"
+                                                                        Just retType -> do
+                                                                            checkEquality' retType $1 $2
+                                                                            return $ AST.ReturnInst $ Just $1 }
+                        | '||'                                  {% do
+                                                                    state <- RWS.get
+                                                                    case PMonad.state_ret_type state of
+                                                                        Nothing -> return $ AST.ReturnInst Nothing
+                                                                        Just retType -> semError $1 $ "Void return instruction inside " ++ show retType ++ " track:"}
 
 IO                      :: { AST.Instruction }
 IO                      : '@' '(' ListExp ')'                   { AST.RecordInst $ reverse $3 }
@@ -271,7 +284,7 @@ CallFuncion             : play Id with '(' ListExp ')'          {% do
                                                                         SemData.Function _ params ->
                                                                             if length $5 /= length params
                                                                                 then semError $4 "Wrong number of arguments:"
-                                                                                else return $ AST.CallExp $2 (reverse $5) (fromJust $ SemData.entry_type entry) 
+                                                                                else return $ AST.CallExp $2 (reverse $5) (fromMaybe voidType $ SemData.entry_type entry) 
                                                                         _ -> semError $1 "Calling a not track expression:"}
 
                         | play Id                               {% do
@@ -280,7 +293,7 @@ CallFuncion             : play Id with '(' ListExp ')'          {% do
                                                                     case category of
                                                                         SemData.Function _ params ->
                                                                             if length params == 0
-                                                                                then return $ AST.CallExp $2 [] (fromJust $ SemData.entry_type entry) 
+                                                                                then return $ AST.CallExp $2 [] (fromMaybe voidType $ SemData.entry_type entry) 
                                                                                 else semError (AST.id_token $2) "Wrong number of arguments:"
                                                                         _ -> semError $1 "Calling a not track expression:" }
 
@@ -456,6 +469,7 @@ PopScope                : {- empty -}                           {% PMonad.popSco
 
 {
 
+voidType = AST.Simple "void"
 -----------------------------------------------------------------------------------------------
 -- Exceptions
 -----------------------------------------------------------------------------------------------
@@ -625,13 +639,17 @@ checkExpType exp expected tk = do
         else return expType
 
 checkEquality :: AST.Expression -> AST.Expression -> Token -> ParserMonad AST.Type
-checkEquality idExp exp tk =
-    let astType = AST.exp_type idExp in(
+checkEquality = checkEquality' . AST.exp_type
+
+checkEquality' :: AST.Type -> AST.Expression -> Token -> ParserMonad AST.Type
+checkEquality' astType exp tk =
     if AST.type_str astType `elem` ["Sample", "null"]
         then checkExpType exp [astType, AST.Simple "null"] tk
         else if AST.type_str astType `elem` ["Melody", "empty_list"]
             then checkExpType exp [astType, AST.Simple "empty_list"] tk
-            else checkExpType exp [astType] tk)
+            else if astType `elem` AST.numberTypes
+                then checkExpType exp AST.numberTypes tk
+                else checkExpType exp [astType] tk
 --------------------------------------------
 ----------------- END ----------------------
 --------------------------------------------
