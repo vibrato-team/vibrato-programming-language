@@ -169,7 +169,10 @@ MaybeType               : {- empty -}                           { Nothing }
                         | ':' Type                              { Just $2 }
 
 Block                   :: { AST.Block }
-Block                   : PushScope '{' Seq '}' PopScope                  { AST.Block $ reverse $3 }
+Block                   : PushScope '{' Seq '}' PopScope                  { let notDeclaration = \inst -> case inst of
+                                                                                AST.VarDecInst _ -> False
+                                                                                _ -> True
+                                                                            in AST.Block $ reverse $ filter notDeclaration $3 }
 
 Seq                     :: { [AST.Instruction] }
 Seq                     : Instruction                           { [$1] }
