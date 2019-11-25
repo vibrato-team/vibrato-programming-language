@@ -6,27 +6,29 @@ import Data.List
 type Indent = Int
 
 class ASTNode a where
-    printNode :: Indent -> a -> IO ()
+    printNode :: Indent -> a -> String
 
-putTabs :: Indent -> IO ()
-putTabs indent = putStr $ replicate (4*indent) '.'
+putTabs :: Indent -> String
+putTabs indent = replicate (4*indent) '.'
 
 -- Function Declaration
 data FunctionDeclaration =
     FunctionDec {   func_id :: Id, func_type :: Maybe Type, 
                     func_params :: [VarDeclaration], 
                     func_body :: Block  }
-    deriving (Eq, Show)
+    deriving (Eq)
+
+instance Show FunctionDeclaration where
+    show = printNode 0
 
 instance ASTNode FunctionDeclaration where
-    printNode tabs funcDec = do
-        putTabs tabs
-        putStrLn "Function Declaration: "
-        printNode (tabs+1) (func_id funcDec)
-        foldl (>>) (putStr "") $ map (printNode (tabs+1)) $ func_params funcDec
-        maybe (putStr "") (printNode (tabs+1)) $ func_type funcDec
-        printNode (tabs+1) $ func_body funcDec
-        putStr "\n"
+    printNode tabs funcDec =
+        putTabs tabs ++ "Function Declaration: " ++ 
+        (printNode (tabs+1) (func_id funcDec)) ++ 
+        (concat $ map (printNode (tabs+1)) $ func_params funcDec) ++ 
+        (maybe "" (printNode (tabs+1)) $ func_type funcDec) ++ 
+        (printNode (tabs+1) $ func_body funcDec) ++ 
+        "\n"
 
 -- Variable declaration
 data VarDeclaration =
@@ -34,11 +36,11 @@ data VarDeclaration =
     deriving (Eq, Show)
 
 instance ASTNode VarDeclaration where
-    printNode tabs varDec = do
-        putTabs tabs
-        putStrLn "Variable Declaration:"
-        printNode (tabs+1) $ var_id varDec
-        printNode (tabs+1) $ var_type varDec
+    printNode tabs varDec =
+        putTabs tabs ++
+        "Variable Declaration:" ++
+        (printNode (tabs+1) $ var_id varDec )++
+        (printNode (tabs+1) $ var_type varDec)
 
 -- Identifier
 newtype Id = 
@@ -46,19 +48,23 @@ newtype Id =
     deriving (Eq, Show)
 
 instance ASTNode Id where
-    printNode tabs identifier = do
-        putTabs tabs
-        putStrLn $ "Identifier: " ++ show (token $ id_token identifier)
+    printNode tabs identifier =
+        putTabs tabs ++
+        "Identifier: " ++
+        (show (token $ id_token identifier))
 
 data Type =
     Simple      { type_str :: String } |
     Compound    { type_str :: String, type_type :: Type }
-    deriving (Eq, Show)
+    deriving (Eq)
+
+instance Show Type where
+    show (Simple str) = str
+    show (Compound str type') = str ++ "<" ++ show type' ++ ">"
 
 instance ASTNode Type where
-    printNode tabs tp = do
-        putTabs tabs
-        print tp
+    printNode tabs tp =
+        putTabs tabs ++ show tp
         
 numberTypes = [AST.Simple "quarter", AST.Simple "eighth", AST.Simple "32th", AST.Simple "64th"]
 
@@ -123,14 +129,15 @@ data Expression =
     LessExp         {   exp_left :: Expression, exp_right :: Expression, exp_type :: Type }     |
     GreaterExp      {   exp_left :: Expression, exp_right :: Expression, exp_type :: Type }     |
     LessEqualExp    {   exp_left :: Expression, exp_right :: Expression, exp_type :: Type }     |
-    GreaterEqualExp {   exp_left :: Expression, exp_right :: Expression, exp_type :: Type }            
+    GreaterEqualExp {   exp_left :: Expression, exp_right :: Expression, exp_type :: Type }     |          
 
+    -- Cast expression
+    CastExp         {   exp_exp :: Expression, exp_from :: Type, exp_type :: Type }
     deriving (Eq, Show)
 
 instance ASTNode Expression where
-    printNode tabs exp = do
-        putTabs tabs
-        print exp
+    printNode tabs exp =
+        putTabs tabs ++ show exp
 
 -- Instructions
 data Instruction =
@@ -171,21 +178,25 @@ data Instruction =
 
     -- Bemoles y Sostenidos
     SharpExp        {   inst_exp :: Expression }                              |
-    FlatExp         {   inst_exp :: Expression }                                
+    FlatExp         {   inst_exp :: Expression }                              
     deriving (Eq, Show)
 
 instance ASTNode Instruction where
-    printNode tabs inst = do
-        putTabs tabs
-        print inst
-
+    printNode tabs inst =
+        putTabs tabs ++ (case inst of
+            IfInst exp' inst' Nothing -> "If:\n" ++ (printNode (tabs+1) exp') ++ "\n" ++ (printNode (tabs+1) inst')
+            IfInst exp' inst' (Just inst'') -> "If:\n" ++ (printNode (tabs+1) exp') ++ "\n" ++ (printNode (tabs+1) inst') ++ "\n" ++ (putTabs (tabs+1)) ++ "Else:\n" ++ (printNode (tabs+2) inst'')
+            inst' -> show inst) ++ "\n"
+            
 -- Block (Scope)
 newtype Block = 
     Block { statements :: [Instruction] }
-    deriving (Eq, Show)
+    deriving (Eq)
+
+instance Show Block where
+    show = printNode 0
 
 instance ASTNode Block where
-    printNode tabs block = do
-        putTabs tabs
-        putStrLn "Block of instructions:"
-        foldl (>>) (putStr "") $ map (printNode (tabs+1)) $ statements block
+    printNode tabs block =
+        putTabs tabs ++ "Block of instructions:\n" ++
+        (concat $ map (printNode (tabs+1)) $ statements block)

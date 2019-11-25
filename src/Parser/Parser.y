@@ -131,13 +131,16 @@ ExternalList            : ExternalList FunctionDeclaration  { }
 
 -- TODO: Agregar los params y los fields en un nuevo scope
 FunctionDeclaration     :: { () }                                           -- add block to function entry
-FunctionDeclaration     : Signature Block PopScope                          {% PMonad.updateEntry (addBlock $2) $1 }
+FunctionDeclaration     : Signature Block PopScope                          {% do
+                                                                                PMonad.updateEntry (addBlock $2) $1
+                                                                                PMonad.clearReturnType }
 MainDeclaration         : main PushScope '(' ')' Block                      {% let idMain = AST.Id $1 in createFunctionEntry (AST.id_token idMain) Nothing idMain [] (Just $5) }
 
 Signature               :: { String }
 Signature               : track Id PushScope '(' ListaParam ')' MaybeType             {% do
                                                                                             let tk = AST.id_token $2
                                                                                             createFunctionEntry tk $7 $2 (reverse $5) Nothing
+                                                                                            PMonad.addReturnType $7
                                                                                             return $ token tk }
 
 ListaParam              :: { [AST.VarDeclaration] }
@@ -238,8 +241,18 @@ LValue                  : Indexing                              { $1 }
                                                                     return $ (AST.IdExp $1 (fromJust $ SemData.entry_type $ fromJust idType)) }
 
 Return                  :: { AST.Instruction }
-Return                  : Expression '||'                       { AST.ReturnInst $ Just $1 }
-                        | '||'                                  { AST.ReturnInst Nothing }
+Return                  : Expression '||'                       {% do
+                                                                    state <- RWS.get
+                                                                    case PMonad.state_ret_type state of
+                                                                        Nothing -> semError $2 $ show (AST.exp_type $1) ++ " return instruction inside void track:"
+                                                                        Just retType -> do
+                                                                            checkEquality' retType $1 $2
+                                                                            return $ AST.ReturnInst $ Just $1 }
+                        | '||'                                  {% do
+                                                                    state <- RWS.get
+                                                                    case PMonad.state_ret_type state of
+                                                                        Nothing -> return $ AST.ReturnInst Nothing
+                                                                        Just retType -> semError $1 $ "Void return instruction inside " ++ show retType ++ " track:"}
 
 IO                      :: { AST.Instruction }
 IO                      : '@' '(' ListExp ')'                   { AST.RecordInst $ reverse $3 }
@@ -271,7 +284,7 @@ CallFuncion             : play Id with '(' ListExp ')'          {% do
                                                                         SemData.Function _ params ->
                                                                             if length $5 /= length params
                                                                                 then semError $4 "Wrong number of arguments:"
-                                                                                else return $ AST.CallExp $2 (reverse $5) (fromJust $ SemData.entry_type entry) 
+                                                                                else return $ AST.CallExp $2 (reverse $5) (fromMaybe voidType $ SemData.entry_type entry) 
                                                                         _ -> semError $1 "Calling a not track expression:"}
 
                         | play Id                               {% do
@@ -280,7 +293,7 @@ CallFuncion             : play Id with '(' ListExp ')'          {% do
                                                                     case category of
                                                                         SemData.Function _ params ->
                                                                             if length params == 0
-                                                                                then return $ AST.CallExp $2 [] (fromJust $ SemData.entry_type entry) 
+                                                                                then return $ AST.CallExp $2 [] (fromMaybe voidType $ SemData.entry_type entry) 
                                                                                 else semError (AST.id_token $2) "Wrong number of arguments:"
                                                                         _ -> semError $1 "Calling a not track expression:" }
 
@@ -371,49 +384,93 @@ Expression              : LValue %prec LVALUE                   { $1 }
                         | Expression '-' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
-                                                                    return $ AST.SubstractionExp $1 $3 (max (AST.exp_type $1) (AST.exp_type $3)) }
+
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.SubstractionExp exp1 exp2 finalType }
                         | Expression mod Expression             {%do
                                                                     checkExpType $1 [AST.Simple "quarter", AST.Simple "eighth"] $2
                                                                     checkExpType $3 [AST.Simple "quarter", AST.Simple "eighth"] $2
-                                                                    return $ AST.ModExp $1 $3 (max (AST.exp_type $1) (AST.exp_type $3)) }
+
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.ModExp exp1 exp2 finalType }
                         | Expression '/' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
-                                                                    return $ AST.DivExp $1 $3 (max (AST.exp_type $1) (AST.exp_type $3)) }
+
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.DivExp exp1 exp2 finalType }
                         | Expression '*' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
-                                                                    return $ AST.MultExp $1 $3 (max (AST.exp_type $1) (AST.exp_type $3)) }
+
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.MultExp exp1 exp2 finalType }
                         | Expression '^' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 [AST.Simple "quarter", AST.Simple "eighth"] $2
+                                                                    
                                                                     return $ AST.PowExp $1 $3 (AST.exp_type $1) }             
                         | Expression '+' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
-                                                                    return $ AST.AdditionExp $1 $3 (max (AST.exp_type $1) (AST.exp_type $3)) }
+
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.AdditionExp exp1 exp2 finalType }
 
                         -- Relacionales
                         | Expression '=' Expression             {%do
                                                                     let expected = [AST.exp_type $1]
                                                                     checkEquality $1 $3 $2
+
                                                                     return $ AST.EqualExp $1 $3 (AST.Simple "whole") }
+
                         | Expression '/=' Expression            {%do
                                                                     let expected = [AST.exp_type $1]
                                                                     checkEquality $1 $3 $2
+
                                                                     return $ AST.NotEqualExp $1 $3 (AST.Simple "whole") }
                         | Expression '<' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
-                                                                    return $ AST.LessExp $1 $3 (AST.Simple "whole") }
+
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.LessExp exp1 exp2 (AST.Simple "whole") }
                         | Expression '>' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
-                                                                    return $ AST.GreaterExp $1 $3 (AST.Simple "whole") }
+
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.GreaterExp exp1 exp2 (AST.Simple "whole") }
                         | Expression '<=' Expression            {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
-                                                                    return $ AST.LessEqualExp $1 $3 (AST.Simple "whole") }
+
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.LessEqualExp exp1 exp2 (AST.Simple "whole") }
                         | Expression '>=' Expression            {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
@@ -456,6 +513,7 @@ PopScope                : {- empty -}                           {% PMonad.popSco
 
 {
 
+voidType = AST.Simple "void"
 -----------------------------------------------------------------------------------------------
 -- Exceptions
 -----------------------------------------------------------------------------------------------
@@ -476,7 +534,7 @@ createFunctionEntry tk semType funcId params block = do
     a <- verifyFunctionEntry (token tk) 
     if a then do 
         let funcat = SemData.Function { SemData.function_block = block, SemData.function_params = params }
-        (SemData.Scopes _ (_:prev:_), _, _) <- RWS.get
+        (PMonad.ParserState (SemData.Scopes _ (_:prev:_)) _ _ _) <- RWS.get
         
         let entry = SemData.Entry {
             SemData.entry_name = token tk,
@@ -509,7 +567,7 @@ createTypeEntry :: Token -> String -> ParserMonad ()
 createTypeEntry tk typeStr = do
     result <- verifyTypeEntry typeStr
     if result then do
-        st@(_, _, lvl) <- RWS.get
+        st@(PMonad.ParserState _ _ lvl _) <- RWS.get
         curr <- PMonad.currScope
 
         let entry = SemData.Entry {
@@ -625,13 +683,23 @@ checkExpType exp expected tk = do
         else return expType
 
 checkEquality :: AST.Expression -> AST.Expression -> Token -> ParserMonad AST.Type
-checkEquality idExp exp tk =
-    let astType = AST.exp_type idExp in(
+checkEquality = checkEquality' . AST.exp_type
+
+checkEquality' :: AST.Type -> AST.Expression -> Token -> ParserMonad AST.Type
+checkEquality' astType exp tk =
     if AST.type_str astType `elem` ["Sample", "null"]
         then checkExpType exp [astType, AST.Simple "null"] tk
         else if AST.type_str astType `elem` ["Melody", "empty_list"]
             then checkExpType exp [astType, AST.Simple "empty_list"] tk
-            else checkExpType exp [astType] tk)
+            else if astType `elem` AST.numberTypes
+                then checkExpType exp AST.numberTypes tk
+                else checkExpType exp [astType] tk
+
+castExp :: AST.Expression -> AST.Type -> AST.Expression
+castExp exp finalType =
+    if AST.exp_type exp == finalType 
+        then exp
+        else AST.CastExp exp (AST.exp_type exp) finalType 
 --------------------------------------------
 ----------------- END ----------------------
 --------------------------------------------

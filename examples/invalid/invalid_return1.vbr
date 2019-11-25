@@ -1,0 +1,13 @@
+track f(x: quarter): quarter {
+    if (x > 0) {
+        |>("mayor a 0")|
+        ||
+    } else {
+        |>("No Positivo")|
+        x||
+    }
+}
+
+moderato() {
+    f(10)|
+}
