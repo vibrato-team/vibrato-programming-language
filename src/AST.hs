@@ -16,10 +16,7 @@ data FunctionDeclaration =
     FunctionDec {   func_id :: Id, func_type :: Maybe Type, 
                     func_params :: [VarDeclaration], 
                     func_body :: Block  }
-    deriving (Eq)
-
-instance Show FunctionDeclaration where
-    show = printNode 0
+    deriving (Eq, Show)
 
 instance ASTNode FunctionDeclaration where
     printNode tabs funcDec =
@@ -191,10 +188,7 @@ instance ASTNode Instruction where
 -- Block (Scope)
 newtype Block = 
     Block { statements :: [Instruction] }
-    deriving (Eq)
-
-instance Show Block where
-    show = printNode 0
+    deriving (Eq, Show)
 
 instance ASTNode Block where
     printNode tabs block =

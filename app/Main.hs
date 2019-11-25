@@ -3,6 +3,7 @@ module Main where
 import Lib
 import qualified Lexer
 import qualified Parser.Parser as Parser
+import qualified Parser.PreParser as PreParser
 import qualified Parser.Monad as PMonad
 import AST
 import Util.Error
@@ -27,7 +28,8 @@ main = do
         Right state -> case Lexer.matches state of
             Left errors -> throwCompilerError srcFile (reverse errors)
             Right tokens -> do
-                (pstate, _)<- RWS.execRWST (Parser.parse tokens) srcFile PMonad.initialState
+                (prestate, _) <- RWS.execRWST (PreParser.preparse tokens) srcFile PMonad.initialState
+                (pstate, _) <- RWS.execRWST (Parser.parse tokens) srcFile prestate {PMonad.state_lvl = 1}
                 printTable $ PMonad.state_table pstate
     
     hClose handle
