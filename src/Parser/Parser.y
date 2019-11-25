@@ -1,5 +1,5 @@
 {
-module Parser.Parser(parse, PMonad.ParserMonad) where
+module Parser.Parser(parse, createFunctionEntry, createParamEntry, parseError, PMonad.ParserMonad) where
 import Lexer
 import Tokens
 import qualified AST
@@ -139,7 +139,6 @@ MainDeclaration         : main PushScope '(' ')' Block                      {% l
 Signature               :: { String }
 Signature               : track Id PushScope '(' ListaParam ')' MaybeType             {% do
                                                                                             let tk = AST.id_token $2
-                                                                                            createFunctionEntry tk $7 $2 (reverse $5) Nothing
                                                                                             PMonad.addReturnType $7
                                                                                             return $ token tk }
 
@@ -149,9 +148,7 @@ ListaParam              : ParamDeclaration                          { [$1] }
                         | {- empty -}                               { [] }
 
 ParamDeclaration        :: { AST.VarDeclaration }
-ParamDeclaration        : Id ':' ParamRef Type                      {% do
-                                                                    createParamEntry (AST.id_token $1) (Just $4) $3
-                                                                    return $ AST.VarDec $1 $4 }
+ParamDeclaration        : Id ':' ParamRef Type                      { AST.VarDec $1 $4 }
 ParamRef                :: { Bool }
 ParamRef                : '>'                                       { True }
                         | {- empty -}                               { False }
