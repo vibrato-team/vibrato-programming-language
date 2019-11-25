@@ -384,49 +384,93 @@ Expression              : LValue %prec LVALUE                   { $1 }
                         | Expression '-' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
-                                                                    return $ AST.SubstractionExp $1 $3 (max (AST.exp_type $1) (AST.exp_type $3)) }
+
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.SubstractionExp exp1 exp2 finalType }
                         | Expression mod Expression             {%do
                                                                     checkExpType $1 [AST.Simple "quarter", AST.Simple "eighth"] $2
                                                                     checkExpType $3 [AST.Simple "quarter", AST.Simple "eighth"] $2
-                                                                    return $ AST.ModExp $1 $3 (max (AST.exp_type $1) (AST.exp_type $3)) }
+
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.ModExp exp1 exp2 finalType }
                         | Expression '/' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
-                                                                    return $ AST.DivExp $1 $3 (max (AST.exp_type $1) (AST.exp_type $3)) }
+
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.DivExp exp1 exp2 finalType }
                         | Expression '*' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
-                                                                    return $ AST.MultExp $1 $3 (max (AST.exp_type $1) (AST.exp_type $3)) }
+
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.MultExp exp1 exp2 finalType }
                         | Expression '^' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 [AST.Simple "quarter", AST.Simple "eighth"] $2
+                                                                    
                                                                     return $ AST.PowExp $1 $3 (AST.exp_type $1) }             
                         | Expression '+' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
-                                                                    return $ AST.AdditionExp $1 $3 (max (AST.exp_type $1) (AST.exp_type $3)) }
+
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.AdditionExp exp1 exp2 finalType }
 
                         -- Relacionales
                         | Expression '=' Expression             {%do
                                                                     let expected = [AST.exp_type $1]
                                                                     checkEquality $1 $3 $2
+
                                                                     return $ AST.EqualExp $1 $3 (AST.Simple "whole") }
+
                         | Expression '/=' Expression            {%do
                                                                     let expected = [AST.exp_type $1]
                                                                     checkEquality $1 $3 $2
+
                                                                     return $ AST.NotEqualExp $1 $3 (AST.Simple "whole") }
                         | Expression '<' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
-                                                                    return $ AST.LessExp $1 $3 (AST.Simple "whole") }
+
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.LessExp exp1 exp2 (AST.Simple "whole") }
                         | Expression '>' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
-                                                                    return $ AST.GreaterExp $1 $3 (AST.Simple "whole") }
+
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.GreaterExp exp1 exp2 (AST.Simple "whole") }
                         | Expression '<=' Expression            {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
-                                                                    return $ AST.LessEqualExp $1 $3 (AST.Simple "whole") }
+
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.LessEqualExp exp1 exp2 (AST.Simple "whole") }
                         | Expression '>=' Expression            {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
@@ -650,6 +694,12 @@ checkEquality' astType exp tk =
             else if astType `elem` AST.numberTypes
                 then checkExpType exp AST.numberTypes tk
                 else checkExpType exp [astType] tk
+
+castExp :: AST.Expression -> AST.Type -> AST.Expression
+castExp exp finalType =
+    if AST.exp_type exp == finalType 
+        then exp
+        else AST.CastExp exp (AST.exp_type exp) finalType 
 --------------------------------------------
 ----------------- END ----------------------
 --------------------------------------------
