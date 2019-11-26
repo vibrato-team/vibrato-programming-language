@@ -33,6 +33,17 @@ checkVarIsDeclared tk = do
     throwIfNothing entryMaybe tk "Variable not in scope:"
     return $ fromJust entryMaybe
 
+-- Chequea que un lvalue no sea const
+checkConstLvalue :: AST.Expression -> ParserMonad ()
+checkConstLvalue (AST.IdExp id _) = do
+    let tkString = token $ AST.id_token id
+    entryMaybe <- PMonad.lookup tkString
+    case entryMaybe of
+        Just (Sem.Entry _ Sem.Const _ _ _) -> semError (AST.id_token id) "You cannot redeclare a Const:"
+        Just _ -> return ()
+        Nothing -> return ()
+
+
 -- | Analizes if field correspond to the type of the entry and throws an error if it is not
 analyzeField :: Token -> Int -> ParserMonad Sem.Entry
 analyzeField tk level = do

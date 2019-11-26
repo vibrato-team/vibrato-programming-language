@@ -210,10 +210,14 @@ Statement               : VarDeclaration                        { AST.VarDecInst
                         | Asignacion                            { $1 }
                         | IO                                    { $1 }
                         | free Id                               {% do
-                                                                    checkVarIsDeclared (AST.id_token $2)
+                                                                    checkVarIsDeclared $ AST.id_token $2
                                                                     return (AST.FreeInst $2) }
-                        | LValue '#'                            { AST.SharpExp $1 }
-                        | LValue '&'                            { AST.FlatExp $1 }
+                        | LValue '#'                            {% do 
+                                                                    checkConstLvalue $1 
+                                                                    return $ AST.SharpExp $1 }
+                        | LValue '&'                            {% do 
+                                                                    checkConstLvalue $1 
+                                                                    return $ AST.FlatExp $1 }
                         | CallFuncion                           { AST.CallFuncInst $1 }
 
 
@@ -232,6 +236,7 @@ VarInit                 : Id ':' Type '<->' Expression          {% do
 Asignacion              :: { AST.Instruction }
 Asignacion              : LValue '<->' Expression               {%do
                                                                     checkEquality $1 $3 $2
+                                                                    checkConstLvalue $1
                                                                     return $ AST.AssignInst $1 $3 }
 
 LValue                  :: { AST.Expression }
@@ -262,21 +267,26 @@ IO                      : '@' '(' ListExp ')'                   { AST.RecordInst
                         | '|>' '(' ListExp ')'                  { AST.PlayInst $ reverse $3 }
 
 Loop                    :: { AST.Instruction }
-Loop                    : loop PushScope Id MaybeType Block PopScope in '(' Expression ')'                                       {%do
-                                                                                                                                    checkExpType $9 AST.numberTypes $8
-                                                                                                                                    return $ AST.ForInst $3 $4 $5 Nothing $9 Nothing }
-                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ')'                        {%do
-                                                                                                                                    checkExpType $9 AST.numberTypes $8
-                                                                                                                                    checkExpType $11 AST.numberTypes $10
-                                                                                                                                    return $ AST.ForInst $3 $4 $5 (Just $9) $11 Nothing }
-                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ',' Expression ')'         {%do
-                                                                                                                                    checkExpType $9 AST.numberTypes $8
-                                                                                                                                    checkExpType $11 AST.numberTypes $10
-                                                                                                                                    checkExpType $13 AST.numberTypes $12
-                                                                                                                                    return $ AST.ForInst $3 $4 $5 (Just $9) $11 (Just $13) }
+Loop                    : loop PushScope IdConst Block PopScope in '(' Expression ')'                                       {%do
+                                                                                                                                    checkExpType $8 AST.numberTypes $7
+                                                                                                                                    return $ AST.ForInst (fst $3) (snd $3) $4 Nothing $8 Nothing }
+                        | loop PushScope IdConst Block PopScope in '(' Expression ',' Expression ')'                        {%do
+                                                                                                                                    checkExpType $8 AST.numberTypes $7
+                                                                                                                                    checkExpType $10 AST.numberTypes $9
+                                                                                                                                    return $ AST.ForInst (fst $3) (snd $3) $4 (Just $8) $10 Nothing }
+                        | loop PushScope IdConst Block PopScope in '(' Expression ',' Expression ',' Expression ')'         {%do
+                                                                                                                                    checkExpType $8 AST.numberTypes $7
+                                                                                                                                    checkExpType $10 AST.numberTypes $9
+                                                                                                                                    checkExpType $12 AST.numberTypes $11
+                                                                                                                                    return $ AST.ForInst (fst $3) (snd $3) $4 (Just $8) $10 (Just $12) }
                         | loop '(' Expression ')' Block                                                                          {% do
                                                                                                                                     checkExpType $3 [AST.Simple "whole"] $2
                                                                                                                                     return $ AST.WhileInst $3 $5 }
+IdConst                 :: { (AST.Id, Maybe AST.Type) }
+IdConst                 : id MaybeType                                   {% do 
+                                                                            createConstEntry $1 $2   
+                                                                            return $ (AST.Id $1, $2) }
+
 
 CallFuncion             :: { AST.Expression }
 CallFuncion             : play Id with '(' ListExp ')'          {% do
@@ -566,6 +576,23 @@ createVarEntry tk semType = do
     else
         semError tk "Variable already declared in the same scope:"
 
+createConstEntry :: Token -> Maybe AST.Type -> ParserMonad ()
+createConstEntry tk semType = do 
+    curr <- PMonad.currScope
+    result <- verifyVarEntry (token tk) curr
+    let typeconst = fromMaybe (AST.Simple "quarter") semType  
+    if result then do 
+        let entry = SemData.Entry {
+            SemData.entry_name = token tk,
+            SemData.entry_category = SemData.Const,
+            SemData.entry_scope = curr,
+            SemData.entry_type = Just typeconst,
+            SemData.entry_level = Nothing
+        }
+        PMonad.insertEntry entry
+    else
+        semError tk "Const already declared in the same scope:"
+
 createTypeEntry :: Token -> String -> ParserMonad ()
 createTypeEntry tk typeStr = do
     result <- verifyTypeEntry typeStr
@@ -636,6 +663,7 @@ verifyVarEntry name current_scope = do
     case entry of
         Nothing -> return True
         Just (SemData.Entry _ SemData.Var scope _ _) -> return $ scope /= current_scope
+        Just (SemData.Entry _ SemData.Const scope _ _) -> return $ scope /= current_scope
         Just _ -> return True
 
 verifyTypeEntry :: String -> ParserMonad (Bool)
@@ -703,6 +731,7 @@ castExp exp finalType =
     if AST.exp_type exp == finalType 
         then exp
         else AST.CastExp exp (AST.exp_type exp) finalType 
+
 --------------------------------------------
 ----------------- END ----------------------
 --------------------------------------------

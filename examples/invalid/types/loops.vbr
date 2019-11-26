@@ -1,0 +1,8 @@
+moderato(){
+    a: quarter <-> 10 |
+    loop i {
+        a <-> a + i |
+        i <-> 2 |
+    } in (10)
+    |>(a) |
+}

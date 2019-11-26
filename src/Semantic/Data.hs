@@ -8,6 +8,7 @@ import qualified Data.Map.Lazy as Map
 data Category =
     Function         { function_block :: Maybe AST.Block, function_params :: [AST.VarDeclaration] }     |
     Var              |
+    Const            |
     Type             |
     Constructor      | -- ^ Melody and Sample  
     Field            | -- ^ Member of a struct/union
