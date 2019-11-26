@@ -1,0 +1,9 @@
+track f(a:quarter, b:whole):quarter{
+    4||
+}
+
+moderato(){
+    a: quarter |
+    a <-> play f with(10, maj, 10) | 
+    |> (a) |
+}

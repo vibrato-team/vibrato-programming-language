@@ -291,8 +291,10 @@ IdConst                 : id MaybeType                                   {% do
 CallFuncion             :: { AST.Expression }
 CallFuncion             : play Id with '(' ListExp ')'          {% do
                                                                     entry <- checkVarIsDeclared (AST.id_token $2)
+                                                                    -- Verificacion of the list of expressions
+                                                                    checkParams $2 (reverse $5) (SemData.function_params $ SemData.entry_category entry)
+                                                                    -- Verification if id is valid function
                                                                     let category = SemData.entry_category entry
-
                                                                     case category of
                                                                         SemData.Function _ params ->
                                                                             if length $5 /= length params
@@ -732,6 +734,15 @@ castExp exp finalType =
         then exp
         else AST.CastExp exp (AST.exp_type exp) finalType 
 
+
+checkParams :: AST.Id -> [AST.Expression] -> [AST.VarDeclaration] -> ParserMonad ()
+checkParams id [] [] = return ()
+checkParams id xs [] = semError (AST.id_token id) "Too much arguments passed to the function"
+checkParams id [] ys = semError (AST.id_token id) "Too few arguments passed to the function"
+checkParams id (x:xs) (y:ys) = do
+    let ytype = AST.var_type y
+    xtype <- checkExpType x [ytype] (AST.id_token id)
+    checkParams id xs ys
 --------------------------------------------
 ----------------- END ----------------------
 --------------------------------------------
