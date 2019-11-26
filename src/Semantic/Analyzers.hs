@@ -39,7 +39,7 @@ checkConstLvalue (AST.IdExp id _) = do
     let tkString = token $ AST.id_token id
     entryMaybe <- PMonad.lookup tkString
     case entryMaybe of
-        Just (Sem.Entry _ Sem.Const _ _ _) -> semError (AST.id_token id) "You cannot redeclare a Const:"
+        Just (Sem.Entry _ Sem.Const _ _ _) -> semError (AST.id_token id) "You cannot modify a Const:"
         Just _ -> return ()
         Nothing -> return ()
 
