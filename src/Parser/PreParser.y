@@ -287,8 +287,8 @@ Expression              : LValue %prec LVALUE                   { }
 IdType                  :: { AST.Type }
 IdType                  : id_type                               { AST.Simple (token $1) }
 
-NewType                 : chord IdType                         { }
-                        | legato IdType                        { }
+NewType                 : chord IdType                         {% createTypeEntry $1 (AST.type_str $2) }
+                        | legato IdType                        {% createTypeEntry $1 (AST.type_str $2) }
 
 ChordLegato             : NewType PushScope ChordLegatoFields PopScope  { }
 
