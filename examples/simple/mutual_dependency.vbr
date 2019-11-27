@@ -1,0 +1,12 @@
+chord A {
+    b: B
+}
+
+chord B {
+    a: Sample<A>
+}
+
+moderato() {
+    x: B <-> B(new A(B(TT)))|
+    
+}

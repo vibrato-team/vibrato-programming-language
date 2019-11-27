@@ -8,5 +8,5 @@ track g(n: quarter) {
 }
 
 moderato() {
-    play f (20)|
+    play f with (20)|
 }

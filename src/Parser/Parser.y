@@ -1,5 +1,5 @@
 {
-module Parser.Parser(parse, PMonad.ParserMonad) where
+module Parser.Parser(parse, createFunctionEntry, createParamEntry, createTypeEntry, parseError, PMonad.ParserMonad) where
 import Lexer
 import Tokens
 import qualified AST
@@ -139,7 +139,6 @@ MainDeclaration         : main PushScope '(' ')' Block                      {% l
 Signature               :: { String }
 Signature               : track Id PushScope '(' ListaParam ')' MaybeType             {% do
                                                                                             let tk = AST.id_token $2
-                                                                                            createFunctionEntry tk $7 $2 (reverse $5) Nothing
                                                                                             PMonad.addReturnType $7
                                                                                             return $ token tk }
 
@@ -149,9 +148,7 @@ ListaParam              : ParamDeclaration                          { [$1] }
                         | {- empty -}                               { [] }
 
 ParamDeclaration        :: { AST.VarDeclaration }
-ParamDeclaration        : Id ':' ParamRef Type                      {% do
-                                                                    createParamEntry (AST.id_token $1) (Just $4) $3
-                                                                    return $ AST.VarDec $1 $4 }
+ParamDeclaration        : Id ':' ParamRef Type                      { AST.VarDec $1 $4 }
 ParamRef                :: { Bool }
 ParamRef                : '>'                                       { True }
                         | {- empty -}                               { False }
@@ -500,11 +497,15 @@ Expression              : LValue %prec LVALUE                   { $1 }
                         | CallFuncion                           { $1 }
 
 IdType                  :: { AST.Type }
-IdType                  : id_type                               { AST.Simple (token $1) }
+IdType                  : id_type                               {%do
+                                                                    entryMaybe <- PMonad.lookup (token $1)
+                                                                    case entryMaybe of
+                                                                        Nothing -> semError $1 "Type not declared in scope:"
+                                                                        Just _ -> return $ AST.Simple (token $1) }
 
 NewType                 :: { () }
-NewType                 : chord IdType                         {% createTypeEntry $1 (AST.type_str $2) }
-                        | legato IdType                        {% createTypeEntry $1 (AST.type_str $2) }
+NewType                 : chord IdType                         { }
+                        | legato IdType                        { }
 
 ChordLegato             :: { () }
 ChordLegato             : NewType PushScope ChordLegatoFields PopScope  { }
@@ -517,7 +518,7 @@ ListaField              : FieldDeclaration                      { [$1] }
 
 FieldDeclaration        :: { AST.VarDeclaration }
 FieldDeclaration        : Id ':' Type                           {% do
-                                                                    createFieldEntry (AST.id_token $1) (Just $3) 
+                                                                    createFieldEntry (AST.id_token $1) $3
                                                                     return $ AST.VarDec $1 $3 }
 
 PushScope               :: { () }
@@ -613,19 +614,23 @@ createTypeEntry tk typeStr = do
     else
         semError tk "Type already declared in same scope:"
 
-createFieldEntry :: Token -> Maybe AST.Type -> ParserMonad ()
+createFieldEntry :: Token -> AST.Type -> ParserMonad ()
 createFieldEntry tk semType = do
     curr <- PMonad.currScope
     result <- verifyFieldEntry (token tk) curr
+    entryMaybe <- PMonad.lookup (AST.type_str semType)
     if result then do
-        let entry = SemData.Entry {
-            SemData.entry_name = token tk,
-            SemData.entry_category = SemData.Field,
-            SemData.entry_scope = curr,
-            SemData.entry_type = semType,
-            SemData.entry_level = Nothing
-        }
-        PMonad.insertEntry entry
+        case entryMaybe of
+            Nothing -> semError tk $ "Type " ++ show semType ++ " not declared in scope:"
+            Just _ -> do
+                let entry = SemData.Entry {
+                    SemData.entry_name = token tk,
+                    SemData.entry_category = SemData.Field,
+                    SemData.entry_scope = curr,
+                    SemData.entry_type = Just semType,
+                    SemData.entry_level = Nothing
+                }
+                PMonad.insertEntry entry
     else
         semError tk "Field already declared in same scope:"
 
