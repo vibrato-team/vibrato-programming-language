@@ -131,10 +131,18 @@ ExternalList            : ExternalList FunctionDeclaration  { }
                         | {- empty -}                       { }
 
 FunctionDeclaration     :: { () }                                           -- add block to function entry
-FunctionDeclaration     : Signature '{' Anything '}' PopScope                          {}
-MainDeclaration         : main PushScope '(' ')' Anything                      {}
+FunctionDeclaration     : Signature OpenBracket Anything CloseBracket PopScope                          {}
+MainDeclaration         : main PushScope '(' ClosePar OpenBracket Anything CloseBracket                      {}
 
-Signature               : track Id PushScope '(' ListaParam ')' MaybeType             {% do
+OpenBracket             : '{'       { }
+
+CloseBracket             : '}'       { }
+                        | error     { }
+
+ClosePar                : ')'         { True }
+                        | error         { False }
+
+Signature               : track Id PushScope '(' ListaParam ClosePar MaybeType             {% do
                                                                                             let tk = AST.id_token $2
                                                                                             createFunctionEntry tk $7 $2 (reverse $5) Nothing }
 
@@ -182,7 +190,7 @@ NewType                 : chord IdType                         {% createTypeEntr
 
 ChordLegato             : NewType PushScope ChordLegatoFields PopScope  { }
 
-ChordLegatoFields       : '{' ListaField '}'                    { }
+ChordLegatoFields       : '{' ListaField CloseBracket                    { }
 
 ListaField              : FieldDeclaration                      { }
                         | ListaField ',' FieldDeclaration       { }
@@ -214,7 +222,7 @@ Any                     : whole               { }
                         | '}'                 { }
                         | '|'                 { }  
                         | '('                 { }
-                        | ')'                 { }
+                        | ClosePar                 { }
                         | '@'                 { }
                         | '|>'                { }
                         | if                  { }

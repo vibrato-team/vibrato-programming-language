@@ -36,7 +36,7 @@ main = do
 
                 -- If there is an error:
                 case PMonad.state_errors pstate of
-                    errs@(_:_) -> throwCompilerError srcFile errs
+                    errs@(_:_) -> throwCompilerError srcFile $ reverse errs
                     [] -> printTable $ PMonad.state_table pstate
                 
     

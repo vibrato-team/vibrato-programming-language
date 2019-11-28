@@ -13,7 +13,7 @@ chord Graph {
     adyList: Sample< Melody< Sample<List> > >,~ Lista de adyacencia
     n: quarter,~ nro de vertices
     m: quarter~ nro de arcos
-}
+
 
 */
 Encuentra si hay un ciclo en el grafo
@@ -22,23 +22,23 @@ track has_cycle(
     g: Graph, 
     vis: Sample<Melody<whole> >, 
     u: quarter
-): whole {
+: whole {
     u_list: Sample<List> <-> g.adyList![u]|
     loop (u_list /= TT) {
         v: quarter <-> u_list!.value|
-        if (not vis![v]) {
+        if (not vis![v] {
             vis![v] <-> maj|
             if (play has_cycle with (g, vis, v)) {
                 maj||
             }
-        } else {
+         else {
             maj||
-        }
+        
         u_list <-> u_list!.next|
     }
 
     min||
-}
+
 
 moderato() {
     n: quarter|
@@ -57,11 +57,11 @@ moderato() {
     loop x {
         u: quarter|
         v: quarter|
-        |>("Ingrese un par de vertices: ")|
-        @(u, v)|
+        |>("Ingrese un par de vertices: "|
+        @(u, v|
 
         list_head: Sample<List> <-> g.adyList![u]|
-        g.adyList![u] <-> new List(list_head, v)|
+        g.adyList![u] <-> new List(list_head, v|
     } in (0, m, 1)
 
     hasCycle: whole <-> min|
@@ -75,5 +75,5 @@ moderato() {
         |>("El grafo tiene al menos un ciclo.\n")|
     } else {
         |>("El grafo no tiene ciclos.\n")|
-    }
-}
+    
+

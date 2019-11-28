@@ -134,13 +134,16 @@ FunctionDeclaration     :: { () }                                           -- a
 FunctionDeclaration     : Signature Block PopScope                          {% do
                                                                                 PMonad.updateEntry (addBlock $2) $1
                                                                                 PMonad.clearReturnType }
-MainDeclaration         : main PushScope '(' ')' Block                      {% let idMain = AST.Id $1 in createFunctionEntry (AST.id_token idMain) Nothing idMain [] (Just $5) }
+MainDeclaration         : main PushScope '(' ClosePar Block                 {% do
+                                                                                pushError $4 $3 $ matchingError "parentheses"
+                                                                                let idMain = AST.Id $1 in createFunctionEntry (AST.id_token idMain) Nothing idMain [] (Just $5) }
 
 Signature               :: { String }
-Signature               : track Id PushScope '(' ListaParam ')' MaybeType             {% do
-                                                                                            let tk = AST.id_token $2
-                                                                                            PMonad.addReturnType $7
-                                                                                            return $ token tk }
+Signature               : track Id PushScope '(' ListaParam ClosePar MaybeType             {% do
+                                                                                                pushError $6 $4 $ matchingError "parentheses"
+                                                                                                let tk = AST.id_token $2
+                                                                                                PMonad.addReturnType $7
+                                                                                                return $ token tk }
 
 ListaParam              :: { [AST.VarDeclaration] }
 ListaParam              : ParamDeclaration                          { [$1] }
@@ -165,11 +168,17 @@ MaybeType               :: { Maybe AST.Type }
 MaybeType               : {- empty -}                           { Nothing }
                         | ':' Type                              { Just $2 }
 
+CloseBracket             : '}'          { True }
+                        | error         { False }
+
+ClosePar                : ')'          { True }
+                        | error         { False }
+
+
 Block                   :: { AST.Block }
-Block                   : PushScope '{' Seq '}' PopScope                  { let notDeclaration = \inst -> case inst of
-                                                                                AST.VarDecInst _ -> False
-                                                                                _ -> True
-                                                                            in AST.Block $ reverse $ filter notDeclaration $3 }
+Block                   : PushScope '{' Seq CloseBracket PopScope                  {%do
+                                                                                        pushError $4 $2 $ matchingError "bracket"
+                                                                                        return $ AST.Block $ reverse $ filter notDeclaration $3 }
 
 Seq                     :: { [AST.Instruction] }
 Seq                     : Instruction                           { [$1] }
@@ -180,17 +189,20 @@ Instruction             : OpenCondition                         { $1 }
                         | ClosedCondition                       { $1 }
 
 OpenCondition           :: { AST.Instruction }
-OpenCondition           : if '(' Expression ')' Instruction                         {%do
-                                                                                        checkExpType $3 [AST.Simple "whole"] $2
-                                                                                        return $ AST.IfInst $3 $5 Nothing }
-                        | if '(' Expression ')' ClosedCondition else OpenCondition  {%do
-                                                                                        checkExpType $3 [AST.Simple "whole"] $2
-                                                                                        return $ AST.IfInst $3 $5 (Just $7) }
-
-ClosedCondition         :: { AST.Instruction }
-ClosedCondition         : if '(' Expression ')' ClosedCondition else ClosedCondition    {%do
+OpenCondition           : if '(' Expression ClosePar Instruction                         {%do
+                                                                                            pushError $4 $2 $ matchingError "parentheses"
+                                                                                            checkExpType $3 [AST.Simple "whole"] $2
+                                                                                            return $ AST.IfInst $3 $5 Nothing }
+                        | if '(' Expression ClosePar ClosedCondition else OpenCondition  {%do
+                                                                                            pushError $4 $2 $ matchingError "parentheses"
                                                                                             checkExpType $3 [AST.Simple "whole"] $2
                                                                                             return $ AST.IfInst $3 $5 (Just $7) }
+
+ClosedCondition         :: { AST.Instruction }
+ClosedCondition         : if '(' Expression ClosePar ClosedCondition else ClosedCondition    {%do
+                                                                                                pushError $4 $2 $ matchingError "parentheses"
+                                                                                                checkExpType $3 [AST.Simple "whole"] $2
+                                                                                                return $ AST.IfInst $3 $5 (Just $7) }
                         | SimpleInstruction                                             { $1 }
 
 SimpleInstruction       :: { AST.Instruction }
@@ -260,25 +272,33 @@ Return                  : Expression '||'                       {% do
                                                                         Just retType -> semError $1 $ "Void return instruction inside " ++ show retType ++ " track:"}
 
 IO                      :: { AST.Instruction }
-IO                      : '@' '(' ListExp ')'                   { AST.RecordInst $ reverse $3 }
-                        | '|>' '(' ListExp ')'                  { AST.PlayInst $ reverse $3 }
+IO                      : '@' '(' ListExp ClosePar                   {%do
+                                                                        pushError $4 $2 $ matchingError "parentheses" 
+                                                                        return $ AST.RecordInst $ reverse $3 }
+                        | '|>' '(' ListExp ClosePar                  {%do
+                                                                        pushError $4 $2 $ matchingError "parentheses" 
+                                                                        return $ AST.PlayInst $ reverse $3 }
 
 Loop                    :: { AST.Instruction }
-Loop                    : loop PushScope IdConst Block PopScope in '(' Expression ')'                                       {%do
+Loop                    : loop PushScope IdConst Block PopScope in '(' Expression ClosePar                                       {%do
+                                                                                                                                    pushError $9 $7 $ matchingError "parentheses"
                                                                                                                                     checkExpType $8 AST.numberTypes $7
                                                                                                                                     return $ AST.ForInst (fst $3) (snd $3) $4 Nothing $8 Nothing }
-                        | loop PushScope IdConst Block PopScope in '(' Expression ',' Expression ')'                        {%do
+                        | loop PushScope IdConst Block PopScope in '(' Expression ',' Expression ClosePar                        {%do
+                                                                                                                                    pushError $11 $7 $ matchingError "parentheses"
                                                                                                                                     checkExpType $8 AST.numberTypes $7
                                                                                                                                     checkExpType $10 AST.numberTypes $9
                                                                                                                                     return $ AST.ForInst (fst $3) (snd $3) $4 (Just $8) $10 Nothing }
-                        | loop PushScope IdConst Block PopScope in '(' Expression ',' Expression ',' Expression ')'         {%do
+                        | loop PushScope IdConst Block PopScope in '(' Expression ',' Expression ',' Expression ClosePar         {%do
+                                                                                                                                    pushError $13 $7 $ matchingError "parentheses"
                                                                                                                                     checkExpType $8 AST.numberTypes $7
                                                                                                                                     checkExpType $10 AST.numberTypes $9
                                                                                                                                     checkExpType $12 AST.numberTypes $11
                                                                                                                                     return $ AST.ForInst (fst $3) (snd $3) $4 (Just $8) $10 (Just $12) }
-                        | loop '(' Expression ')' Block                                                                          {% do
-                                                                                                                                    checkExpType $3 [AST.Simple "whole"] $2
-                                                                                                                                    return $ AST.WhileInst $3 $5 }
+                        | loop '(' Expression ClosePar Block     {% do
+                                                                    pushError $4 $2 $ matchingError "parentheses"
+                                                                    checkExpType $3 [AST.Simple "whole"] $2
+                                                                    return $ AST.WhileInst $3 $5 }
 IdConst                 :: { (AST.Id, Maybe AST.Type) }
 IdConst                 : id MaybeType                                   {% do 
                                                                             createConstEntry $1 $2   
@@ -286,18 +306,19 @@ IdConst                 : id MaybeType                                   {% do
 
 
 CallFuncion             :: { AST.Expression }
-CallFuncion             : play Id with '(' ListExp ')'          {% do
-                                                                    entry <- checkVarIsDeclared (AST.id_token $2)
-                                                                    -- Verificacion of the list of expressions
-                                                                    checkParams $2 (reverse $5) (SemData.function_params $ SemData.entry_category entry)
-                                                                    -- Verification if id is valid function
-                                                                    let category = SemData.entry_category entry
-                                                                    case category of
-                                                                        SemData.Function _ params ->
-                                                                            if length $5 /= length params
-                                                                                then semError $4 "Wrong number of arguments:"
-                                                                                else return $ AST.CallExp $2 (reverse $5) (fromMaybe voidType $ SemData.entry_type entry) 
-                                                                        _ -> semError $1 "Calling a not track expression:"}
+CallFuncion             : play Id with '(' ListExp ClosePar          {% do
+                                                                        pushError $6 $4 $ matchingError "parentheses"
+                                                                        entry <- checkVarIsDeclared (AST.id_token $2)
+                                                                        -- Verificacion of the list of expressions
+                                                                        checkParams $2 (reverse $5) (SemData.function_params $ SemData.entry_category entry)
+                                                                        -- Verification if id is valid function
+                                                                        let category = SemData.entry_category entry
+                                                                        case category of
+                                                                            SemData.Function _ params ->
+                                                                                if length $5 /= length params
+                                                                                    then semError $4 "Wrong number of arguments:"
+                                                                                    else return $ AST.CallExp $2 (reverse $5) (fromMaybe voidType $ SemData.entry_type entry) 
+                                                                            _ -> semError $1 "Calling a not track expression:"}
 
                         | play Id                               {% do
                                                                     entry <- checkVarIsDeclared (AST.id_token $2)
@@ -356,7 +377,9 @@ Literal                 : int                                   { AST.Literal $1
                         | string                                { AST.Literal $1 (AST.Compound "Melody" $ AST.Simple "half") }
                         | char                                  { AST.Literal $1 (AST.Simple "half") }
                         | LiteralMelody                         { $1 }
-                        | Type '(' ListExp ')'                  { AST.Literal' (reverse $3) $1 }
+                        | Type '(' ListExp ClosePar             {% do 
+                                                                    pushError $4 $2 $ matchingError "parentheses"
+                                                                    return $ AST.Literal' (reverse $3) $1 }
                         | Type                                  { AST.Literal' [] $1 }
 
 -- TODO: chequear que todos los elementos de la ListExp sean del mismo tipo.
@@ -490,7 +513,9 @@ Expression              : LValue %prec LVALUE                   { $1 }
 
                         -- Micelaneos
                         | Literal                               { $1 }
-                        | '(' Expression ')'                    { $2 }
+                        | '(' Expression ClosePar               {% do
+                                                                    pushError $3 $1 $ matchingError "parentheses"
+                                                                    return $ $2 }
 
                         | new Literal                           { AST.NewExp $2 (AST.Compound "Sample" (AST.exp_type $2)) }
 
@@ -510,7 +535,9 @@ NewType                 : chord IdType                         { }
 ChordLegato             :: { () }
 ChordLegato             : NewType PushScope ChordLegatoFields PopScope  { }
 
-ChordLegatoFields       : '{' ListaField '}'                    { reverse $2 }
+ChordLegatoFields       : '{' ListaField CloseBracket                    {% do
+                                                                            pushError $3 $1 $ matchingError "bracket"
+                                                                            return $ reverse $2 }
 
 ListaField              :: { [AST.VarDeclaration] }
 ListaField              : FieldDeclaration                      { [$1] }
@@ -748,6 +775,23 @@ checkParams id (x:xs) (y:ys) = do
     let ytype = AST.var_type y
     xtype <- checkExpType x [ytype] (AST.id_token id)
     checkParams id xs ys
+
+notDeclaration = \inst -> case inst of 
+    AST.VarDecInst _ -> False 
+    _ -> True
+
+--------------------------------------------
+------------Error Recovery------------------
+--------------------------------------------
+
+matchingError tkString = "Couldnt match closing " ++ tkString ++ ":"
+
+pushError :: Bool -> Token -> String -> ParserMonad ()
+pushError good tk msg =
+    if (not good)
+        then PMonad.pushError $ Error (line tk) (col tk) msg
+        else return ()
+
 --------------------------------------------
 ----------------- END ----------------------
 --------------------------------------------
