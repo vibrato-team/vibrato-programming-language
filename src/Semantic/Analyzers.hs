@@ -42,7 +42,7 @@ checkConstLvalue (AST.IdExp id _) = do
         Just (Sem.Entry _ Sem.Const _ _ _) -> semError (AST.id_token id) "You cannot modify a Const:"
         Just _ -> return ()
         Nothing -> return ()
-
+checkConstLvalue _ = return ()
 
 -- | Analizes if field correspond to the type of the entry and throws an error if it is not
 analyzeField :: Token -> Int -> ParserMonad Sem.Entry
