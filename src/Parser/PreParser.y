@@ -132,7 +132,7 @@ ExternalList            : ExternalList FunctionDeclaration  { }
 
 FunctionDeclaration     :: { () }                                           -- add block to function entry
 FunctionDeclaration     : Signature Block PopScope                          {}
-MainDeclaration         : main PushScope '(' ')' Block                      {}
+MainDeclaration         : main PushScope '(' ClosePar Block                      {}
 
 OpenBracket             : '{'       { }
 
@@ -179,10 +179,10 @@ Seq                     : Instruction                           { }
 Instruction             : OpenCondition                         { }
                         | ClosedCondition                       { }
 
-OpenCondition           : if '(' Expression ')' Instruction                         { }
-                        | if '(' Expression ')' ClosedCondition else OpenCondition  { }
+OpenCondition           : if '(' Expression ClosePar Instruction                         { }
+                        | if '(' Expression ClosePar ClosedCondition else OpenCondition  { }
 
-ClosedCondition         : if '(' Expression ')' ClosedCondition else ClosedCondition    { }
+ClosedCondition         : if '(' Expression ClosePar ClosedCondition else ClosedCondition    { }
                         | SimpleInstruction                                             { }
 
 SimpleInstruction       : Block                                 { }
@@ -216,15 +216,15 @@ LValue                  : Indexing                              { }
 Return                  : Expression '||'                       { }
                         | '||'                                  { }
 
-IO                      : '@' '(' ListExp ')'                   { }
-                        | '|>' '(' ListExp ')'                  { }
+IO                      : '@' '(' ListExp ClosePar                   { }
+                        | '|>' '(' ListExp ClosePar                  { }
 
-Loop                    : loop PushScope Id MaybeType Block PopScope in '(' Expression ')'                                       { }
-                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ')'                        { }
-                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ',' Expression ')'         { }
-                        | loop '(' Expression ')' Block                                                                          { }
+Loop                    : loop PushScope Id MaybeType Block PopScope in '(' Expression ClosePar                                       { }
+                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ClosePar                        { }
+                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ',' Expression ClosePar         { }
+                        | loop '(' Expression ClosePar Block                                                                          { }
 
-CallFuncion             : play Id with '(' ListExp ')'          { }
+CallFuncion             : play Id with '(' ListExp ClosePar          { }
 
                         | play Id                               { }
 
@@ -254,7 +254,7 @@ Literal                 : int                                   { }
                         | string                                { }
                         | char                                  { }
                         | LiteralMelody                         { }
-                        | Type '(' ListExp ')'                  { }
+                        | Type '(' ListExp ClosePar                  { }
                         | Type                                  { }
 
 LiteralMelody           : '[' ListExp ']'                       { }
@@ -286,7 +286,7 @@ Expression              : LValue %prec LVALUE                   { }
 
                         -- Micelaneos
                         | Literal                               { }
-                        | '(' Expression ')'                    { }
+                        | '(' Expression ClosePar                    { }
 
                         | new Literal                           { }
 
