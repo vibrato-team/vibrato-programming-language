@@ -142,6 +142,9 @@ CloseBracket             : '}'       { }
 ClosePar                : ')'         { True }
                         | error         { False }
 
+CloseAngular            : '>'       { True }
+                        | error     { False }
+
 Signature               : track Id PushScope '(' ListaParam ClosePar MaybeType             {% do
                                                                                             let tk = AST.id_token $2
                                                                                             createFunctionEntry tk $7 $2 (reverse $5) Nothing }
@@ -245,8 +248,8 @@ Type                    : whole                                 { AST.Simple (to
                         | eighth                                { AST.Simple (token $1) }
                         | ThirtySecond                          { AST.Simple (token $1) }
                         | SixtyFourth                           { AST.Simple (token $1) }
-                        | melody '<' Type '>'                   { AST.Compound (token $1) $3 }
-                        | sample '<' Type '>'                   { AST.Compound (token $1) $3 }
+                        | melody '<' Type CloseAngular                   { AST.Compound (token $1) $3 }
+                        | sample '<' Type CloseAngular                   { AST.Compound (token $1) $3 }
                         | IdType                                { $1 }
 
 Literal                 : int                                   { }

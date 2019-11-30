@@ -2,7 +2,7 @@
 Lista enlazada
 /*
 chord List {
-    next: Sample<List>,
+    next: Sample<List,
     value: quarter
 }
 
@@ -10,7 +10,7 @@ chord List {
 Grafo
 /*
 chord Graph {
-    adyList: Sample< Melody< Sample<List> > >,~ Lista de adyacencia
+    adyList: Sample< Melody< Sample<List>  >,~ Lista de adyacencia
     n: quarter,~ nro de vertices
     m: quarter~ nro de arcos
 

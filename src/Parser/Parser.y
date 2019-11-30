@@ -174,6 +174,9 @@ CloseBracket             : '}'          { True }
 ClosePar                : ')'          { True }
                         | error         { False }
 
+CloseAngular            : '>'       { True }
+                        | error     { False }
+
 
 Block                   :: { AST.Block }
 Block                   : PushScope '{' Seq CloseBracket PopScope                  {%do
@@ -367,8 +370,12 @@ Type                    : whole                                 { AST.Simple (to
                         | eighth                                { AST.Simple (token $1) }
                         | ThirtySecond                          { AST.Simple (token $1) }
                         | SixtyFourth                           { AST.Simple (token $1) }
-                        | melody '<' Type '>'                   { AST.Compound (token $1) $3 }
-                        | sample '<' Type '>'                   { AST.Compound (token $1) $3 }
+                        | melody '<' Type CloseAngular          {%do
+                                                                    pushError $4 $2 $ matchingError "angle bracket"
+                                                                    return $ AST.Compound (token $1) $3 }
+                        | sample '<' Type CloseAngular          {%do
+                                                                    pushError $4 $2 $ matchingError "angle bracket"
+                                                                    return $ AST.Compound (token $1) $3 }
                         | IdType                                { $1 }
 
 Literal                 :: { AST.Expression }
