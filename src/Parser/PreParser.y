@@ -131,8 +131,8 @@ ExternalList            : ExternalList FunctionDeclaration  { }
                         | {- empty -}                       { }
 
 FunctionDeclaration     :: { () }                                           -- add block to function entry
-FunctionDeclaration     : Signature '{' Anything '}' PopScope                          {}
-MainDeclaration         : main PushScope '(' ')' Anything                      {}
+FunctionDeclaration     : Signature Block PopScope                          {}
+MainDeclaration         : main PushScope '(' ')' Block                      {}
 
 Signature               : track Id PushScope '(' ListaParam ')' MaybeType             {% do
                                                                                             let tk = AST.id_token $2
@@ -163,6 +163,73 @@ MaybeType               :: { Maybe AST.Type }
 MaybeType               : {- empty -}                           { Nothing }
                         | ':' Type                              { Just $2 }
 
+Block                   : PushScope '{' Seq '}' PopScope                  { }
+
+Seq                     : Instruction                           { }
+                        | Seq Instruction                       { }
+
+Instruction             : OpenCondition                         { }
+                        | ClosedCondition                       { }
+
+OpenCondition           : if '(' Expression ')' Instruction                         { }
+                        | if '(' Expression ')' ClosedCondition else OpenCondition  { }
+
+ClosedCondition         : if '(' Expression ')' ClosedCondition else ClosedCondition    { }
+                        | SimpleInstruction                                             { }
+
+SimpleInstruction       : Block                                 { }
+                        | Loop                                  { }
+                        | '>>'                                  { }
+                        | '|]'                                  { }
+                        | Return                                { }
+                        | Statement '|'                         { }
+
+Statement               : VarDeclaration                        { }
+                        | VarInit                               { }
+                        | Asignacion                            { }
+                        | IO                                    { }
+                        | free Id                               { }
+                        | LValue '#'                            { }
+                        | LValue '&'                            { }
+                        | CallFuncion                           { }
+
+
+VarDeclaration          : Id ':' Type                           { }
+
+VarInit                 : Id ':' Type '<->' Expression          { }
+
+Asignacion              : LValue '<->' Expression               { }
+
+LValue                  : Indexing                              { }
+                        | DotExpression                         { }
+                        | Dereference                           { }
+                        | Id                                    { }
+
+Return                  : Expression '||'                       { }
+                        | '||'                                  { }
+
+IO                      : '@' '(' ListExp ')'                   { }
+                        | '|>' '(' ListExp ')'                  { }
+
+Loop                    : loop PushScope Id MaybeType Block PopScope in '(' Expression ')'                                       { }
+                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ')'                        { }
+                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ',' Expression ')'         { }
+                        | loop '(' Expression ')' Block                                                                          { }
+
+CallFuncion             : play Id with '(' ListExp ')'          { }
+
+                        | play Id                               { }
+
+ListExp                 : Expression                            { }
+                        | ListExp ',' Expression                { }
+                        | {-empty-}                             { }
+
+Indexing                : Expression '[' Expression ']'             { }
+
+DotExpression           : Expression '.' Id                         { }
+
+Dereference             : Expression '!'                            { }
+
 Type                    :: { AST.Type }
 Type                    : whole                                 { AST.Simple (token $1) }
                         | half                                  { AST.Simple (token $1) }
@@ -173,6 +240,49 @@ Type                    : whole                                 { AST.Simple (to
                         | melody '<' Type '>'                   { AST.Compound (token $1) $3 }
                         | sample '<' Type '>'                   { AST.Compound (token $1) $3 }
                         | IdType                                { $1 }
+
+Literal                 : int                                   { }
+                        | float                                 { }
+                        | string                                { }
+                        | char                                  { }
+                        | LiteralMelody                         { }
+                        | Type '(' ListExp ')'                  { }
+                        | Type                                  { }
+
+LiteralMelody           : '[' ListExp ']'                       { }
+
+Expression              : LValue %prec LVALUE                   { }
+                        -- Boolean
+                        | not Expression                        { }
+                        | Expression and Expression             { } 
+                        | Expression or Expression              { } 
+
+                        -- Aritmetivos
+                        | '-' Expression %prec NEG              { }
+
+                        | Expression '-' Expression             { }
+                        | Expression mod Expression             { }
+                        | Expression '/' Expression             { }
+                        | Expression '*' Expression             { }
+                        | Expression '^' Expression             { }             
+                        | Expression '+' Expression             { }
+
+                        -- Relacionales
+                        | Expression '=' Expression             { }
+
+                        | Expression '/=' Expression            { }
+                        | Expression '<' Expression             { }
+                        | Expression '>' Expression             { }
+                        | Expression '<=' Expression            { }
+                        | Expression '>=' Expression            { }
+
+                        -- Micelaneos
+                        | Literal                               { }
+                        | '(' Expression ')'                    { }
+
+                        | new Literal                           { }
+
+                        | CallFuncion                           { }
 
 IdType                  :: { AST.Type }
 IdType                  : id_type                               { AST.Simple (token $1) }
@@ -194,71 +304,6 @@ PushScope               : {- empty -}                           {% PMonad.pushSc
 
 PopScope                :: { () }
 PopScope                : {- empty -}                           {% PMonad.popScope }
-
-Anything                :: { () }
-Anything                : Anything Any          { }
-                        | {-empty-}             { }
-
-Any                     :: { () }
-Any                     : whole               { }
-                        | half                { }
-                        | quarter             { }
-                        | eighth              { }
-                        | melody              { }
-                        | sample              { }
-                        | ThirtySecond        { }
-                        | SixtyFourth         { }
-                        | TT                  { }
-                        | '<->'               { }
-                        | '{'                 { }
-                        | '}'                 { }
-                        | '|'                 { }  
-                        | '('                 { }
-                        | ')'                 { }
-                        | '@'                 { }
-                        | '|>'                { }
-                        | if                  { }
-                        | else                { }
-                        | loop                { }
-                        | ':'                 { }
-                        | in                  { }
-                        | ','                 { }
-                        | '>>'                { }
-                        | '|]'                { }
-                        | '#'                 { }
-                        | '&'                 { }
-                        | '||'                { }
-                        | play                { }
-                        | with                { }
-                        | new                 { }
-                        | free                { }
-                        | '!'                 { }
-                        | not                 { }
-                        | and                 { }
-                        | or                  { }
-                        | '-'                 { }
-                        | mod                 { }
-                        | '/'                 { }
-                        | '*'                 { }
-                        | '^'                 { }
-                        | '+'                 { }
-                        | '='                 { }
-                        | '/='                { }
-                        | '<'                 { }
-                        | '>'                 { }
-                        | '<='                { }
-                        | '>='                { }
-                        | '['                 { }
-                        | ']'                 { }
-                        | '.'                 { }
-                        | int                 { }
-                        | float               { }
-                        | maj                 { }
-                        | min                 { }
-                        | string              { }
-                        | char                { }
-                        | id                  { }
-                        | id_type             { }
 
 {
  
