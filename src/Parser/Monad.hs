@@ -18,13 +18,15 @@ import qualified Data.Map.Lazy as Map
 import Control.Monad.Trans
 import Tokens
 import qualified AST
+import Util.Error
 
 -- | State of the parser
 data ParserState = ParserState {
     state_scopes :: Sem.Scopes,
     state_table :: Sem.SymbolTable,
     state_lvl :: Int,
-    state_ret_type :: Maybe AST.Type
+    state_ret_type :: Maybe AST.Type,
+    state_errors :: [Error]
 }
 
 -- | Monad of the parser
@@ -32,7 +34,7 @@ type ParserMonad = RWS.RWST String () ParserState IO
 
 -- | Initial state with the level pervasive.
 initialState :: ParserState
-initialState = ParserState (Sem.Scopes (Set.fromList [1, 0]) [1, 0]) initialMap 1 Nothing
+initialState = ParserState (Sem.Scopes (Set.fromList [1, 0]) [1, 0]) initialMap 1 Nothing []
     where 
         wholeEntry          =    ("whole",      [Sem.Entry "whole"      Sem.Type            0 Nothing                       Nothing])
         halfEntry           =    ("half",       [Sem.Entry "half"       Sem.Type            0 Nothing                       Nothing])
@@ -54,20 +56,20 @@ initialState = ParserState (Sem.Scopes (Set.fromList [1, 0]) [1, 0]) initialMap 
 -- | Insert a new entry into the SymbolTable
 insertEntry :: Sem.Entry -> ParserMonad ()
 insertEntry entry = do
-    state@(ParserState _ table _ _) <- RWS.get
+    state@(ParserState _ table _ _ _) <- RWS.get
     let table' = Map.insertWith (++) (Sem.entry_name entry) [entry] table
     RWS.put $ state { state_table = table' }
 
 -- | Update entry
 updateEntry :: ([Sem.Entry] -> Maybe [Sem.Entry]) -> String -> ParserMonad ()
 updateEntry f k = do
-    state@(ParserState _ table _ _ ) <- RWS.get
+    state@(ParserState _ table _ _ _) <- RWS.get
     RWS.put $ state{ state_table = Map.update f k table }
 
 -- | Insert a new scope/level into the set of scopeSet
 pushScope :: ParserMonad ()
 pushScope = do
-    state@(ParserState (Sem.Scopes scopeSet scopeStack) _ lvl _) <- RWS.get
+    state@(ParserState (Sem.Scopes scopeSet scopeStack) _ lvl _ _) <- RWS.get
     let lvl' = lvl+1
     let scopes = Sem.Scopes (Set.insert lvl' scopeSet) (lvl' : scopeStack)
 
@@ -77,21 +79,21 @@ pushScope = do
 -- | Remove scope
 popScope :: ParserMonad ()
 popScope = do
-    state@(ParserState (Sem.Scopes scopeSet (h:t)) _ _ _) <- RWS.get
+    state@(ParserState (Sem.Scopes scopeSet (h:t)) _ _ _ _) <- RWS.get
     let scopes = Sem.Scopes (Set.delete h scopeSet) t
     RWS.put $ state{ state_scopes = scopes }
 
 -- | Get chain from a symbol
 getChain :: String -> ParserMonad (Maybe [Sem.Entry])
 getChain symbol = do
-    (ParserState _ table _ _) <- RWS.get
+    (ParserState _ table _ _ _) <- RWS.get
     -- Get chain of matching entries
     return $ Map.lookup symbol table
 
 -- | Look for a symbol in the symbol table and return its scope
 lookup :: String -> ParserMonad (Maybe Sem.Entry)
 lookup symbol = do
-    (ParserState (Sem.Scopes scopeSet _) _ _ _) <- RWS.get
+    (ParserState (Sem.Scopes scopeSet _) _ _ _ _) <- RWS.get
     chainMaybe <- getChain symbol
     case chainMaybe of
         Nothing     -> return Nothing
@@ -121,7 +123,7 @@ lookupField symbol level = do
 -- | Increment level of scope
 incrementScope :: ParserMonad ()
 incrementScope = do
-    state@(ParserState _ _ lvl _) <- RWS.get
+    state@(ParserState _ _ lvl _ _) <- RWS.get
     RWS.put $ state{state_lvl = lvl + 1}
 
 -- | Entry of a Type
@@ -131,7 +133,7 @@ typeEntry = Parser.Monad.lookup . AST.type_str
 -- | Get current scope
 currScope :: ParserMonad Int
 currScope = do
-    (ParserState (Sem.Scopes _ (curr:_)) _ _ _) <- RWS.get
+    (ParserState (Sem.Scopes _ (curr:_)) _ _ _ _) <- RWS.get
     return curr
 
 -- | Add a return type to state
@@ -142,3 +144,10 @@ addReturnType retType = do
 
 -- | Clear return type from state
 clearReturnType = addReturnType Nothing
+
+-- | Push an error to the state
+pushError :: Error -> ParserMonad ()
+pushError err = do
+    state <- RWS.get
+    let errs = state_errors state
+    RWS.put $ state { state_errors = err : errs }

@@ -104,7 +104,8 @@ import Semantic.Analyzers
 
     main                { MainToken _ _ _ }
 
-
+%nonassoc play
+%nonassoc loop
 %nonassoc '<->'
 %nonassoc '=' '/=' 
 %nonassoc '>' '<' '<=' '>='
@@ -120,6 +121,8 @@ import Semantic.Analyzers
 %left '!'
 %left '.'
 
+%nonassoc error
+
 %%
 
 Start                   :: { () }
@@ -132,9 +135,36 @@ ExternalList            : ExternalList FunctionDeclaration  { }
 
 FunctionDeclaration     :: { () }                                           -- add block to function entry
 FunctionDeclaration     : Signature Block PopScope                          {}
-MainDeclaration         : main PushScope '(' ')' Block                      {}
+MainDeclaration         : main PushScope '(' ClosePar Block                      {}
 
-Signature               : track Id PushScope '(' ListaParam ')' MaybeType             {% do
+--------------------------------------------------------------------------------
+--------------------------For error recovery------------------------------------
+--------------------------------------------------------------------------------
+
+OpenBracket             : '{'       { }
+
+CloseBracket             : '}'       { }
+                        | error     { }
+
+ClosePar                : ')'         { True }
+                        | error         { False }
+
+CloseAngular            : '>'       { True }
+                        | error     { False }
+
+CloseSquare             : ']'       { True }
+                        | error     { False }
+
+With                    : with                  { True }
+                        | error                 { False }
+
+In                      : in        { True }
+                        | error     { False }
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+Signature               : track Id PushScope '(' ListaParam ClosePar MaybeType             {% do
                                                                                             let tk = AST.id_token $2
                                                                                             createFunctionEntry tk $7 $2 (reverse $5) Nothing }
 
@@ -163,7 +193,7 @@ MaybeType               :: { Maybe AST.Type }
 MaybeType               : {- empty -}                           { Nothing }
                         | ':' Type                              { Just $2 }
 
-Block                   : PushScope '{' Seq '}' PopScope                  { }
+Block                   : PushScope OpenBracket Seq CloseBracket PopScope                  { }
 
 Seq                     : Instruction                           { }
                         | Seq Instruction                       { }
@@ -171,10 +201,10 @@ Seq                     : Instruction                           { }
 Instruction             : OpenCondition                         { }
                         | ClosedCondition                       { }
 
-OpenCondition           : if '(' Expression ')' Instruction                         { }
-                        | if '(' Expression ')' ClosedCondition else OpenCondition  { }
+OpenCondition           : if '(' Expression ClosePar Instruction                         { }
+                        | if '(' Expression ClosePar ClosedCondition else OpenCondition  { }
 
-ClosedCondition         : if '(' Expression ')' ClosedCondition else ClosedCondition    { }
+ClosedCondition         : if '(' Expression ClosePar ClosedCondition else ClosedCondition    { }
                         | SimpleInstruction                                             { }
 
 SimpleInstruction       : Block                                 { }
@@ -208,23 +238,23 @@ LValue                  : Indexing                              { }
 Return                  : Expression '||'                       { }
                         | '||'                                  { }
 
-IO                      : '@' '(' ListExp ')'                   { }
-                        | '|>' '(' ListExp ')'                  { }
+IO                      : '@' '(' ListExp ClosePar                   { }
+                        | '|>' '(' ListExp ClosePar                  { }
 
-Loop                    : loop PushScope Id MaybeType Block PopScope in '(' Expression ')'                                       { }
-                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ')'                        { }
-                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ',' Expression ')'         { }
-                        | loop '(' Expression ')' Block                                                                          { }
+Loop                    : loop PushScope Id MaybeType Block PopScope In '(' Expression ClosePar                                       { }
+                        | loop PushScope Id MaybeType Block PopScope In '(' Expression ',' Expression ClosePar                        { }
+                        | loop PushScope Id MaybeType Block PopScope In '(' Expression ',' Expression ',' Expression ClosePar         { }
+                        | loop '(' Expression ClosePar Block                                                                          { }
 
-CallFuncion             : play Id with '(' ListExp ')'          { }
+CallFuncion             : play Id With '(' ListExp ClosePar          { }
 
-                        | play Id                               { }
+                        | play Id                              { }
 
 ListExp                 : Expression                            { }
                         | ListExp ',' Expression                { }
                         | {-empty-}                             { }
 
-Indexing                : Expression '[' Expression ']'             { }
+Indexing                : Expression '[' Expression CloseSquare             { }
 
 DotExpression           : Expression '.' Id                         { }
 
@@ -237,8 +267,8 @@ Type                    : whole                                 { AST.Simple (to
                         | eighth                                { AST.Simple (token $1) }
                         | ThirtySecond                          { AST.Simple (token $1) }
                         | SixtyFourth                           { AST.Simple (token $1) }
-                        | melody '<' Type '>'                   { AST.Compound (token $1) $3 }
-                        | sample '<' Type '>'                   { AST.Compound (token $1) $3 }
+                        | melody '<' Type CloseAngular                   { AST.Compound (token $1) $3 }
+                        | sample '<' Type CloseAngular                   { AST.Compound (token $1) $3 }
                         | IdType                                { $1 }
 
 Literal                 : int                                   { }
@@ -246,10 +276,10 @@ Literal                 : int                                   { }
                         | string                                { }
                         | char                                  { }
                         | LiteralMelody                         { }
-                        | Type '(' ListExp ')'                  { }
+                        | Type '(' ListExp ClosePar                  { }
                         | Type                                  { }
 
-LiteralMelody           : '[' ListExp ']'                       { }
+LiteralMelody           : '[' ListExp CloseSquare                       { }
 
 Expression              : LValue %prec LVALUE                   { }
                         -- Boolean
@@ -278,7 +308,7 @@ Expression              : LValue %prec LVALUE                   { }
 
                         -- Micelaneos
                         | Literal                               { }
-                        | '(' Expression ')'                    { }
+                        | '(' Expression ClosePar                    { }
 
                         | new Literal                           { }
 
@@ -292,7 +322,7 @@ NewType                 : chord IdType                         {% createTypeEntr
 
 ChordLegato             : NewType PushScope ChordLegatoFields PopScope  { }
 
-ChordLegatoFields       : '{' ListaField '}'                    { }
+ChordLegatoFields       : OpenBracket ListaField CloseBracket                    { }
 
 ListaField              : FieldDeclaration                      { }
                         | ListaField ',' FieldDeclaration       { }

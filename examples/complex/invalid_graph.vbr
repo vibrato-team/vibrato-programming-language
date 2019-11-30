@@ -2,7 +2,7 @@
 Lista enlazada
 /*
 chord List {
-    next: Sample<List>,
+    next: Sample<List,
     value: quarter
 }
 
@@ -10,10 +10,10 @@ chord List {
 Grafo
 /*
 chord Graph {
-    adyList: Sample< Melody< Sample<List> > >,~ Lista de adyacencia
+    adyList: Sample< Melody< Sample<List>  >,~ Lista de adyacencia
     n: quarter,~ nro de vertices
     m: quarter~ nro de arcos
-}
+
 
 */
 Encuentra si hay un ciclo en el grafo
@@ -22,33 +22,37 @@ track has_cycle(
     g: Graph, 
     vis: Sample<Melody<whole> >, 
     u: quarter
-): whole {
+: whole {
     u_list: Sample<List> <-> g.adyList![u]|
     loop (u_list /= TT) {
         v: quarter <-> u_list!.value|
-        if (not vis![v]) {
+        if (not vis![v] {
             vis![v] <-> maj|
-            if (play has_cycle with (g, vis, v)) {
+            if (play has_cycle  (g, vis, v)) {
                 maj||
             }
-        } else {
+         else {
             maj||
-        }
+        
         u_list <-> u_list!.next|
     }
 
     min||
-}
+
 
 moderato() {
+    arr: Melody<quarter> <-> [0, 0|
     n: quarter|
     m: quarter|
 
     |>("Número de vertices: ")|
-    @(n)|
+    @(arr[0])|
 
     |>("Número de arcos: ")|
-    @(m)|
+    @(arr[1])|
+
+    n <-> arr[0]|
+    m <-> arr[1]|
 
     vis: Sample<Melody<whole> > <-> new Melody<whole>(n)|
     g: Graph <-> Graph(new Melody<Sample<List> >(n), n, m)|
@@ -57,12 +61,12 @@ moderato() {
     loop x {
         u: quarter|
         v: quarter|
-        |>("Ingrese un par de vertices: ")|
-        @(u, v)|
+        |>("Ingrese un par de vertices: "|
+        @(u, v|
 
         list_head: Sample<List> <-> g.adyList![u]|
-        g.adyList![u] <-> new List(list_head, v)|
-    } in (0, m, 1)
+        g.adyList![u <-> new List(list_head, v|
+    } (0, m, 1)
 
     hasCycle: whole <-> min|
     u: quarter <-> 0|
@@ -75,5 +79,5 @@ moderato() {
         |>("El grafo tiene al menos un ciclo.\n")|
     } else {
         |>("El grafo no tiene ciclos.\n")|
-    }
-}
+    
+

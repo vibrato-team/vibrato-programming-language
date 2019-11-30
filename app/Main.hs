@@ -28,9 +28,17 @@ main = do
         Right state -> case Lexer.matches state of
             Left errors -> throwCompilerError srcFile (reverse errors)
             Right tokens -> do
+                -- Pre parser for declarations
                 (prestate, _) <- RWS.execRWST (PreParser.preparse tokens) srcFile PMonad.initialState
+
+                -- Parser
                 (pstate, _) <- RWS.execRWST (Parser.parse tokens) srcFile prestate {PMonad.state_lvl = 1}
-                printTable $ PMonad.state_table pstate
+
+                -- If there is an error:
+                case PMonad.state_errors pstate of
+                    errs@(_:_) -> throwCompilerError srcFile $ reverse errs
+                    [] -> printTable $ PMonad.state_table pstate
+                
     
     hClose handle
 
