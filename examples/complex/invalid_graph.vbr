@@ -28,7 +28,7 @@ track has_cycle(
         v: quarter <-> u_list!.value|
         if (not vis![v] {
             vis![v] <-> maj|
-            if (play has_cycle with (g, vis, v)) {
+            if (play has_cycle  (g, vis, v)) {
                 maj||
             }
          else {

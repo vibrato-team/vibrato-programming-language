@@ -104,7 +104,7 @@ import Semantic.Analyzers
 
     main                { MainToken _ _ _ }
 
-
+%nonassoc play
 %nonassoc '<->'
 %nonassoc '=' '/=' 
 %nonassoc '>' '<' '<=' '>='
@@ -119,6 +119,8 @@ import Semantic.Analyzers
 %left ']'
 %left '!'
 %left '.'
+
+%nonassoc error
 
 %%
 
@@ -143,6 +145,9 @@ ClosePar                : ')'         { True }
                         | error         { False }
 
 CloseAngular            : '>'       { True }
+                        | error     { False }
+
+With                    : with                  { True }
                         | error     { False }
 
 Signature               : track Id PushScope '(' ListaParam ClosePar MaybeType             {% do
@@ -227,9 +232,9 @@ Loop                    : loop PushScope Id MaybeType Block PopScope in '(' Expr
                         | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ',' Expression ClosePar         { }
                         | loop '(' Expression ClosePar Block                                                                          { }
 
-CallFuncion             : play Id with '(' ListExp ClosePar          { }
+CallFuncion             : play Id With '(' ListExp ClosePar          { }
 
-                        | play Id                               { }
+                        | play Id                              { }
 
 ListExp                 : Expression                            { }
                         | ListExp ',' Expression                { }

@@ -103,7 +103,7 @@ import Semantic.Analyzers
 
     main                { MainToken _ _ _ }
 
-
+%nonassoc play
 %nonassoc '<->'
 %nonassoc '=' '/=' 
 %nonassoc '>' '<' '<=' '>='
@@ -118,6 +118,8 @@ import Semantic.Analyzers
 %left ']'
 %left '!'
 %left '.'
+
+%nonassoc error
 
 %%
 
@@ -164,6 +166,10 @@ Id                      : id                                    { AST.Id $1 }
                         -- Null expression
                         | TT                                    { AST.Id $1 }
 
+--------------------------------------------------------------------------------
+--------------------------For error recovery------------------------------------
+--------------------------------------------------------------------------------
+
 MaybeType               :: { Maybe AST.Type }
 MaybeType               : {- empty -}                           { Nothing }
                         | ':' Type                              { Just $2 }
@@ -176,6 +182,12 @@ ClosePar                : ')'          { True }
 
 CloseAngular            : '>'       { True }
                         | error     { False }
+
+With                    : with                  { True }
+                        | error     { False }
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 
 Block                   :: { AST.Block }
@@ -309,7 +321,9 @@ IdConst                 : id MaybeType                                   {% do
 
 
 CallFuncion             :: { AST.Expression }
-CallFuncion             : play Id with '(' ListExp ClosePar          {% do
+CallFuncion             : play Id With '(' ListExp ClosePar          {% do
+                                                                        -- Error recover
+                                                                        pushError $3 $1 "Missing \"with\" in play instruction:"
                                                                         pushError $6 $4 $ matchingError "parentheses"
                                                                         entry <- checkVarIsDeclared (AST.id_token $2)
                                                                         -- Verificacion of the list of expressions
@@ -324,14 +338,14 @@ CallFuncion             : play Id with '(' ListExp ClosePar          {% do
                                                                             _ -> semError $1 "Calling a not track expression:"}
 
                         | play Id                               {% do
-                                                                    entry <- checkVarIsDeclared (AST.id_token $2)
-                                                                    let category = SemData.entry_category entry
-                                                                    case category of
-                                                                        SemData.Function _ params ->
-                                                                            if length params == 0
-                                                                                then return $ AST.CallExp $2 [] (fromMaybe voidType $ SemData.entry_type entry) 
-                                                                                else semError (AST.id_token $2) "Wrong number of arguments:"
-                                                                        _ -> semError $1 "Calling a not track expression:" }
+                                                                            entry <- checkVarIsDeclared (AST.id_token $2)
+                                                                            let category = SemData.entry_category entry
+                                                                            case category of
+                                                                                SemData.Function _ params ->
+                                                                                    if length params == 0
+                                                                                        then return $ AST.CallExp $2 [] (fromMaybe voidType $ SemData.entry_type entry) 
+                                                                                        else semError (AST.id_token $2) "Wrong number of arguments:"
+                                                                                _ -> semError $1 "Calling a not track expression:" }
 
 ListExp                 :: { [AST.Expression] }
 ListExp                 : Expression                            { [$1] }
