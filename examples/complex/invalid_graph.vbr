@@ -41,14 +41,18 @@ track has_cycle(
 
 
 moderato() {
+    arr: Melody<quarter> <-> [0, 0|
     n: quarter|
     m: quarter|
 
     |>("Número de vertices: ")|
-    @(n)|
+    @(arr[0])|
 
     |>("Número de arcos: ")|
-    @(m)|
+    @(arr[1])|
+
+    n <-> arr[0]|
+    m <-> arr[1]|
 
     vis: Sample<Melody<whole> > <-> new Melody<whole>(n)|
     g: Graph <-> Graph(new Melody<Sample<List> >(n), n, m)|
@@ -61,7 +65,7 @@ moderato() {
         @(u, v|
 
         list_head: Sample<List> <-> g.adyList![u]|
-        g.adyList![u] <-> new List(list_head, v|
+        g.adyList![u <-> new List(list_head, v|
     } (0, m, 1)
 
     hasCycle: whole <-> min|

@@ -184,6 +184,9 @@ ClosePar                : ')'          { True }
 CloseAngular            : '>'       { True }
                         | error     { False }
 
+CloseSquare             : ']'       { True }
+                        | error     { False }
+
 With                    : with      { True }
                         | error     { False }
 
@@ -368,7 +371,10 @@ ListExp                 : Expression                            { [$1] }
                         | {-empty-}                             { [] }
 
 Indexing                :: { AST.Expression }
-Indexing                : Expression '[' Expression ']'             {% do 
+Indexing                : Expression '[' Expression CloseSquare     {% do 
+                                                                        -- Error recovery
+                                                                        pushError $4 $2 $ matchingError "square bracket"
+
                                                                         let expType = AST.exp_type $1
                                                                         if AST.type_str expType /= "Melody"
                                                                             then semError $2 "Indexing a not melody expression:"
@@ -420,7 +426,10 @@ Literal                 : int                                   { AST.Literal $1
 
 -- TODO: chequear que todos los elementos de la ListExp sean del mismo tipo.
 LiteralMelody           :: { AST.Expression }
-LiteralMelody           : '[' ListExp ']'                       {%do
+LiteralMelody           : '[' ListExp CloseSquare               {%do
+                                                                    -- Error recovery
+                                                                    pushError $3 $1 $ matchingError "square bracket"
+
                                                                     case $2 of
                                                                         [] -> return $ AST.LiteralMelody [] (AST.Simple "empty_list")
                                                                         (e:es) -> do

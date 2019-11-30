@@ -152,6 +152,9 @@ ClosePar                : ')'         { True }
 CloseAngular            : '>'       { True }
                         | error     { False }
 
+CloseSquare             : ']'       { True }
+                        | error     { False }
+
 With                    : with                  { True }
                         | error                 { False }
 
@@ -251,7 +254,7 @@ ListExp                 : Expression                            { }
                         | ListExp ',' Expression                { }
                         | {-empty-}                             { }
 
-Indexing                : Expression '[' Expression ']'             { }
+Indexing                : Expression '[' Expression CloseSquare             { }
 
 DotExpression           : Expression '.' Id                         { }
 
@@ -276,7 +279,7 @@ Literal                 : int                                   { }
                         | Type '(' ListExp ClosePar                  { }
                         | Type                                  { }
 
-LiteralMelody           : '[' ListExp ']'                       { }
+LiteralMelody           : '[' ListExp CloseSquare                       { }
 
 Expression              : LValue %prec LVALUE                   { }
                         -- Boolean
