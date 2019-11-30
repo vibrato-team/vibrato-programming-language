@@ -62,7 +62,7 @@ moderato() {
 
         list_head: Sample<List> <-> g.adyList![u]|
         g.adyList![u] <-> new List(list_head, v|
-    } in (0, m, 1)
+    } (0, m, 1)
 
     hasCycle: whole <-> min|
     u: quarter <-> 0|

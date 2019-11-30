@@ -105,6 +105,7 @@ import Semantic.Analyzers
     main                { MainToken _ _ _ }
 
 %nonassoc play
+%nonassoc loop
 %nonassoc '<->'
 %nonassoc '=' '/=' 
 %nonassoc '>' '<' '<=' '>='
@@ -136,6 +137,10 @@ FunctionDeclaration     :: { () }                                           -- a
 FunctionDeclaration     : Signature Block PopScope                          {}
 MainDeclaration         : main PushScope '(' ClosePar Block                      {}
 
+--------------------------------------------------------------------------------
+--------------------------For error recovery------------------------------------
+--------------------------------------------------------------------------------
+
 OpenBracket             : '{'       { }
 
 CloseBracket             : '}'       { }
@@ -148,7 +153,13 @@ CloseAngular            : '>'       { True }
                         | error     { False }
 
 With                    : with                  { True }
+                        | error                 { False }
+
+In                      : in        { True }
                         | error     { False }
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 Signature               : track Id PushScope '(' ListaParam ClosePar MaybeType             {% do
                                                                                             let tk = AST.id_token $2
@@ -227,9 +238,9 @@ Return                  : Expression '||'                       { }
 IO                      : '@' '(' ListExp ClosePar                   { }
                         | '|>' '(' ListExp ClosePar                  { }
 
-Loop                    : loop PushScope Id MaybeType Block PopScope in '(' Expression ClosePar                                       { }
-                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ClosePar                        { }
-                        | loop PushScope Id MaybeType Block PopScope in '(' Expression ',' Expression ',' Expression ClosePar         { }
+Loop                    : loop PushScope Id MaybeType Block PopScope In '(' Expression ClosePar                                       { }
+                        | loop PushScope Id MaybeType Block PopScope In '(' Expression ',' Expression ClosePar                        { }
+                        | loop PushScope Id MaybeType Block PopScope In '(' Expression ',' Expression ',' Expression ClosePar         { }
                         | loop '(' Expression ClosePar Block                                                                          { }
 
 CallFuncion             : play Id With '(' ListExp ClosePar          { }

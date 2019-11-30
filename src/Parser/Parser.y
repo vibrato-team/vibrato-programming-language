@@ -104,6 +104,7 @@ import Semantic.Analyzers
     main                { MainToken _ _ _ }
 
 %nonassoc play
+%nonassoc loop
 %nonassoc '<->'
 %nonassoc '=' '/=' 
 %nonassoc '>' '<' '<=' '>='
@@ -183,7 +184,11 @@ ClosePar                : ')'          { True }
 CloseAngular            : '>'       { True }
                         | error     { False }
 
-With                    : with                  { True }
+With                    : with      { True }
+                        | error     { False }
+
+
+In                      : in        { True }
                         | error     { False }
 
 --------------------------------------------------------------------------------
@@ -295,17 +300,26 @@ IO                      : '@' '(' ListExp ClosePar                   {%do
                                                                         return $ AST.PlayInst $ reverse $3 }
 
 Loop                    :: { AST.Instruction }
-Loop                    : loop PushScope IdConst Block PopScope in '(' Expression ClosePar                                       {%do
+Loop                    : loop PushScope IdConst Block PopScope In '(' Expression ClosePar                                       {%do
+                                                                                                                                    -- Error recovery
+                                                                                                                                    pushError $6 $1 "Missing \"in\" in loop instruction"
                                                                                                                                     pushError $9 $7 $ matchingError "parentheses"
+
                                                                                                                                     checkExpType $8 AST.numberTypes $7
                                                                                                                                     return $ AST.ForInst (fst $3) (snd $3) $4 Nothing $8 Nothing }
-                        | loop PushScope IdConst Block PopScope in '(' Expression ',' Expression ClosePar                        {%do
+                        | loop PushScope IdConst Block PopScope In '(' Expression ',' Expression ClosePar                        {%do
+                                                                                                                                    -- Error recovery
+                                                                                                                                    pushError $6 $1 "Missing \"in\" in loop instruction"
                                                                                                                                     pushError $11 $7 $ matchingError "parentheses"
+
                                                                                                                                     checkExpType $8 AST.numberTypes $7
                                                                                                                                     checkExpType $10 AST.numberTypes $9
                                                                                                                                     return $ AST.ForInst (fst $3) (snd $3) $4 (Just $8) $10 Nothing }
-                        | loop PushScope IdConst Block PopScope in '(' Expression ',' Expression ',' Expression ClosePar         {%do
+                        | loop PushScope IdConst Block PopScope In '(' Expression ',' Expression ',' Expression ClosePar         {%do
+                                                                                                                                    -- Error recovery
+                                                                                                                                    pushError $6 $1 "Missing \"in\" in loop instruction"
                                                                                                                                     pushError $13 $7 $ matchingError "parentheses"
+                                                                                                                                    
                                                                                                                                     checkExpType $8 AST.numberTypes $7
                                                                                                                                     checkExpType $10 AST.numberTypes $9
                                                                                                                                     checkExpType $12 AST.numberTypes $11
@@ -322,9 +336,10 @@ IdConst                 : id MaybeType                                   {% do
 
 CallFuncion             :: { AST.Expression }
 CallFuncion             : play Id With '(' ListExp ClosePar          {% do
-                                                                        -- Error recover
+                                                                        -- Error recovery
                                                                         pushError $3 $1 "Missing \"with\" in play instruction:"
                                                                         pushError $6 $4 $ matchingError "parentheses"
+
                                                                         entry <- checkVarIsDeclared (AST.id_token $2)
                                                                         -- Verificacion of the list of expressions
                                                                         checkParams $2 (reverse $5) (SemData.function_params $ SemData.entry_category entry)
