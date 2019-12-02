@@ -2,7 +2,7 @@
 Lista enlazada
 /*
 chord List {
-    next: Sample<List,
+    next: Sample <List>,
     value: quarter
 }
 
@@ -66,7 +66,7 @@ moderato() {
 
         list_head: Sample<List> <-> g.adyList![u]|
         g.adyList![u <-> new List(list_head, v|
-    } (0, m, 1)
+    in (0, m, 1)
 
     hasCycle: whole <-> min|
     u: quarter <-> 0|

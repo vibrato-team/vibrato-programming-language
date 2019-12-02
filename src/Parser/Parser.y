@@ -785,26 +785,42 @@ addBlock block lst = Just $ map mapping lst
 -----------Chequear tipos ------------------
 --------------------------------------------
 
+-- Chequea que ambos tipos sean compatibles
+equalType :: AST.Type -> AST.Type -> Bool
+equalType (AST.Compound ou inner) (AST.Compound ou' inner') =
+    ou == ou' && equalType inner inner'
+    
+equalType (AST.Simple ou) (AST.Simple ou') =
+    ou == ou'
+
+equalType (AST.Compound "Melody" _) (AST.Simple "empty_list") = True
+equalType (AST.Simple "empty_list") (AST.Compound "Melody" _) = True
+
+equalType (AST.Compound "Sample" _) (AST.Simple "null") = True
+equalType (AST.Simple "null") (AST.Compound "Sample" _) = True
+
+equalType _ _ = False
+
+-- Chequea que el tipo de la expresión sea compatible con alguno de los tipos pasados como argumento.
 checkExpType :: AST.Expression -> [AST.Type] -> Token -> ParserMonad AST.Type
 checkExpType exp expected tk = do
     let expType = AST.exp_type exp
-    if filter (==expType) expected == []
-        then semError tk $ "Expression is not of type " ++ (AST.type_str $ expected!!0) ++ ":"
+    if filter (equalType expType) expected == []
+        then semError tk $ "Expression is not of type " ++ (show $ expected!!0) ++ ":"
         else return expType
 
+-- Chequea que ambas expresiones tengan tipos compatibles
 checkEquality :: AST.Expression -> AST.Expression -> Token -> ParserMonad AST.Type
 checkEquality = checkEquality' . AST.exp_type
 
+-- Chequea que el tipo sea compatible con el tipo de la expresión.
 checkEquality' :: AST.Type -> AST.Expression -> Token -> ParserMonad AST.Type
 checkEquality' astType exp tk =
-    if AST.type_str astType `elem` ["Sample", "null"]
-        then checkExpType exp [astType, AST.Simple "null"] tk
-        else if AST.type_str astType `elem` ["Melody", "empty_list"]
-            then checkExpType exp [astType, AST.Simple "empty_list"] tk
-            else if astType `elem` AST.numberTypes
-                then checkExpType exp AST.numberTypes tk
-                else checkExpType exp [astType] tk
+    if astType `elem` AST.numberTypes
+        then checkExpType exp AST.numberTypes tk
+        else checkExpType exp [astType] tk
 
+-- Retorna la expresión si es del tipo escogido, si no, retorna la expresión casteada.
 castExp :: AST.Expression -> AST.Type -> AST.Expression
 castExp exp finalType =
     if AST.exp_type exp == finalType 
