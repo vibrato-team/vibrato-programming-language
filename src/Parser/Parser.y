@@ -263,14 +263,29 @@ VarInit                 :: { AST.Instruction }
 VarInit                 : Id ':' Type '<->' Expression          {% do 
                                                                     createVarEntry (AST.id_token $1) (Just $3)
                                                                     let idExp = AST.IdExp $1 $3
+                                                                        expType = AST.exp_type $5
+
                                                                     checkEquality idExp $5 $4
-                                                                    return $ AST.AssignInst idExp $5 }
+                                                                    
+                                                                    case (compare $3 expType) of
+                                                                        LT -> pushError $4 "Implicit down casting is not allowed in assignments for your safety:"
+                                                                        _ -> return () 
+
+                                                                    return $ AST.AssignInst idExp $ castExp $5 $3 }
 
 Asignacion              :: { AST.Instruction }
 Asignacion              : LValue '<->' Expression               {%do
                                                                     checkEquality $1 $3 $2
                                                                     checkConstLvalue $1
-                                                                    return $ AST.AssignInst $1 $3 }
+
+                                                                    let lType = AST.exp_type $1
+                                                                        expType = AST.exp_type $3
+
+                                                                    case (compare lType expType) of
+                                                                        LT -> pushError $2 "Implicit down casting is not allowed in assignments for your safety:"
+                                                                        _ -> return () 
+
+                                                                    return $ AST.AssignInst $1 $ castExp $3 lType }
 
 LValue                  :: { AST.Expression }
 LValue                  : Indexing                              { $1 }
@@ -431,8 +446,14 @@ Literal                 : int                                   { AST.Literal $1
                         | LiteralMelody                         { $1 }
                         | Type '(' ListExp ClosePar             {% do 
                                                                     pushIfError $4 $2 $ matchingError "parentheses"
-                                                                    return $ AST.Literal' (reverse $3) $1 }
-                        | Type                                  { AST.Literal' [] $1 }
+                                                                    if $1 `elem` AST.primitiveTypes
+                                                                        then do
+                                                                            case $3 of
+                                                                                [] -> semError $2 "Missing expression"
+                                                                                (_:_:_) -> pushError $2 "Too many arguments"
+                                                                                _ -> return ()
+                                                                            return $ castExp (head $3) $1
+                                                                        else return $ AST.Literal' (reverse $3) $1 }
 
 -- TODO: chequear que todos los elementos de la ListExp sean del mismo tipo.
 LiteralMelody           :: { AST.Expression }
@@ -575,7 +596,8 @@ Expression              : LValue %prec LVALUE                   { $1 }
                                                                     pushIfError $3 $1 $ matchingError "parentheses"
                                                                     return $ $2 }
 
-                        | new Literal                           { AST.NewExp $2 (AST.Compound "Sample" (AST.exp_type $2)) }
+                        | new Literal                           { AST.NewExp (Just $2) (AST.Compound "Sample" (AST.exp_type $2)) }
+                        | new IdType                            { AST.NewExp Nothing (AST.Compound "Sample" $2) }
 
                         | CallFuncion                           { $1 }
 

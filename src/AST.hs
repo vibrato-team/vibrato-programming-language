@@ -64,10 +64,11 @@ instance ASTNode Type where
         putTabs tabs ++ show tp
         
 numberTypes = [AST.Simple "quarter", AST.Simple "eighth", AST.Simple "32th", AST.Simple "64th"]
+primitiveTypes = numberTypes ++ [AST.Simple "whole", AST.Simple "half"]
 
 instance Ord Type where
     compare a b =
-        case fmap (\x -> (>x)) (a `elemIndex` numberTypes) <*> (a `elemIndex` numberTypes) of
+        case fmap (\x -> (>x)) (a `elemIndex` numberTypes) <*> (b `elemIndex` numberTypes) of
             Nothing -> EQ
             Just True -> LT
             Just False -> GT
@@ -93,7 +94,7 @@ data Expression =
     DereferenceExp  {   exp_exp :: Expression, exp_token :: Token, exp_type :: Type }                               |
     
     -- | Allocate memory
-    NewExp          {   exp_init :: Expression, exp_type :: Type }                              |
+    NewExp          {   exp_init :: Maybe Expression, exp_type :: Type }                              |
 
     -- | Indexing an array
     IndexingExp     {   exp_left :: Expression, exp_right :: Expression, 
