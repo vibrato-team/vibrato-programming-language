@@ -266,11 +266,6 @@ VarInit                 : Id ':' Type '<->' Expression          {% do
                                                                         expType = AST.exp_type $5
 
                                                                     checkEquality idExp $5 $4
-                                                                    
-                                                                    case (compare $3 expType) of
-                                                                        LT -> pushError $4 "Implicit down casting is not allowed in assignments for your safety:"
-                                                                        _ -> return () 
-
                                                                     return $ AST.AssignInst idExp $ castExp $5 $3 }
 
 Asignacion              :: { AST.Instruction }
@@ -280,11 +275,6 @@ Asignacion              : LValue '<->' Expression               {%do
 
                                                                     let lType = AST.exp_type $1
                                                                         expType = AST.exp_type $3
-
-                                                                    case (compare lType expType) of
-                                                                        LT -> pushError $2 "Implicit down casting is not allowed in assignments for your safety:"
-                                                                        _ -> return () 
-
                                                                     return $ AST.AssignInst $1 $ castExp $3 lType }
 
 LValue                  :: { AST.Expression }
@@ -300,9 +290,13 @@ Return                  :: { AST.Instruction }
 Return                  : Expression '||'                       {% do
                                                                     state <- RWS.get
                                                                     case PMonad.state_ret_type state of
-                                                                        Nothing -> pushError $2 $ show (AST.exp_type $1) ++ " return instruction inside void track:"
-                                                                        Just retType -> checkEquality' retType $1 $2
-                                                                    return $ AST.ReturnInst $ Just $1 }
+                                                                        Nothing -> do
+                                                                            pushError $2 $ show (AST.exp_type $1) ++ " return instruction inside void track:"
+                                                                            return $ AST.ReturnInst $ Just $1
+
+                                                                        Just retType -> do
+                                                                            checkEquality' retType $1 $2
+                                                                            return $ AST.ReturnInst $ Just $ castExp $1 retType }
                         | '||'                                  {% do
                                                                     state <- RWS.get
                                                                     case PMonad.state_ret_type state of
@@ -841,6 +835,7 @@ equalType _ _ = False
 checkExpType :: AST.Expression -> [AST.Type] -> Token -> ParserMonad AST.Type
 checkExpType exp expected tk = do
     let expType = AST.exp_type exp
+
     if filter (equalType expType) expected == []
         then pushError tk $ "Expression isn't of type " ++ showExpected expected ++ ":"
         else return ()
@@ -860,7 +855,7 @@ checkEquality = checkEquality' . AST.exp_type
 checkEquality' :: AST.Type -> AST.Expression -> Token -> ParserMonad ()
 checkEquality' astType exp tk = do
     if astType `elem` AST.numberTypes
-        then checkExpType exp AST.numberTypes tk
+        then checkExpType exp (filter (<= astType) AST.numberTypes) tk
         else checkExpType exp [astType] tk
     return ()
 

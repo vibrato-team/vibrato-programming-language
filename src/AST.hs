@@ -64,14 +64,17 @@ instance ASTNode Type where
         putTabs tabs ++ show tp
         
 numberTypes = [AST.Simple "quarter", AST.Simple "eighth", AST.Simple "32th", AST.Simple "64th"]
-primitiveTypes = numberTypes ++ [AST.Simple "whole", AST.Simple "half"]
+primitiveTypes =  [AST.Simple "whole", AST.Simple "half"] ++ numberTypes
+simpleTypes = [AST.Simple "void", AST.Simple "null", AST.Simple "empty_list"] ++ primitiveTypes
 
 instance Ord Type where
     compare a b =
-        case fmap (\x -> (>x)) (a `elemIndex` numberTypes) <*> (b `elemIndex` numberTypes) of
-            Nothing -> EQ
-            Just True -> LT
-            Just False -> GT
+        if a == b
+            then EQ
+            else case fmap (\x -> (>x)) (a `elemIndex` simpleTypes) <*> (b `elemIndex` simpleTypes) of
+                Nothing -> EQ
+                Just True -> LT
+                Just False -> GT
 
 -- Expression
 data Expression =
