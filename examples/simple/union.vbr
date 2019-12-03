@@ -1,0 +1,10 @@
+legato Bool {
+    true: whole,
+    false: whole
+}
+
+moderato() {
+    bool: Bool|
+    bool.true = min|
+    |>(bool.true)|
+}

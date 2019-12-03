@@ -41,7 +41,7 @@ track has_cycle(
 
 
 moderato() {
-    arr: Melody<quarter> <-> [0.1, 0|
+    arr: Melody<eighth> <-> [0.1, 0|
     n: quarter|
     m: quarter|
 
@@ -52,7 +52,7 @@ moderato() {
     @(arr[1])|
 
     n <-> arr[0.0]|
-    m <-> arr[1]|
+    m <-> quarter(arr[1])|
 
     vis: Sample<Melody<whole> > <-> new Melody<whole>(n)|
     g: Graph <-> Graph(new Melody<Sample<List> >(n), n, m)|

@@ -263,14 +263,19 @@ VarInit                 :: { AST.Instruction }
 VarInit                 : Id ':' Type '<->' Expression          {% do 
                                                                     createVarEntry (AST.id_token $1) (Just $3)
                                                                     let idExp = AST.IdExp $1 $3
-                                                                    checkEquality idExp $5 $4
-                                                                    return $ AST.AssignInst idExp $5 }
+                                                                        expType = AST.exp_type $5
+
+                                                                    checkAssignment idExp $5 $4
+                                                                    return $ AST.AssignInst idExp $ castExp $5 $3 }
 
 Asignacion              :: { AST.Instruction }
 Asignacion              : LValue '<->' Expression               {%do
-                                                                    checkEquality $1 $3 $2
+                                                                    checkAssignment $1 $3 $2
                                                                     checkConstLvalue $1
-                                                                    return $ AST.AssignInst $1 $3 }
+
+                                                                    let lType = AST.exp_type $1
+                                                                        expType = AST.exp_type $3
+                                                                    return $ AST.AssignInst $1 $ castExp $3 lType }
 
 LValue                  :: { AST.Expression }
 LValue                  : Indexing                              { $1 }
@@ -285,9 +290,13 @@ Return                  :: { AST.Instruction }
 Return                  : Expression '||'                       {% do
                                                                     state <- RWS.get
                                                                     case PMonad.state_ret_type state of
-                                                                        Nothing -> pushError $2 $ show (AST.exp_type $1) ++ " return instruction inside void track:"
-                                                                        Just retType -> checkEquality' retType $1 $2
-                                                                    return $ AST.ReturnInst $ Just $1 }
+                                                                        Nothing -> do
+                                                                            pushError $2 $ show (AST.exp_type $1) ++ " return instruction inside void track:"
+                                                                            return $ AST.ReturnInst $ Just $1
+
+                                                                        Just retType -> do
+                                                                            checkAssignment' retType $1 $2
+                                                                            return $ AST.ReturnInst $ Just $ castExp $1 retType }
                         | '||'                                  {% do
                                                                     state <- RWS.get
                                                                     case PMonad.state_ret_type state of
@@ -431,8 +440,14 @@ Literal                 : int                                   { AST.Literal $1
                         | LiteralMelody                         { $1 }
                         | Type '(' ListExp ClosePar             {% do 
                                                                     pushIfError $4 $2 $ matchingError "parentheses"
-                                                                    return $ AST.Literal' (reverse $3) $1 }
-                        | Type                                  { AST.Literal' [] $1 }
+                                                                    if $1 `elem` AST.primitiveTypes
+                                                                        then do
+                                                                            case $3 of
+                                                                                [] -> semError $2 "Missing expression"
+                                                                                (_:_:_) -> pushError $2 "Too many arguments"
+                                                                                _ -> return ()
+                                                                            return $ castExp (head $3) $1
+                                                                        else return $ AST.Literal' (reverse $3) $1 }
 
 -- TODO: chequear que todos los elementos de la ListExp sean del mismo tipo.
 LiteralMelody           :: { AST.Expression }
@@ -444,7 +459,7 @@ LiteralMelody           : '[' ListExp CloseSquare               {%do
                                                                         [] -> return $ AST.LiteralMelody [] (AST.Simple "empty_list")
                                                                         (e:es) -> do
                                                                             let expType = AST.exp_type e
-                                                                            if all (==expType) $ map AST.exp_type $2
+                                                                            if all (equalType expType) $ map AST.exp_type $2
                                                                                 then                                                                           
                                                                                     return ()
                                                                                 else pushError $1 "Not homogeneous melodies are not allowed:" 
@@ -530,13 +545,21 @@ Expression              : LValue %prec LVALUE                   { $1 }
                                                                     let expected = [AST.exp_type $1]
                                                                     checkEquality $1 $3 $2
 
-                                                                    return $ AST.EqualExp $1 $3 (AST.Simple "whole") }
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.EqualExp exp1 exp2 (AST.Simple "whole") }
 
                         | Expression '/=' Expression            {%do
                                                                     let expected = [AST.exp_type $1]
                                                                     checkEquality $1 $3 $2
 
-                                                                    return $ AST.NotEqualExp $1 $3 (AST.Simple "whole") }
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.NotEqualExp exp1 exp2 (AST.Simple "whole") }
                         | Expression '<' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
@@ -575,7 +598,8 @@ Expression              : LValue %prec LVALUE                   { $1 }
                                                                     pushIfError $3 $1 $ matchingError "parentheses"
                                                                     return $ $2 }
 
-                        | new Literal                           { AST.NewExp $2 (AST.Compound "Sample" (AST.exp_type $2)) }
+                        | new Literal                           { AST.NewExp (Just $2) (AST.Compound "Sample" (AST.exp_type $2)) }
+                        | new IdType                            { AST.NewExp Nothing (AST.Compound "Sample" $2) }
 
                         | CallFuncion                           { $1 }
 
@@ -815,34 +839,45 @@ equalType (AST.Simple "null") (AST.Compound "Sample" _) = True
 
 equalType _ _ = False
 
--- Chequea que el tipo de la expresión sea compatible con alguno de los tipos pasados como argumento.
+-- | Chequea que el tipo de la expresión sea compatible con alguno de los tipos pasados como argumento.
 checkExpType :: AST.Expression -> [AST.Type] -> Token -> ParserMonad AST.Type
 checkExpType exp expected tk = do
     let expType = AST.exp_type exp
+
     if filter (equalType expType) expected == []
         then pushError tk $ "Expression isn't of type " ++ showExpected expected ++ ":"
         else return ()
     return expType
 
+-- | Para imprimir bonito los tipos esperados
 showExpected :: [AST.Type] -> String
 showExpected [] = ""
 showExpected [t] = show t
 showExpected expected@(_:_:_) = let strs = map show expected in
     intercalate ", " (init strs) ++ " or " ++ (last strs)
 
--- Chequea que ambas expresiones tengan tipos compatibles
-checkEquality :: AST.Expression -> AST.Expression -> Token -> ParserMonad ()
-checkEquality = checkEquality' . AST.exp_type
+-- | Chequea que la expresión derecha sea compatible para ser asignada con la expresión izquierda
+checkAssignment :: AST.Expression -> AST.Expression -> Token -> ParserMonad ()
+checkAssignment = checkAssignment' . AST.exp_type
 
--- Chequea que el tipo sea compatible con el tipo de la expresión.
-checkEquality' :: AST.Type -> AST.Expression -> Token -> ParserMonad ()
-checkEquality' astType exp tk = do
+-- | Chequea que el tipo de la expresión pueda ser asignado al tipo pasado por parámetro.
+checkAssignment' :: AST.Type -> AST.Expression -> Token -> ParserMonad ()
+checkAssignment' astType exp tk = do
     if astType `elem` AST.numberTypes
-        then checkExpType exp AST.numberTypes tk
+        then checkExpType exp (filter (<= astType) AST.numberTypes) tk
         else checkExpType exp [astType] tk
     return ()
 
--- Retorna la expresión si es del tipo escogido, si no, retorna la expresión casteada.
+-- | Chequea que los tipos sean comparables
+checkEquality :: AST.Expression -> AST.Expression -> Token -> ParserMonad ()
+checkEquality lexp rexp tk = do
+    let astType = AST.exp_type lexp
+    if astType `elem` AST.numberTypes
+        then checkExpType rexp AST.numberTypes tk
+        else checkExpType rexp [astType] tk
+    return ()
+
+-- | Retorna la expresión si es del tipo escogido, si no, retorna la expresión casteada.
 castExp :: AST.Expression -> AST.Type -> AST.Expression
 castExp exp finalType =
     if AST.exp_type exp == finalType 
