@@ -440,13 +440,21 @@ Literal                 : int                                   { AST.Literal $1
                         | LiteralMelody                         { $1 }
                         | Type '(' ListExp ClosePar             {% do 
                                                                     pushIfError $4 $2 $ matchingError "parentheses"
+                                                                    
                                                                     if $1 `elem` AST.primitiveTypes
+                                                                        -- If it is a primitive, it is the same as an explicit casting
                                                                         then do
                                                                             case $3 of
+                                                                                -- An argument is needed
                                                                                 [] -> semError $2 "Missing expression"
+                                                                                -- but only *one* argument
                                                                                 (_:_:_) -> pushError $2 "Too many arguments"
                                                                                 _ -> return ()
+                                                                            
+                                                                            -- Return a casting expression (if needed)
                                                                             return $ castExp (head $3) $1
+
+                                                                        -- If it is not a primitive
                                                                         else return $ AST.Literal' (reverse $3) $1 }
 
 -- TODO: chequear que todos los elementos de la ListExp sean del mismo tipo.
