@@ -1,6 +1,6 @@
 moderato() {
     arr: Melody<Melody<quarter> > <-> [[4, 3, 2], [2,3], []] |
-    if (arr = [[]]) {
+    if (arr = [[], [], []]) {
         |>("Videl")|
     }
 }

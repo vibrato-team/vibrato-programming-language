@@ -459,7 +459,7 @@ LiteralMelody           : '[' ListExp CloseSquare               {%do
                                                                         [] -> return $ AST.LiteralMelody [] (AST.Simple "empty_list")
                                                                         (e:es) -> do
                                                                             let expType = AST.exp_type e
-                                                                            if all (==expType) $ map AST.exp_type $2
+                                                                            if all (equalType expType) $ map AST.exp_type $2
                                                                                 then                                                                           
                                                                                     return ()
                                                                                 else pushError $1 "Not homogeneous melodies are not allowed:" 
