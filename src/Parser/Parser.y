@@ -545,13 +545,21 @@ Expression              : LValue %prec LVALUE                   { $1 }
                                                                     let expected = [AST.exp_type $1]
                                                                     checkEquality $1 $3 $2
 
-                                                                    return $ AST.EqualExp $1 $3 (AST.Simple "whole") }
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.EqualExp exp1 exp2 (AST.Simple "whole") }
 
                         | Expression '/=' Expression            {%do
                                                                     let expected = [AST.exp_type $1]
                                                                     checkEquality $1 $3 $2
 
-                                                                    return $ AST.NotEqualExp $1 $3 (AST.Simple "whole") }
+                                                                    let finalType = max (AST.exp_type $1) (AST.exp_type $3)
+                                                                        exp1 = castExp $1 finalType
+                                                                        exp2 = castExp $3 finalType
+
+                                                                    return $ AST.NotEqualExp exp1 exp2 (AST.Simple "whole") }
                         | Expression '<' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
