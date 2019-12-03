@@ -36,12 +36,12 @@ track has_cycle(
         
         u_list <-> u_list!.next|
     }
-
-    min||
+    g <-> min|
+    g||
 
 
 moderato() {
-    arr: Melody<quarter> <-> [0, 0|
+    arr: Melody<quarter> <-> [0.1, 0|
     n: quarter|
     m: quarter|
 
@@ -51,7 +51,7 @@ moderato() {
     |>("Número de arcos: ")|
     @(arr[1])|
 
-    n <-> arr[0]|
+    n <-> arr[0.0]|
     m <-> arr[1]|
 
     vis: Sample<Melody<whole> > <-> new Melody<whole>(n)|
@@ -66,7 +66,7 @@ moderato() {
 
         list_head: Sample<List> <-> g.adyList![u]|
         g.adyList![u <-> new List(list_head, v|
-    in (0, m, 1)
+    in (0, m, 3.1416 * min)
 
     hasCycle: whole <-> min|
     u: quarter <-> 0|
@@ -79,5 +79,7 @@ moderato() {
         |>("El grafo tiene al menos un ciclo.\n")|
     } else {
         |>("El grafo no tiene ciclos.\n")|
+
+    0||
     
 
