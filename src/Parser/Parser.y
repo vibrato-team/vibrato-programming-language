@@ -265,12 +265,12 @@ VarInit                 : Id ':' Type '<->' Expression          {% do
                                                                     let idExp = AST.IdExp $1 $3
                                                                         expType = AST.exp_type $5
 
-                                                                    checkEquality idExp $5 $4
+                                                                    checkAssignment idExp $5 $4
                                                                     return $ AST.AssignInst idExp $ castExp $5 $3 }
 
 Asignacion              :: { AST.Instruction }
 Asignacion              : LValue '<->' Expression               {%do
-                                                                    checkEquality $1 $3 $2
+                                                                    checkAssignment $1 $3 $2
                                                                     checkConstLvalue $1
 
                                                                     let lType = AST.exp_type $1
@@ -295,7 +295,7 @@ Return                  : Expression '||'                       {% do
                                                                             return $ AST.ReturnInst $ Just $1
 
                                                                         Just retType -> do
-                                                                            checkEquality' retType $1 $2
+                                                                            checkAssignment' retType $1 $2
                                                                             return $ AST.ReturnInst $ Just $ castExp $1 retType }
                         | '||'                                  {% do
                                                                     state <- RWS.get
@@ -831,7 +831,7 @@ equalType (AST.Simple "null") (AST.Compound "Sample" _) = True
 
 equalType _ _ = False
 
--- Chequea que el tipo de la expresión sea compatible con alguno de los tipos pasados como argumento.
+-- | Chequea que el tipo de la expresión sea compatible con alguno de los tipos pasados como argumento.
 checkExpType :: AST.Expression -> [AST.Type] -> Token -> ParserMonad AST.Type
 checkExpType exp expected tk = do
     let expType = AST.exp_type exp
@@ -841,25 +841,35 @@ checkExpType exp expected tk = do
         else return ()
     return expType
 
+-- | Para imprimir bonito los tipos esperados
 showExpected :: [AST.Type] -> String
 showExpected [] = ""
 showExpected [t] = show t
 showExpected expected@(_:_:_) = let strs = map show expected in
     intercalate ", " (init strs) ++ " or " ++ (last strs)
 
--- Chequea que ambas expresiones tengan tipos compatibles
-checkEquality :: AST.Expression -> AST.Expression -> Token -> ParserMonad ()
-checkEquality = checkEquality' . AST.exp_type
+-- | Chequea que la expresión derecha sea compatible para ser asignada con la expresión izquierda
+checkAssignment :: AST.Expression -> AST.Expression -> Token -> ParserMonad ()
+checkAssignment = checkAssignment' . AST.exp_type
 
--- Chequea que el tipo sea compatible con el tipo de la expresión.
-checkEquality' :: AST.Type -> AST.Expression -> Token -> ParserMonad ()
-checkEquality' astType exp tk = do
+-- | Chequea que el tipo de la expresión pueda ser asignado al tipo pasado por parámetro.
+checkAssignment' :: AST.Type -> AST.Expression -> Token -> ParserMonad ()
+checkAssignment' astType exp tk = do
     if astType `elem` AST.numberTypes
         then checkExpType exp (filter (<= astType) AST.numberTypes) tk
         else checkExpType exp [astType] tk
     return ()
 
--- Retorna la expresión si es del tipo escogido, si no, retorna la expresión casteada.
+-- | Chequea que los tipos sean comparables
+checkEquality :: AST.Expression -> AST.Expression -> Token -> ParserMonad ()
+checkEquality lexp rexp tk = do
+    let astType = AST.exp_type lexp
+    if astType `elem` AST.numberTypes
+        then checkExpType rexp AST.numberTypes tk
+        else checkExpType rexp [astType] tk
+    return ()
+
+-- | Retorna la expresión si es del tipo escogido, si no, retorna la expresión casteada.
 castExp :: AST.Expression -> AST.Type -> AST.Expression
 castExp exp finalType =
     if AST.exp_type exp == finalType 
