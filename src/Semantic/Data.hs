@@ -4,12 +4,15 @@ import qualified Tokens
 import qualified Data.Set as Set
 import qualified Data.Map.Lazy as Map
 
+-- | Chord or Legato Data
+data ADT = Chord | Legato deriving (Eq, Show)
+
 -- | Category of each symbol with additional info
 data Category =
     Function         { function_block :: Maybe AST.Block, function_params :: [AST.VarDeclaration] }     |
     Var              |
     Const            |
-    Type             |
+    Type             { type_fields :: Maybe [AST.VarDeclaration], type_adt :: Maybe ADT } |
     Constructor      | -- ^ Melody and Sample  
     Field            | -- ^ Member of a struct/union
     Param            { param_ref :: Bool }| -- ^ Param of a function

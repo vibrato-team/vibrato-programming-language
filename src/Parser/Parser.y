@@ -354,17 +354,16 @@ CallFuncion             : play Id With '(' ListExp ClosePar          {% do
                                                                         pushIfError $6 $4 $ matchingError "parentheses"
 
                                                                         entry <- checkVarIsDeclared (AST.id_token $2)
-                                                                        -- Verificacion of the list of expressions
-                                                                        checkParams $2 (reverse $5) (SemData.function_params $ SemData.entry_category entry)
-                                                                        -- Verification if id is valid function
                                                                         let category = SemData.entry_category entry
                                                                         case category of
-                                                                            SemData.Function _ params ->
-                                                                                if length $5 /= length params
-                                                                                    then pushError $4 "Wrong number of arguments:"
-                                                                                    else return ()
-                                                                            _ -> pushError $1 "Calling a not track expression:"
-                                                                        return $ AST.CallExp $2 (reverse $5) (fromMaybe voidType $ SemData.entry_type entry) }
+                                                                            SemData.Function _ params -> do
+                                                                                -- Verificacion of the list of expressions
+                                                                                casted_params <- checkParams $2 (reverse $5) params
+                                                                                return $ AST.CallExp $2 casted_params (fromMaybe voidType $ SemData.entry_type entry)
+
+                                                                            _ -> do
+                                                                                pushError $1 "Calling a not track expression:"
+                                                                                return $ AST.CallExp $2 (reverse $5) (fromMaybe voidType $ SemData.entry_type entry) }
 
                         | play Id                               {% do
                                                                             entry <- checkVarIsDeclared (AST.id_token $2)
@@ -418,53 +417,63 @@ Dereference             : Expression '!'                            {% do
                                                                         return $ AST.DereferenceExp $1 $2 (AST.type_type $ AST.exp_type $1) }
 
 Type                    :: { AST.Type }
-Type                    : whole                                 { AST.Simple (token $1) }
+Type                    : PrimitiveType                         { $1 }
+                        | MelodyType                            { $1 }
+                        | sample '<' Type CloseAngular          {%do
+                                                                    pushIfError $4 $2 $ matchingError "angle bracket"
+                                                                    return $ AST.Compound (token $1) $3 }
+                        | IdType                                { $1 }
+
+PrimitiveType           :: { AST.Type }
+PrimitiveType           : whole                                 { AST.Simple (token $1) }
                         | half                                  { AST.Simple (token $1) }
                         | quarter                               { AST.Simple (token $1) }
                         | eighth                                { AST.Simple (token $1) }
                         | ThirtySecond                          { AST.Simple (token $1) }
                         | SixtyFourth                           { AST.Simple (token $1) }
-                        | melody '<' Type CloseAngular          {%do
+
+MelodyType              :: { AST.Type }
+MelodyType              : melody '<' Type CloseAngular          {%do
                                                                     pushIfError $4 $2 $ matchingError "angle bracket"
                                                                     return $ AST.Compound (token $1) $3 }
-                        | sample '<' Type CloseAngular          {%do
-                                                                    pushIfError $4 $2 $ matchingError "angle bracket"
-                                                                    return $ AST.Compound (token $1) $3 }
-                        | IdType                                { $1 }
 
 Literal                 :: { AST.Expression }
 Literal                 : int                                   { AST.Literal $1 (AST.Simple "quarter") }
                         | float                                 { AST.Literal $1 (AST.Simple "32th") }
                         | string                                { AST.Literal $1 (AST.Compound "Melody" $ AST.Simple "half") }
                         | char                                  { AST.Literal $1 (AST.Simple "half") }
-                        | LiteralMelody                         { $1 }
-                        | Type '(' ListExp ClosePar             {% do 
+                        | MelodyLiteral                         { $1 }
+
+                        | IdType '(' ListExp ClosePar             {% do 
                                                                     pushIfError $4 $2 $ matchingError "parentheses"
-                                                                    
-                                                                    if $1 `elem` AST.primitiveTypes
-                                                                        -- If it is a primitive, it is the same as an explicit casting
-                                                                        then do
-                                                                            case $3 of
-                                                                                -- An argument is needed
-                                                                                [] -> semError $2 "Missing expression"
-                                                                                -- but only *one* argument
-                                                                                (_:_:_) -> pushError $2 "Too many arguments"
-                                                                                _ -> return ()
-                                                                            
-                                                                            -- Return a casting expression (if needed)
-                                                                            return $ castExp (head $3) $1
+                                                                    -- Check if listExp is equal type of fields
+                                                                    Just a <- PMonad.lookup (AST.type_str $1)
+                                                                    case (SemData.type_adt $ SemData.entry_category a) of
+                                                                        Just SemData.Chord -> do
+                                                                            checkFieldsChord $2 (reverse $3) (SemData.type_fields $ SemData.entry_category a)
+                                                                            return $ AST.ChordLiteral (reverse $3) $1
 
-                                                                        -- If it is not a primitive
-                                                                        else return $ AST.Literal' (reverse $3) $1 }
+                                                                        Just SemData.Legato -> do
+                                                                            checkFieldsLegato $2 (reverse $3) (SemData.type_fields $ SemData.entry_category a)
+                                                                            return $ AST.LegatoLiteral (head $3) $1}
 
--- TODO: chequear que todos los elementos de la ListExp sean del mismo tipo.
-LiteralMelody           :: { AST.Expression }
-LiteralMelody           : '[' ListExp CloseSquare               {%do
+                        | PrimitiveType '(' Expression ClosePar     {%do
+                                                                        pushIfError $4 $2 $ matchingError "parentheses"
+                                                                        -- Return a casting expression (if needed)
+                                                                        return $ castExp $3 $1}
+
+                        | MelodyType '(' Expression ClosePar        {%do
+                                                                        pushIfError $4 $2 $ matchingError "parentheses"
+                                                                        checkExpType $3 [AST.Simple "quarter", AST.Simple "eighth"] $2
+                                                                        return $ AST.MelodyLiteral' $3 $1 }
+
+MelodyLiteral           :: { AST.Expression }
+MelodyLiteral           : '[' ListExp CloseSquare               {%do
                                                                     -- Error recovery
                                                                     pushIfError $3 $1 $ matchingError "square bracket"
 
                                                                     case $2 of
-                                                                        [] -> return $ AST.LiteralMelody [] (AST.Simple "empty_list")
+                                                                        [] -> return $ AST.MelodyLiteral [] (AST.Simple "empty_list")
                                                                         (e:es) -> do
                                                                             let expType = AST.exp_type e
                                                                             if all (equalType expType) $ map AST.exp_type $2
@@ -472,7 +481,7 @@ LiteralMelody           : '[' ListExp CloseSquare               {%do
                                                                                     return ()
                                                                                 else pushError $1 "Not homogeneous melodies are not allowed:" 
 
-                                                                            return $ AST.LiteralMelody $2 (AST.Compound "Melody" expType)}
+                                                                            return $ AST.MelodyLiteral $2 (AST.Compound "Melody" expType)}
 
 Expression              :: { AST.Expression }
 Expression              : LValue %prec LVALUE                   { $1 }
@@ -619,12 +628,12 @@ IdType                  : id_type                               {%do
                                                                         Just _ -> return ()
                                                                     return $ AST.Simple (token $1) }
 
-NewType                 :: { () }
-NewType                 : chord IdType                         { }
-                        | legato IdType                        { }
+NewType                 :: { String }
+NewType                 : chord IdType                         { AST.type_str $2 }
+                        | legato IdType                        { AST.type_str $2 }
 
 ChordLegato             :: { () }
-ChordLegato             : NewType PushScope ChordLegatoFields PopScope  { }
+ChordLegato             : NewType PushScope ChordLegatoFields PopScope  {% PMonad.updateEntry (addFields $3) $1 }
 
 ChordLegatoFields       : '{' ListaField CloseBracket                    {% do
                                                                             pushIfError $3 $1 $ matchingError "bracket"
@@ -723,7 +732,7 @@ createTypeEntry tk typeStr = do
 
         let entry = SemData.Entry {
             SemData.entry_name = typeStr,
-            SemData.entry_category = SemData.Type,
+            SemData.entry_category = (SemData.Type Nothing (Just $ getAdt tk)),
             SemData.entry_scope = curr,
             SemData.entry_type = Nothing,
             SemData.entry_level = Just (lvl+1)
@@ -731,6 +740,10 @@ createTypeEntry tk typeStr = do
         PMonad.insertEntry entry
     else
         pushError tk "Type already declared in same scope:"
+    where
+        getAdt tk 
+            | token tk == "chord"= SemData.Chord
+            | token tk == "legato"= SemData.Legato
 
 createFieldEntry :: Token -> AST.Type -> ParserMonad ()
 createFieldEntry tk semType = do
@@ -796,7 +809,7 @@ verifyTypeEntry name = do
     entry <- PMonad.lookup name
     case entry of
         Nothing -> return True
-        Just (SemData.Entry _ SemData.Type _ _ _) -> return False
+        Just (SemData.Entry _ (SemData.Type _ _) _ _ _) -> return False
         Just _ -> return True
 
 verifyFieldEntry :: String -> Int -> ParserMonad (Bool)
@@ -815,8 +828,6 @@ verifyParamsEntry name current_scope = do
         Just (SemData.Entry _ (SemData.Param _) scope _ _) -> return $ scope /= current_scope
         Just _ -> return True
 
-
-
 addBlock :: AST.Block -> [SemData.Entry] -> Maybe [SemData.Entry]
 addBlock block lst = Just $ map mapping lst
     where 
@@ -827,6 +838,15 @@ addBlock block lst = Just $ map mapping lst
         mapping e = if condition e then e { SemData.entry_category = (SemData.entry_category e) { SemData.function_block = Just block } }
                 else e
 
+addFields :: [AST.VarDeclaration] -> [SemData.Entry] -> Maybe [SemData.Entry]
+addFields listFields lst = Just $ map mapping lst
+    where 
+        condition entry = 
+            case SemData.entry_category entry of
+                SemData.Type Nothing _-> True
+                _ -> False
+        mapping entry = if condition entry then entry { SemData.entry_category = (SemData.entry_category entry) { SemData.type_fields = Just listFields } }
+                else entry
 --------------------------------------------
 -----------Chequear tipos ------------------
 --------------------------------------------
@@ -892,19 +912,50 @@ castExp exp finalType =
         then exp
         else AST.CastExp exp (AST.exp_type exp) finalType 
 
+-- | Chequear que los parametros tengan tipos compatibles con los argumentos y retorna una lista
+-- de de los parametros casteados si no hubo un error.
+checkParams :: AST.Id -> [AST.Expression] -> [AST.VarDeclaration] -> ParserMonad [AST.Expression]
+checkParams id xs ys = checkParams' id xs ys []
 
-checkParams :: AST.Id -> [AST.Expression] -> [AST.VarDeclaration] -> ParserMonad ()
-checkParams id [] [] = return ()
-checkParams id xs [] = pushError (AST.id_token id) "Too much arguments passed to the function"
-checkParams id [] ys = pushError (AST.id_token id) "Too few arguments passed to the function"
-checkParams id (x:xs) (y:ys) = do
+checkParams' :: AST.Id -> [AST.Expression] -> [AST.VarDeclaration] -> [AST.Expression] -> ParserMonad [AST.Expression]
+checkParams' id [] [] lst = return lst
+
+checkParams' id xs [] _ = do
+    pushError (AST.id_token id) "Too much arguments passed to the function"
+    return [] 
+
+checkParams' id [] ys lst = do
+    pushError (AST.id_token id) "Too few arguments passed to the function"
+    return []
+
+checkParams' id (x:xs) (y:ys) lst = do
     let ytype = AST.var_type y
-    xtype <- checkExpType x [ytype] (AST.id_token id)
-    checkParams id xs ys
+    checkAssignment' ytype x (AST.id_token id)
+    checkParams' id xs ys ((castExp x ytype):lst)
 
 notDeclaration = \inst -> case inst of 
     AST.VarDecInst _ -> False 
     _ -> True
+
+checkFieldsChord :: Token -> [AST.Expression] -> Maybe [AST.VarDeclaration] -> ParserMonad ()
+checkFieldsChord tk _ Nothing = pushError tk "No arguments have been passed to the constructor:"
+checkFieldsChord tk [] (Just []) = return ()
+checkFieldsChord tk [] (Just ys) = pushError tk "Too few arguments have been passed to the constructor:"
+checkFieldsChord tk xs (Just []) = pushError tk "Too much arguments have been passed to the constructor:"
+checkFieldsChord tk (x:xs) (Just (y:ys)) = do
+    let ytype = AST.var_type y
+    xtype <- checkExpType x [ytype] tk
+    checkFieldsChord tk xs (Just ys)
+
+checkFieldsLegato :: Token -> [AST.Expression] -> Maybe [AST.VarDeclaration] -> ParserMonad ()
+checkFieldsLegato tk _ Nothing = pushError tk "No arguments have been passed to the constructor:"
+checkFieldsLegato tk [] (Just []) = return ()
+checkFieldsLegato tk [] (Just ys) = pushError tk "Too few arguments have been passed to the constructor:"
+checkFieldsLegato tk [x] (Just ys) = do
+    let ytypes = map AST.var_type ys
+    xtype <- checkExpType x ytypes tk
+    return ()
+checkFieldsLegato tk (x:x':xs) _ = pushError tk "Too much arguments have been passed to the constructor:"
 
 --------------------------------------------
 ------------Error Recovery------------------

@@ -54,7 +54,7 @@ moderato() {
     n <-> arr[0.0]|
     m <-> quarter(arr[1])|
 
-    vis: Sample<Melody<whole> > <-> new Melody<whole>(n)|
+    vis: Sample<Melody<whole> > <-> new Melody<whole>(32th(n))|
     g: Graph <-> Graph(new Melody<Sample<List> >(n), n, m)|
     
     -- Leer arcos

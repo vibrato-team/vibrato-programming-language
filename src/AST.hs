@@ -82,10 +82,12 @@ data Expression =
     -- | Literal expression
     Literal         {   exp_token :: Token, exp_type :: Type }                                  |
 
-    -- | Type constructor for scalars and records
-    Literal'        { exp_exps :: [Expression], exp_type :: Type }            |
+    -- | Type constructor for unions and records
+    ChordLiteral        { exp_exps :: [Expression], exp_type :: Type }                          |
+    LegatoLiteral       { exp_exp :: Expression, exp_type :: Type }                                     |
     
-    LiteralMelody   {   exp_values :: [Expression], exp_type :: Type }                          |
+    MelodyLiteral   {   exp_values :: [Expression], exp_type :: Type }                          |
+    MelodyLiteral'   {   exp_size :: Expression, exp_type :: Type }                              |
 
     -- | Identifier
     IdExp           {   exp_id :: Id, exp_type :: Type }                                        |
