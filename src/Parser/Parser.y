@@ -462,7 +462,10 @@ Literal                 : int                                   { AST.Literal $1
                                                                         -- Return a casting expression (if needed)
                                                                         return $ castExp $3 $1}
 
-                        | MelodyType '(' Expression ClosePar        { AST.MelodyLiteral' $3 $1 }
+                        | MelodyType '(' Expression ClosePar        {%do
+                                                                        pushIfError $4 $2 $ matchingError "parentheses"
+                                                                        checkExpType $3 [AST.Simple "quarter", AST.Simple "eighth"] $2
+                                                                        return $ AST.MelodyLiteral' $3 $1 }
 
 MelodyLiteral           :: { AST.Expression }
 MelodyLiteral           : '[' ListExp CloseSquare               {%do
