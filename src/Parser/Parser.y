@@ -358,8 +358,8 @@ CallFuncion             : play Id With '(' ListExp ClosePar          {% do
                                                                         case category of
                                                                             SemData.Function _ params -> do
                                                                                 -- Verificacion of the list of expressions
-                                                                                casted_params <- checkParams $2 (reverse $5) params
-                                                                                return $ AST.CallExp $2 casted_params (fromMaybe voidType $ SemData.entry_type entry)
+                                                                                casted_args <- checkParams $4 (reverse $5) params
+                                                                                return $ AST.CallExp $2 casted_args (fromMaybe voidType $ SemData.entry_type entry)
 
                                                                             _ -> do
                                                                                 pushError $1 "Calling a not track expression:"
@@ -446,16 +446,18 @@ Literal                 : int                                   { AST.Literal $1
 
                         | IdType '(' ListExp ClosePar             {% do 
                                                                     pushIfError $4 $2 $ matchingError "parentheses"
+
                                                                     -- Check if listExp is equal type of fields
                                                                     Just a <- PMonad.lookup (AST.type_str $1)
+                                                                    let fields = fromJust $ SemData.type_fields $ SemData.entry_category a
                                                                     case (SemData.type_adt $ SemData.entry_category a) of
                                                                         Just SemData.Chord -> do
-                                                                            checkFieldsChord $2 (reverse $3) (SemData.type_fields $ SemData.entry_category a)
-                                                                            return $ AST.ChordLiteral (reverse $3) $1
+                                                                            casted_args <- checkParams $2 (reverse $3) fields
+                                                                            return $ AST.ChordLiteral casted_args $1
 
                                                                         Just SemData.Legato -> do
-                                                                            checkFieldsLegato $2 (reverse $3) (SemData.type_fields $ SemData.entry_category a)
-                                                                            return $ AST.LegatoLiteral (head $3) $1}
+                                                                            casted_args <- checkParams $2 (reverse $3) fields
+                                                                            return $ AST.LegatoLiteral (head casted_args) $1}
 
                         | PrimitiveType '(' Expression ClosePar     {%do
                                                                         pushIfError $4 $2 $ matchingError "parentheses"
@@ -914,48 +916,28 @@ castExp exp finalType =
 
 -- | Chequear que los parametros tengan tipos compatibles con los argumentos y retorna una lista
 -- de de los parametros casteados si no hubo un error.
-checkParams :: AST.Id -> [AST.Expression] -> [AST.VarDeclaration] -> ParserMonad [AST.Expression]
+checkParams :: Token -> [AST.Expression] -> [AST.VarDeclaration] -> ParserMonad [AST.Expression]
 checkParams id xs ys = checkParams' id xs ys []
 
-checkParams' :: AST.Id -> [AST.Expression] -> [AST.VarDeclaration] -> [AST.Expression] -> ParserMonad [AST.Expression]
+checkParams' :: Token -> [AST.Expression] -> [AST.VarDeclaration] -> [AST.Expression] -> ParserMonad [AST.Expression]
 checkParams' id [] [] lst = return lst
 
 checkParams' id xs [] _ = do
-    pushError (AST.id_token id) "Too much arguments passed to the function"
+    pushError id "Too much arguments:"
     return [] 
 
 checkParams' id [] ys lst = do
-    pushError (AST.id_token id) "Too few arguments passed to the function"
+    pushError id "Too few arguments:"
     return []
 
 checkParams' id (x:xs) (y:ys) lst = do
     let ytype = AST.var_type y
-    checkAssignment' ytype x (AST.id_token id)
+    checkAssignment' ytype x id
     checkParams' id xs ys ((castExp x ytype):lst)
 
 notDeclaration = \inst -> case inst of 
     AST.VarDecInst _ -> False 
     _ -> True
-
-checkFieldsChord :: Token -> [AST.Expression] -> Maybe [AST.VarDeclaration] -> ParserMonad ()
-checkFieldsChord tk _ Nothing = pushError tk "No arguments have been passed to the constructor:"
-checkFieldsChord tk [] (Just []) = return ()
-checkFieldsChord tk [] (Just ys) = pushError tk "Too few arguments have been passed to the constructor:"
-checkFieldsChord tk xs (Just []) = pushError tk "Too much arguments have been passed to the constructor:"
-checkFieldsChord tk (x:xs) (Just (y:ys)) = do
-    let ytype = AST.var_type y
-    xtype <- checkExpType x [ytype] tk
-    checkFieldsChord tk xs (Just ys)
-
-checkFieldsLegato :: Token -> [AST.Expression] -> Maybe [AST.VarDeclaration] -> ParserMonad ()
-checkFieldsLegato tk _ Nothing = pushError tk "No arguments have been passed to the constructor:"
-checkFieldsLegato tk [] (Just []) = return ()
-checkFieldsLegato tk [] (Just ys) = pushError tk "Too few arguments have been passed to the constructor:"
-checkFieldsLegato tk [x] (Just ys) = do
-    let ytypes = map AST.var_type ys
-    xtype <- checkExpType x ytypes tk
-    return ()
-checkFieldsLegato tk (x:x':xs) _ = pushError tk "Too much arguments have been passed to the constructor:"
 
 --------------------------------------------
 ------------Error Recovery------------------
