@@ -15,7 +15,9 @@ track get_nth(head: Sample<List>, n: quarter): Sample<List> {
 }
 
 moderato() {
-    lst: Sample<List> <-> new List(new List(new List(TT, 2), 1), 0)|
+    lst: Sample<List> <-> new List|
+    lst!.next <-> new List(new List(TT, 2), 1)|
+    lst!.value <-> 0|
 
     -- this should print 0 1 2
     loop (lst /= TT) {

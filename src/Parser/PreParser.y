@@ -277,7 +277,6 @@ Literal                 : int                                   { }
                         | char                                  { }
                         | LiteralMelody                         { }
                         | Type '(' ListExp ClosePar                  { }
-                        | Type                                  { }
 
 LiteralMelody           : '[' ListExp CloseSquare                       { }
 
@@ -311,6 +310,7 @@ Expression              : LValue %prec LVALUE                   { }
                         | '(' Expression ClosePar                    { }
 
                         | new Literal                           { }
+                        | new IdType                            { }
 
                         | CallFuncion                           { }
 
