@@ -354,17 +354,16 @@ CallFuncion             : play Id With '(' ListExp ClosePar          {% do
                                                                         pushIfError $6 $4 $ matchingError "parentheses"
 
                                                                         entry <- checkVarIsDeclared (AST.id_token $2)
-                                                                        -- Verificacion of the list of expressions
-                                                                        checkParams $2 (reverse $5) (SemData.function_params $ SemData.entry_category entry)
-                                                                        -- Verification if id is valid function
                                                                         let category = SemData.entry_category entry
                                                                         case category of
-                                                                            SemData.Function _ params ->
-                                                                                if length $5 /= length params
-                                                                                    then pushError $4 "Wrong number of arguments:"
-                                                                                    else return ()
-                                                                            _ -> pushError $1 "Calling a not track expression:"
-                                                                        return $ AST.CallExp $2 (reverse $5) (fromMaybe voidType $ SemData.entry_type entry) }
+                                                                            SemData.Function _ params -> do
+                                                                                -- Verificacion of the list of expressions
+                                                                                casted_params <- checkParams $2 (reverse $5) params
+                                                                                return $ AST.CallExp $2 casted_params (fromMaybe voidType $ SemData.entry_type entry)
+
+                                                                            _ -> do
+                                                                                pushError $1 "Calling a not track expression:"
+                                                                                return $ AST.CallExp $2 (reverse $5) (fromMaybe voidType $ SemData.entry_type entry) }
 
                         | play Id                               {% do
                                                                             entry <- checkVarIsDeclared (AST.id_token $2)
@@ -903,15 +902,26 @@ castExp exp finalType =
         then exp
         else AST.CastExp exp (AST.exp_type exp) finalType 
 
+-- | Chequear que los parametros tengan tipos compatibles con los argumentos y retorna una lista
+-- de de los parametros casteados si no hubo un error.
+checkParams :: AST.Id -> [AST.Expression] -> [AST.VarDeclaration] -> ParserMonad [AST.Expression]
+checkParams id xs ys = checkParams' id xs ys []
 
-checkParams :: AST.Id -> [AST.Expression] -> [AST.VarDeclaration] -> ParserMonad ()
-checkParams id [] [] = return ()
-checkParams id xs [] = pushError (AST.id_token id) "Too much arguments passed to the function"
-checkParams id [] ys = pushError (AST.id_token id) "Too few arguments passed to the function"
-checkParams id (x:xs) (y:ys) = do
+checkParams' :: AST.Id -> [AST.Expression] -> [AST.VarDeclaration] -> [AST.Expression] -> ParserMonad [AST.Expression]
+checkParams' id [] [] lst = return lst
+
+checkParams' id xs [] _ = do
+    pushError (AST.id_token id) "Too much arguments passed to the function"
+    return [] 
+
+checkParams' id [] ys lst = do
+    pushError (AST.id_token id) "Too few arguments passed to the function"
+    return []
+
+checkParams' id (x:xs) (y:ys) lst = do
     let ytype = AST.var_type y
-    xtype <- checkExpType x [ytype] (AST.id_token id)
-    checkParams id xs ys
+    checkAssignment' ytype x (AST.id_token id)
+    checkParams' id xs ys ((castExp x ytype):lst)
 
 notDeclaration = \inst -> case inst of 
     AST.VarDecInst _ -> False 
