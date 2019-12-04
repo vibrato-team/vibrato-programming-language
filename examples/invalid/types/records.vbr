@@ -1,0 +1,14 @@
+chord A{
+    val: quarter,
+    val2: whole
+}
+
+legato B{
+    val: quarter,
+    val2: whole
+}
+
+moderato(){
+    a: A <-> A(10, maj) |
+    b: B <-> B(min) |
+}
