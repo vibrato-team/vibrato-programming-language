@@ -421,6 +421,15 @@ Literal                 : int                                   { AST.Literal $1
                         | LiteralMelody                         { $1 }
                         | Type '(' ListExp ClosePar             {% do 
                                                                     pushError $4 $2 $ matchingError "parentheses"
+                                                                    -- Check if listExp is equal type of fields
+                                                                    entry <- PMonad.lookup (AST.type_str $1)
+                                                                    case entry of
+                                                                        Just a -> case (SemData.type_adt $ SemData.entry_category a) of
+                                                                            Just SemData.Chord -> checkFieldsChord $2 (reverse $3) (SemData.type_fields $ SemData.entry_category a)
+                                                                            Just SemData.Legato -> checkFieldsLegato $2 (reverse $3) (SemData.type_fields $ SemData.entry_category a)
+                                                                            _ -> semError $2 "Type are not Chord or Legato: "
+                                                                        Nothing -> semError $2 "Type not declare: "
+                                                                    -- checkFields (AST.type_str $1) $2 (reverse $3) (SemData.type_fields $ SemData.entry_category entry)
                                                                     return $ AST.Literal' (reverse $3) $1 }
                         | Type                                  { AST.Literal' [] $1 }
 
@@ -573,12 +582,12 @@ IdType                  : id_type                               {%do
                                                                         Nothing -> semError $1 "Type not declared in scope:"
                                                                         Just _ -> return $ AST.Simple (token $1) }
 
-NewType                 :: { () }
-NewType                 : chord IdType                         { }
-                        | legato IdType                        { }
+NewType                 :: { String }
+NewType                 : chord IdType                         { AST.type_str $2 }
+                        | legato IdType                        { AST.type_str $2 }
 
 ChordLegato             :: { () }
-ChordLegato             : NewType PushScope ChordLegatoFields PopScope  { }
+ChordLegato             : NewType PushScope ChordLegatoFields PopScope  {% PMonad.updateEntry (addFields $3) $1 }
 
 ChordLegatoFields       : '{' ListaField CloseBracket                    {% do
                                                                             pushError $3 $1 $ matchingError "bracket"
@@ -677,7 +686,7 @@ createTypeEntry tk typeStr = do
 
         let entry = SemData.Entry {
             SemData.entry_name = typeStr,
-            SemData.entry_category = SemData.Type,
+            SemData.entry_category = (SemData.Type Nothing (Just $ getAdt tk)),
             SemData.entry_scope = curr,
             SemData.entry_type = Nothing,
             SemData.entry_level = Just (lvl+1)
@@ -685,6 +694,10 @@ createTypeEntry tk typeStr = do
         PMonad.insertEntry entry
     else
         semError tk "Type already declared in same scope:"
+    where
+        getAdt tk 
+            | token tk == "chord"= SemData.Chord
+            | token tk == "legato"= SemData.Legato
 
 createFieldEntry :: Token -> AST.Type -> ParserMonad ()
 createFieldEntry tk semType = do
@@ -750,7 +763,7 @@ verifyTypeEntry name = do
     entry <- PMonad.lookup name
     case entry of
         Nothing -> return True
-        Just (SemData.Entry _ SemData.Type _ _ _) -> return False
+        Just (SemData.Entry _ (SemData.Type _ _) _ _ _) -> return False
         Just _ -> return True
 
 verifyFieldEntry :: String -> Int -> ParserMonad (Bool)
@@ -769,8 +782,6 @@ verifyParamsEntry name current_scope = do
         Just (SemData.Entry _ (SemData.Param _) scope _ _) -> return $ scope /= current_scope
         Just _ -> return True
 
-
-
 addBlock :: AST.Block -> [SemData.Entry] -> Maybe [SemData.Entry]
 addBlock block lst = Just $ map mapping lst
     where 
@@ -781,6 +792,15 @@ addBlock block lst = Just $ map mapping lst
         mapping e = if condition e then e { SemData.entry_category = (SemData.entry_category e) { SemData.function_block = Just block } }
                 else e
 
+addFields :: [AST.VarDeclaration] -> [SemData.Entry] -> Maybe [SemData.Entry]
+addFields listFields lst = Just $ map mapping lst
+    where 
+        condition entry = 
+            case SemData.entry_category entry of
+                SemData.Type Nothing _-> True
+                _ -> False
+        mapping entry = if condition entry then entry { SemData.entry_category = (SemData.entry_category entry) { SemData.type_fields = Just listFields } }
+                else entry
 --------------------------------------------
 -----------Chequear tipos ------------------
 --------------------------------------------
@@ -824,6 +844,26 @@ checkParams id (x:xs) (y:ys) = do
 notDeclaration = \inst -> case inst of 
     AST.VarDecInst _ -> False 
     _ -> True
+
+checkFieldsChord :: Token -> [AST.Expression] -> Maybe [AST.VarDeclaration] -> ParserMonad ()
+checkFieldsChord tk _ Nothing = semError tk "No arguments have been passed to the constructor:"
+checkFieldsChord tk [] (Just []) = return ()
+checkFieldsChord tk [] (Just ys) = semError tk "Too few arguments have been passed to the constructor:"
+checkFieldsChord tk xs (Just []) = semError tk "Too much arguments have been passed to the constructor:"
+checkFieldsChord tk (x:xs) (Just (y:ys)) = do
+    let ytype = AST.var_type y
+    xtype <- checkExpType x [ytype] tk
+    checkFieldsChord tk xs (Just ys)
+
+checkFieldsLegato :: Token -> [AST.Expression] -> Maybe [AST.VarDeclaration] -> ParserMonad ()
+checkFieldsLegato tk _ Nothing = semError tk "No arguments have been passed to the constructor:"
+checkFieldsLegato tk [] (Just []) = return ()
+checkFieldsLegato tk [] (Just ys) = semError tk "Too few arguments have been passed to the constructor:"
+checkFieldsLegato tk [x] (Just ys) = do
+    let ytypes = map AST.var_type ys
+    xtype <- checkExpType x ytypes tk
+    return ()
+checkFieldsLegato tk (x:x':xs) _ = semError tk "Too much arguments have been passed to the constructor:"
 
 --------------------------------------------
 ------------Error Recovery------------------

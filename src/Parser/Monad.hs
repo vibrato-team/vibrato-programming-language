@@ -15,6 +15,7 @@ import qualified Semantic.Data as Sem
 import qualified Control.Monad.RWS.Lazy as RWS
 import qualified Data.Set as Set
 import qualified Data.Map.Lazy as Map
+import Data.Maybe
 import Control.Monad.Trans
 import Tokens
 import qualified AST
@@ -36,14 +37,14 @@ type ParserMonad = RWS.RWST String () ParserState IO
 initialState :: ParserState
 initialState = ParserState (Sem.Scopes (Set.fromList [1, 0]) [1, 0]) initialMap 1 Nothing []
     where 
-        wholeEntry          =    ("whole",      [Sem.Entry "whole"      Sem.Type            0 Nothing                       Nothing])
-        halfEntry           =    ("half",       [Sem.Entry "half"       Sem.Type            0 Nothing                       Nothing])
-        quarterEntry        =    ("quarter",    [Sem.Entry "quarter"    Sem.Type            0 Nothing                       Nothing])
-        eighthEntry         =    ("eighth",     [Sem.Entry "eighth"     Sem.Type            0 Nothing                       Nothing])
-        thirySecondEntry    =    ("32th",       [Sem.Entry "32th"       Sem.Type            0 Nothing                       Nothing])
-        sixtyFourthEntry    =    ("64th",       [Sem.Entry "64th"       Sem.Type            0 Nothing                       Nothing])
-        nullTypeEntry       =    ("null",       [Sem.Entry "null"       Sem.Type            0 Nothing                       Nothing])
-        emptyListEntry      =    ("empty_list", [Sem.Entry "empty_list" Sem.Type            0 Nothing                       Nothing])
+        wholeEntry          =    ("whole",      [Sem.Entry "whole"      (Sem.Type Nothing Nothing)    0 Nothing                       Nothing])
+        halfEntry           =    ("half",       [Sem.Entry "half"       (Sem.Type Nothing Nothing)    0 Nothing                       Nothing])
+        quarterEntry        =    ("quarter",    [Sem.Entry "quarter"    (Sem.Type Nothing Nothing)    0 Nothing                       Nothing])
+        eighthEntry         =    ("eighth",     [Sem.Entry "eighth"     (Sem.Type Nothing Nothing)    0 Nothing                       Nothing])
+        thirySecondEntry    =    ("32th",       [Sem.Entry "32th"       (Sem.Type Nothing Nothing)    0 Nothing                       Nothing])
+        sixtyFourthEntry    =    ("64th",       [Sem.Entry "64th"       (Sem.Type Nothing Nothing)    0 Nothing                       Nothing])
+        nullTypeEntry       =    ("null",       [Sem.Entry "null"       (Sem.Type Nothing Nothing)    0 Nothing                       Nothing])
+        emptyListEntry      =    ("empty_list", [Sem.Entry "empty_list" (Sem.Type Nothing Nothing)    0 Nothing                       Nothing])
         melodyEntry         =    ("Melody",     [Sem.Entry "Melody"     Sem.Constructor     0 Nothing                       Nothing])
         sampleEntry         =    ("Sample",     [Sem.Entry "Sample"     Sem.Constructor     0 Nothing                       Nothing])
         trueEntry           =    ("maj",        [Sem.Entry "maj"        Sem.Literal         0 (Just $ AST.Simple "whole")   Nothing])
@@ -136,7 +137,7 @@ currScope = do
     (ParserState (Sem.Scopes _ (curr:_)) _ _ _ _) <- RWS.get
     return curr
 
--- | Add a return type to state
+-- | Add a return type to state 
 addReturnType :: Maybe AST.Type -> ParserMonad ()
 addReturnType retType = do
     state <- RWS.get
@@ -151,3 +152,12 @@ pushError err = do
     state <- RWS.get
     let errs = state_errors state
     RWS.put $ state { state_errors = err : errs }
+
+-- | Get list of Fields of Type
+-- typeFields :: String -> ParserMonad [a]
+-- typeFields tkString = do
+--     entry <- lookup tkString
+--     case entry of 
+--         Nothing -> return []
+--         Just (Sem.Entry _ _ scope _ _) -> 
+--         _ -> return []

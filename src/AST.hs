@@ -67,7 +67,7 @@ numberTypes = [AST.Simple "quarter", AST.Simple "eighth", AST.Simple "32th", AST
 
 instance Ord Type where
     compare a b =
-        case fmap (\x -> (>x)) (a `elemIndex` numberTypes) <*> (a `elemIndex` numberTypes) of
+        case fmap (\x -> (>x)) (a `elemIndex` numberTypes) <*> (b `elemIndex` numberTypes) of
             Nothing -> EQ
             Just True -> LT
             Just False -> GT
