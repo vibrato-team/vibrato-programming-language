@@ -437,15 +437,24 @@ Literal                 : int                                   { AST.Literal $1
                         | string                                { AST.Literal $1 (AST.Compound "Melody" $ AST.Simple "half") }
                         | char                                  { AST.Literal $1 (AST.Simple "half") }
                         | LiteralMelody                         { $1 }
+
                         | Type '(' ListExp ClosePar             {% do 
                                                                     pushIfError $4 $2 $ matchingError "parentheses"
-                                                                    
+                                                                    -- Check if listExp is equal type of fields
+                                                                    entry <- PMonad.lookup (AST.type_str $1)
+                                                                    case entry of
+                                                                        Just a -> case (SemData.type_adt $ SemData.entry_category a) of
+                                                                            Just SemData.Chord -> checkFieldsChord $2 (reverse $3) (SemData.type_fields $ SemData.entry_category a)
+                                                                            Just SemData.Legato -> checkFieldsLegato $2 (reverse $3) (SemData.type_fields $ SemData.entry_category a)
+                                                                            _ -> pushError $2 "Type are not Chord or Legato: "
+                                                                        Nothing -> pushError $2 "Type not declare: "
+
                                                                     if $1 `elem` AST.primitiveTypes
                                                                         -- If it is a primitive, it is the same as an explicit casting
                                                                         then do
                                                                             case $3 of
                                                                                 -- An argument is needed
-                                                                                [] -> semError $2 "Missing expression"
+                                                                                [] -> pushError $2 "Missing expression"
                                                                                 -- but only *one* argument
                                                                                 (_:_:_) -> pushError $2 "Too many arguments"
                                                                                 _ -> return ()
@@ -928,24 +937,24 @@ notDeclaration = \inst -> case inst of
     _ -> True
 
 checkFieldsChord :: Token -> [AST.Expression] -> Maybe [AST.VarDeclaration] -> ParserMonad ()
-checkFieldsChord tk _ Nothing = semError tk "No arguments have been passed to the constructor:"
+checkFieldsChord tk _ Nothing = pushError tk "No arguments have been passed to the constructor:"
 checkFieldsChord tk [] (Just []) = return ()
-checkFieldsChord tk [] (Just ys) = semError tk "Too few arguments have been passed to the constructor:"
-checkFieldsChord tk xs (Just []) = semError tk "Too much arguments have been passed to the constructor:"
+checkFieldsChord tk [] (Just ys) = pushError tk "Too few arguments have been passed to the constructor:"
+checkFieldsChord tk xs (Just []) = pushError tk "Too much arguments have been passed to the constructor:"
 checkFieldsChord tk (x:xs) (Just (y:ys)) = do
     let ytype = AST.var_type y
     xtype <- checkExpType x [ytype] tk
     checkFieldsChord tk xs (Just ys)
 
 checkFieldsLegato :: Token -> [AST.Expression] -> Maybe [AST.VarDeclaration] -> ParserMonad ()
-checkFieldsLegato tk _ Nothing = semError tk "No arguments have been passed to the constructor:"
+checkFieldsLegato tk _ Nothing = pushError tk "No arguments have been passed to the constructor:"
 checkFieldsLegato tk [] (Just []) = return ()
-checkFieldsLegato tk [] (Just ys) = semError tk "Too few arguments have been passed to the constructor:"
+checkFieldsLegato tk [] (Just ys) = pushError tk "Too few arguments have been passed to the constructor:"
 checkFieldsLegato tk [x] (Just ys) = do
     let ytypes = map AST.var_type ys
     xtype <- checkExpType x ytypes tk
     return ()
-checkFieldsLegato tk (x:x':xs) _ = semError tk "Too much arguments have been passed to the constructor:"
+checkFieldsLegato tk (x:x':xs) _ = pushError tk "Too much arguments have been passed to the constructor:"
 
 --------------------------------------------
 ------------Error Recovery------------------

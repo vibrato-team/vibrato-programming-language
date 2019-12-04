@@ -9,6 +9,6 @@ legato B{
 }
 
 moderato(){
-    a: A <-> A(10, maj) |
-    b: B <-> B(min) |
+    a: A <-> A(10, maj, 10) |
+    b: B <-> B('a') |
 }
