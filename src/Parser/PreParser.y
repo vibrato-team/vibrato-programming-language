@@ -275,10 +275,10 @@ Literal                 : int                                   { }
                         | float                                 { }
                         | string                                { }
                         | char                                  { }
-                        | LiteralMelody                         { }
+                        | MelodyLiteral                         { }
                         | Type '(' ListExp ClosePar                  { }
 
-LiteralMelody           : '[' ListExp CloseSquare                       { }
+MelodyLiteral           : '[' ListExp CloseSquare                       { }
 
 Expression              : LValue %prec LVALUE                   { }
                         -- Boolean

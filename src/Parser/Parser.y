@@ -417,62 +417,60 @@ Dereference             : Expression '!'                            {% do
                                                                         return $ AST.DereferenceExp $1 $2 (AST.type_type $ AST.exp_type $1) }
 
 Type                    :: { AST.Type }
-Type                    : whole                                 { AST.Simple (token $1) }
+Type                    : PrimitiveType                         { $1 }
+                        | MelodyType                            { $1 }
+                        | sample '<' Type CloseAngular          {%do
+                                                                    pushIfError $4 $2 $ matchingError "angle bracket"
+                                                                    return $ AST.Compound (token $1) $3 }
+                        | IdType                                { $1 }
+
+PrimitiveType           :: { AST.Type }
+PrimitiveType           : whole                                 { AST.Simple (token $1) }
                         | half                                  { AST.Simple (token $1) }
                         | quarter                               { AST.Simple (token $1) }
                         | eighth                                { AST.Simple (token $1) }
                         | ThirtySecond                          { AST.Simple (token $1) }
                         | SixtyFourth                           { AST.Simple (token $1) }
-                        | melody '<' Type CloseAngular          {%do
+
+MelodyType              :: { AST.Type }
+MelodyType              : melody '<' Type CloseAngular          {%do
                                                                     pushIfError $4 $2 $ matchingError "angle bracket"
                                                                     return $ AST.Compound (token $1) $3 }
-                        | sample '<' Type CloseAngular          {%do
-                                                                    pushIfError $4 $2 $ matchingError "angle bracket"
-                                                                    return $ AST.Compound (token $1) $3 }
-                        | IdType                                { $1 }
 
 Literal                 :: { AST.Expression }
 Literal                 : int                                   { AST.Literal $1 (AST.Simple "quarter") }
                         | float                                 { AST.Literal $1 (AST.Simple "32th") }
                         | string                                { AST.Literal $1 (AST.Compound "Melody" $ AST.Simple "half") }
                         | char                                  { AST.Literal $1 (AST.Simple "half") }
-                        | LiteralMelody                         { $1 }
+                        | MelodyLiteral                         { $1 }
 
-                        | Type '(' ListExp ClosePar             {% do 
+                        | IdType '(' ListExp ClosePar             {% do 
                                                                     pushIfError $4 $2 $ matchingError "parentheses"
                                                                     -- Check if listExp is equal type of fields
-                                                                    entry <- PMonad.lookup (AST.type_str $1)
-                                                                    case entry of
-                                                                        Just a -> case (SemData.type_adt $ SemData.entry_category a) of
-                                                                            Just SemData.Chord -> checkFieldsChord $2 (reverse $3) (SemData.type_fields $ SemData.entry_category a)
-                                                                            Just SemData.Legato -> checkFieldsLegato $2 (reverse $3) (SemData.type_fields $ SemData.entry_category a)
-                                                                            _ -> pushError $2 "Type are not Chord or Legato: "
-                                                                        Nothing -> pushError $2 "Type not declare: "
+                                                                    Just a <- PMonad.lookup (AST.type_str $1)
+                                                                    case (SemData.type_adt $ SemData.entry_category a) of
+                                                                        Just SemData.Chord -> do
+                                                                            checkFieldsChord $2 (reverse $3) (SemData.type_fields $ SemData.entry_category a)
+                                                                            return $ AST.ChordLiteral (reverse $3) $1
 
-                                                                    if $1 `elem` AST.primitiveTypes
-                                                                        -- If it is a primitive, it is the same as an explicit casting
-                                                                        then do
-                                                                            case $3 of
-                                                                                -- An argument is needed
-                                                                                [] -> pushError $2 "Missing expression"
-                                                                                -- but only *one* argument
-                                                                                (_:_:_) -> pushError $2 "Too many arguments"
-                                                                                _ -> return ()
-                                                                            
-                                                                            -- Return a casting expression (if needed)
-                                                                            return $ castExp (head $3) $1
+                                                                        Just SemData.Legato -> do
+                                                                            checkFieldsLegato $2 (reverse $3) (SemData.type_fields $ SemData.entry_category a)
+                                                                            return $ AST.LegatoLiteral (head $3) $1}
 
-                                                                        -- If it is not a primitive
-                                                                        else return $ AST.Literal' (reverse $3) $1 }
+                        | PrimitiveType '(' Expression ClosePar     {%do
+                                                                        pushIfError $4 $2 $ matchingError "parentheses"
+                                                                        -- Return a casting expression (if needed)
+                                                                        return $ castExp $3 $1}
 
--- TODO: chequear que todos los elementos de la ListExp sean del mismo tipo.
-LiteralMelody           :: { AST.Expression }
-LiteralMelody           : '[' ListExp CloseSquare               {%do
+                        | MelodyType '(' Expression ClosePar        { AST.MelodyLiteral' $3 $1 }
+
+MelodyLiteral           :: { AST.Expression }
+MelodyLiteral           : '[' ListExp CloseSquare               {%do
                                                                     -- Error recovery
                                                                     pushIfError $3 $1 $ matchingError "square bracket"
 
                                                                     case $2 of
-                                                                        [] -> return $ AST.LiteralMelody [] (AST.Simple "empty_list")
+                                                                        [] -> return $ AST.MelodyLiteral [] (AST.Simple "empty_list")
                                                                         (e:es) -> do
                                                                             let expType = AST.exp_type e
                                                                             if all (equalType expType) $ map AST.exp_type $2
@@ -480,7 +478,7 @@ LiteralMelody           : '[' ListExp CloseSquare               {%do
                                                                                     return ()
                                                                                 else pushError $1 "Not homogeneous melodies are not allowed:" 
 
-                                                                            return $ AST.LiteralMelody $2 (AST.Compound "Melody" expType)}
+                                                                            return $ AST.MelodyLiteral $2 (AST.Compound "Melody" expType)}
 
 Expression              :: { AST.Expression }
 Expression              : LValue %prec LVALUE                   { $1 }
