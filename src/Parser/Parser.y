@@ -402,7 +402,7 @@ DotExpression           : Expression '.' Id                         {% do
                                                                         let lType = AST.exp_type $1
                                                                         entryMaybe <- PMonad.lookup $ AST.type_str lType
                                                                         let entry = fromJust entryMaybe
-                                                                        let levelMaybe = SemData.entry_level entry
+                                                                        let levelMaybe = SemData.entry_level entry 
                                                                         throwIfNothing levelMaybe $2 "Expression is not a chord or legato:"
 
                                                                         fieldEntry <- analyzeField (AST.id_token $3) (fromJust levelMaybe)
@@ -444,7 +444,7 @@ Literal                 : int                                   { AST.Literal $1
                         | char                                  { AST.Literal $1 (AST.Simple "half") }
                         | MelodyLiteral                         { $1 }
 
-                        | IdType '(' ListExp ClosePar             {% do 
+                        | IdType '(' ListExp ClosePar           {% do 
                                                                     pushIfError $4 $2 $ matchingError "parentheses"
 
                                                                     -- Check if listExp is equal type of fields
@@ -456,8 +456,31 @@ Literal                 : int                                   { AST.Literal $1
                                                                             return $ AST.ChordLiteral casted_args $1
 
                                                                         Just SemData.Legato -> do
-                                                                            casted_args <- checkParams $2 (reverse $3) fields
-                                                                            return $ AST.LegatoLiteral (head casted_args) $1}
+                                                                            pushError $2 "This sintax is for chords only:"
+                                                                            return $ AST.LegatoLiteral (AST.Id $2) (head $3) $1} -- Just for returning a legato and error recovering
+
+                        | IdType '(' Id ':' Expression ClosePar     {% do 
+                                                                        pushIfError $6 $2 $ matchingError "parentheses"
+
+                                                                        -- Check if listExp is equal type of fields
+                                                                        Just entry <- PMonad.lookup (AST.type_str $1)
+                                                                        let fields = fromJust $ SemData.type_fields $ SemData.entry_category entry
+                                                                        case (SemData.type_adt $ SemData.entry_category entry) of
+                                                                            Just SemData.Chord -> do
+                                                                                pushError $2 "This sintax is for legatos only:"
+                                                                                return $ AST.ChordLiteral [$5] $1 -- just for returning a chord
+
+                                                                            Just SemData.Legato -> do
+                                                                                -- Check if `Id` is a field in the legato.
+                                                                                let idToken = token $ AST.id_token $3
+                                                                                    equalId = \(AST.VarDec var_id _) -> token (AST.id_token var_id) == idToken
+                                                                                case filter equalId fields of
+                                                                                    [] -> do
+                                                                                        pushError $2 $ show idToken ++ " is not a field in " ++ show $1 ++ ":"
+                                                                                        return $ AST.LegatoLiteral $3 $5 $1 -- just for returning a legato
+                                                                                    matchedField -> do
+                                                                                        casted_arg <- checkParams $2 [$5] matchedField
+                                                                                        return $ AST.LegatoLiteral $3 (head casted_arg) $1}
 
                         | PrimitiveType '(' Expression ClosePar     {%do
                                                                         pushIfError $4 $2 $ matchingError "parentheses"
@@ -849,110 +872,7 @@ addFields listFields lst = Just $ map mapping lst
                 _ -> False
         mapping entry = if condition entry then entry { SemData.entry_category = (SemData.entry_category entry) { SemData.type_fields = Just listFields } }
                 else entry
---------------------------------------------
------------Chequear tipos ------------------
---------------------------------------------
 
--- Chequea que ambos tipos sean compatibles
-equalType :: AST.Type -> AST.Type -> Bool
-equalType (AST.Compound ou inner) (AST.Compound ou' inner') =
-    ou == ou' && equalType inner inner'
-    
-equalType (AST.Simple ou) (AST.Simple ou') =
-    ou == ou'
-
-equalType (AST.Compound "Melody" _) (AST.Simple "empty_list") = True
-equalType (AST.Simple "empty_list") (AST.Compound "Melody" _) = True
-
-equalType (AST.Compound "Sample" _) (AST.Simple "null") = True
-equalType (AST.Simple "null") (AST.Compound "Sample" _) = True
-
-equalType _ _ = False
-
--- | Chequea que el tipo de la expresión sea compatible con alguno de los tipos pasados como argumento.
-checkExpType :: AST.Expression -> [AST.Type] -> Token -> ParserMonad AST.Type
-checkExpType exp expected tk = do
-    let expType = AST.exp_type exp
-
-    if filter (equalType expType) expected == []
-        then pushError tk $ "Expression isn't of type " ++ showExpected expected ++ ":"
-        else return ()
-    return expType
-
--- | Para imprimir bonito los tipos esperados
-showExpected :: [AST.Type] -> String
-showExpected [] = ""
-showExpected [t] = show t
-showExpected expected@(_:_:_) = let strs = map show expected in
-    intercalate ", " (init strs) ++ " or " ++ (last strs)
-
--- | Chequea que la expresión derecha sea compatible para ser asignada con la expresión izquierda
-checkAssignment :: AST.Expression -> AST.Expression -> Token -> ParserMonad ()
-checkAssignment = checkAssignment' . AST.exp_type
-
--- | Chequea que el tipo de la expresión pueda ser asignado al tipo pasado por parámetro.
-checkAssignment' :: AST.Type -> AST.Expression -> Token -> ParserMonad ()
-checkAssignment' astType exp tk = do
-    if astType `elem` AST.numberTypes
-        then checkExpType exp (filter (<= astType) AST.numberTypes) tk
-        else checkExpType exp [astType] tk
-    return ()
-
--- | Chequea que los tipos sean comparables
-checkEquality :: AST.Expression -> AST.Expression -> Token -> ParserMonad ()
-checkEquality lexp rexp tk = do
-    let astType = AST.exp_type lexp
-    if astType `elem` AST.numberTypes
-        then checkExpType rexp AST.numberTypes tk
-        else checkExpType rexp [astType] tk
-    return ()
-
--- | Retorna la expresión si es del tipo escogido, si no, retorna la expresión casteada.
-castExp :: AST.Expression -> AST.Type -> AST.Expression
-castExp exp finalType =
-    if AST.exp_type exp == finalType 
-        then exp
-        else AST.CastExp exp (AST.exp_type exp) finalType 
-
--- | Chequear que los parametros tengan tipos compatibles con los argumentos y retorna una lista
--- de de los parametros casteados si no hubo un error.
-checkParams :: Token -> [AST.Expression] -> [AST.VarDeclaration] -> ParserMonad [AST.Expression]
-checkParams id xs ys = checkParams' id xs ys []
-
-checkParams' :: Token -> [AST.Expression] -> [AST.VarDeclaration] -> [AST.Expression] -> ParserMonad [AST.Expression]
-checkParams' id [] [] lst = return lst
-
-checkParams' id xs [] _ = do
-    pushError id "Too much arguments:"
-    return [] 
-
-checkParams' id [] ys lst = do
-    pushError id "Too few arguments:"
-    return []
-
-checkParams' id (x:xs) (y:ys) lst = do
-    let ytype = AST.var_type y
-    checkAssignment' ytype x id
-    checkParams' id xs ys ((castExp x ytype):lst)
-
-notDeclaration = \inst -> case inst of 
-    AST.VarDecInst _ -> False 
-    _ -> True
-
---------------------------------------------
-------------Error Recovery------------------
---------------------------------------------
-
-matchingError tkString = "Couldnt match closing " ++ tkString ++ ":"
-
-pushIfError :: Bool -> Token -> String -> ParserMonad ()
-pushIfError good tk msg =
-    if (not good)
-        then PMonad.pushError $ Error (line tk) (col tk) msg
-        else return ()
-
-pushError :: Token -> String -> ParserMonad ()
-pushError = pushIfError False
 
 --------------------------------------------
 ----------------- END ----------------------

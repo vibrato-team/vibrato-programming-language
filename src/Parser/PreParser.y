@@ -261,22 +261,35 @@ DotExpression           : Expression '.' Id                         { }
 Dereference             : Expression '!'                            { }
 
 Type                    :: { AST.Type }
-Type                    : whole                                 { AST.Simple (token $1) }
+Type                    : PrimitiveType                         { $1 }
+                        | MelodyType                            { $1 }
+                        | sample '<' Type CloseAngular          { AST.Compound (token $1) $3 }
+                        | IdType                                { $1 }
+
+PrimitiveType           :: { AST.Type }
+PrimitiveType           : whole                                 { AST.Simple (token $1) }
                         | half                                  { AST.Simple (token $1) }
                         | quarter                               { AST.Simple (token $1) }
                         | eighth                                { AST.Simple (token $1) }
                         | ThirtySecond                          { AST.Simple (token $1) }
                         | SixtyFourth                           { AST.Simple (token $1) }
-                        | melody '<' Type CloseAngular                   { AST.Compound (token $1) $3 }
-                        | sample '<' Type CloseAngular                   { AST.Compound (token $1) $3 }
-                        | IdType                                { $1 }
+
+MelodyType              :: { AST.Type }
+MelodyType              : melody '<' Type CloseAngular          { AST.Compound (token $1) $3 }
 
 Literal                 : int                                   { }
                         | float                                 { }
                         | string                                { }
                         | char                                  { }
                         | MelodyLiteral                         { }
-                        | Type '(' ListExp ClosePar                  { }
+
+                        | IdType '(' ListExp ClosePar           { }
+
+                        | IdType '(' Id ':' Expression ClosePar     { }
+
+                        | PrimitiveType '(' Expression ClosePar     { }
+
+                        | MelodyType '(' Expression ClosePar        { }
 
 MelodyLiteral           : '[' ListExp CloseSquare                       { }
 

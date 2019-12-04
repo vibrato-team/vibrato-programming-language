@@ -10,5 +10,12 @@ legato B{
 
 moderato(){
     a: A <-> A(10, 10, maj) |
-    b: B <-> B('a') |
+
+    bien: B <-> B(val: 1)|
+    bien1: B <-> B(val2: min or maj)|
+    
+    bad: B <-> B(val: eighth(1))|
+    bad0: B <-> B('a') |
+    bad1: B <-> B(val2: 0.23)|
+    bad2: B <-> B(val3: min)|
 }

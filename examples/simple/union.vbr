@@ -4,7 +4,7 @@ legato Bool {
 }
 
 moderato() {
-    bool: Bool|
-    bool.true = min|
+    bool: Bool <-> Bool(false: min)|
+    bool.true <-> min|
     |>(bool.true)|
 }

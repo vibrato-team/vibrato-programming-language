@@ -84,7 +84,7 @@ data Expression =
 
     -- | Type constructor for unions and records
     ChordLiteral        { exp_exps :: [Expression], exp_type :: Type }                          |
-    LegatoLiteral       { exp_exp :: Expression, exp_type :: Type }                                     |
+    LegatoLiteral       { exp_id :: Id, exp_exp :: Expression, exp_type :: Type }               |
     
     MelodyLiteral   {   exp_values :: [Expression], exp_type :: Type }                          |
     MelodyLiteral'   {   exp_size :: Expression, exp_type :: Type }                              |
