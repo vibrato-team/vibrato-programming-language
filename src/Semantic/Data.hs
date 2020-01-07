@@ -7,6 +7,9 @@ import qualified Data.Map.Lazy as Map
 -- | Chord or Legato Data
 data ADT = Chord | Legato deriving (Eq, Show)
 
+-- | Type that commtis an error occurred
+errorType = AST.Simple "Error"
+
 -- | Category of each symbol with additional info
 data Category =
     Function         { function_block :: Maybe AST.Block, function_params :: [AST.VarDeclaration] }     |

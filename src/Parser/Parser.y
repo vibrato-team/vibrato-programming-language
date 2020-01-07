@@ -284,7 +284,11 @@ LValue                  : Indexing                              { $1 }
                         | Id                                    {% do
                                                                     checkVarIsDeclared (AST.id_token $1)
                                                                     idType <- PMonad.lookup $ token $ AST.id_token $1
-                                                                    return $ (AST.IdExp $1 (fromJust $ SemData.entry_type $ fromJust idType)) }
+                                                                    case idType of
+                                                                        Nothing ->
+                                                                            return $ (AST.IdExp $1 SemData.errorType)
+                                                                        Just entry ->
+                                                                            return $ (AST.IdExp $1 (fromJust $ SemData.entry_type entry) )}
 
 Return                  :: { AST.Instruction }
 Return                  : Expression '||'                       {% do

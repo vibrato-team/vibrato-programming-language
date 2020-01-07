@@ -31,7 +31,6 @@ checkVarIsDeclared :: Token -> ParserMonad Sem.Entry
 checkVarIsDeclared tk = do
     let tkString = token tk
     entryMaybe <- PMonad.lookup tkString
-
     throwIfNothing entryMaybe tk "Variable not in scope:"
     return $ fromJust entryMaybe
 
@@ -72,6 +71,9 @@ pushError = pushIfError False
 equalType :: AST.Type -> AST.Type -> Bool
 equalType (AST.Compound ou inner) (AST.Compound ou' inner') =
     ou == ou' && equalType inner inner'
+
+equalType _ (AST.Simple "Error") = True
+equalType (AST.Simple "Error") _ = True
     
 equalType (AST.Simple ou) (AST.Simple ou') =
     ou == ou'
