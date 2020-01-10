@@ -9,7 +9,7 @@ data ADT = Chord | Legato deriving (Eq, Show)
 
 -- | Type that commtis an error occurred
 errorType = AST.Simple "Error"
-
+errorExp = AST.ErrorExp errorType
 -- | Category of each symbol with additional info
 data Category =
     Function         { function_block :: Maybe AST.Block, function_params :: [AST.VarDeclaration] }     |

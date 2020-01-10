@@ -78,6 +78,8 @@ instance Ord Type where
 
 -- Expression
 data Expression =
+    -- | Error Expression
+    ErrorExp        {   exp_type :: Type }                                                      |
 
     -- | Literal expression
     Literal         {   exp_token :: Token, exp_type :: Type }                                  |

@@ -1,0 +1,8 @@
+chord B {
+    b: Sample<B>
+}
+
+moderato() {
+    b: B <-> B(b)|
+    a: B <-> b|
+}

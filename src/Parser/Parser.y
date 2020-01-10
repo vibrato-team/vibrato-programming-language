@@ -286,7 +286,7 @@ LValue                  : Indexing                              { $1 }
                                                                     idType <- PMonad.lookup $ token $ AST.id_token $1
                                                                     case idType of
                                                                         Nothing ->
-                                                                            return $ (AST.IdExp $1 SemData.errorType)
+                                                                            return SemData.errorExp
                                                                         Just entry ->
                                                                             return $ (AST.IdExp $1 (fromJust $ SemData.entry_type entry) )}
 
@@ -357,28 +357,34 @@ CallFuncion             : play Id With '(' ListExp ClosePar          {% do
                                                                         pushIfError $3 $1 "Missing \"with\" in play instruction:"
                                                                         pushIfError $6 $4 $ matchingError "parentheses"
 
-                                                                        entry <- checkVarIsDeclared (AST.id_token $2)
-                                                                        let category = SemData.entry_category entry
-                                                                        case category of
-                                                                            SemData.Function _ params -> do
-                                                                                -- Verificacion of the list of expressions
-                                                                                casted_args <- checkParams $4 (reverse $5) params
-                                                                                return $ AST.CallExp $2 casted_args (fromMaybe voidType $ SemData.entry_type entry)
+                                                                        maybeEntry <- checkVarIsDeclared (AST.id_token $2)
+                                                                        case maybeEntry of
+                                                                            Nothing -> return SemData.errorExp
+                                                                            Just entry -> do
+                                                                                let category = SemData.entry_category entry
+                                                                                case category of
+                                                                                    SemData.Function _ params -> do
+                                                                                        -- Verificacion of the list of expressions
+                                                                                        casted_args <- checkParams $4 (reverse $5) params
+                                                                                        return $ AST.CallExp $2 casted_args (fromMaybe voidType $ SemData.entry_type entry)
 
-                                                                            _ -> do
-                                                                                pushError $1 "Calling a not track expression:"
-                                                                                return $ AST.CallExp $2 (reverse $5) (fromMaybe voidType $ SemData.entry_type entry) }
+                                                                                    _ -> do
+                                                                                        pushError $1 "Calling a not track expression:"
+                                                                                        return $ AST.CallExp $2 (reverse $5) (fromMaybe voidType $ SemData.entry_type entry) }
 
                         | play Id                               {% do
-                                                                            entry <- checkVarIsDeclared (AST.id_token $2)
-                                                                            let category = SemData.entry_category entry
-                                                                            case category of
-                                                                                SemData.Function _ params ->
-                                                                                    if length params == 0
-                                                                                        then return () 
-                                                                                        else pushError (AST.id_token $2) "Wrong number of arguments:"
-                                                                                _ -> pushError $1 "Calling a not track expression:"
-                                                                            return $ AST.CallExp $2 [] (fromMaybe voidType $ SemData.entry_type entry)}
+                                                                            maybeEntry <- checkVarIsDeclared (AST.id_token $2)
+                                                                            case maybeEntry of
+                                                                                Nothing -> return SemData.errorExp
+                                                                                Just entry -> do
+                                                                                    let category = SemData.entry_category entry
+                                                                                    case category of
+                                                                                        SemData.Function _ params ->
+                                                                                            if length params == 0
+                                                                                                then return () 
+                                                                                                else pushError (AST.id_token $2) "Wrong number of arguments:"
+                                                                                        _ -> pushError $1 "Calling a not track expression:"
+                                                                                    return $ AST.CallExp $2 [] (fromMaybe voidType $ SemData.entry_type entry)}
 
 ListExp                 :: { [AST.Expression] }
 ListExp                 : Expression                            { [$1] }
@@ -390,35 +396,47 @@ Indexing                : Expression '[' Expression CloseSquare     {% do
                                                                         -- Error recovery
                                                                         pushIfError $4 $2 $ matchingError "square bracket"
 
-                                                                        -- Check left expression is a melody
                                                                         let expType = AST.exp_type $1
-                                                                        if AST.type_str expType /= "Melody"
-                                                                            then pushError $2 "Indexing a not melody expression:"
-                                                                            else return ()
+                                                                        -- Check if an error occurred
+                                                                        case expType of
+                                                                            AST.Simple "Error" -> return SemData.errorExp
+                                                                            _ -> do
+                                                                                -- Check left expression is a melody
+                                                                                if AST.type_str expType /= "Melody"
+                                                                                    then pushError $2 "Indexing a not melody expression:"
+                                                                                    else return ()
 
-                                                                        -- Check index expression is an integer
-                                                                        checkExpType $3 [AST.Simple "quarter", AST.Simple "eighth"] $2
+                                                                                -- Check index expression is an integer
+                                                                                checkExpType $3 [AST.Simple "quarter", AST.Simple "eighth"] $2
 
-                                                                        return $ AST.IndexingExp $1 $3 $2 (AST.type_type $ AST.exp_type $1) }
+                                                                                return $ AST.IndexingExp $1 $3 $2 (AST.type_type $ AST.exp_type $1) }
 
 DotExpression           :: { AST.Expression }
 DotExpression           : Expression '.' Id                         {% do
                                                                         let lType = AST.exp_type $1
-                                                                        entryMaybe <- PMonad.lookup $ AST.type_str lType
-                                                                        let entry = fromJust entryMaybe
-                                                                        let levelMaybe = SemData.entry_level entry 
-                                                                        throwIfNothing levelMaybe $2 "Expression is not a chord or legato:"
+                                                                        -- Check if an error occurred
+                                                                        case lType of
+                                                                            AST.Simple "Error" -> do
+                                                                                return SemData.errorExp
+                                                                            _ -> do
+                                                                                entryMaybe <- PMonad.lookup $ AST.type_str lType
+                                                                                let entry = fromJust entryMaybe
+                                                                                let levelMaybe = SemData.entry_level entry 
+                                                                                throwIfNothing levelMaybe $2 "Expression is not a chord or legato:"
 
-                                                                        fieldEntry <- analyzeField (AST.id_token $3) (fromJust levelMaybe)
-                                                                        return $ AST.DotExp $1 $3 (fromJust $ SemData.entry_type fieldEntry) }
+                                                                                fieldEntry <- analyzeField (AST.id_token $3) (fromJust levelMaybe)
+                                                                                return $ AST.DotExp $1 $3 (fromJust $ SemData.entry_type fieldEntry) }
 
 Dereference             :: { AST.Expression }
 Dereference             : Expression '!'                            {% do 
                                                                         let expType = AST.exp_type $1
-                                                                        if AST.type_str expType /= "Sample"
-                                                                            then pushError $2 "Dereferencing a not sample expression:"
-                                                                            else return ()
-                                                                        return $ AST.DereferenceExp $1 $2 (AST.type_type $ AST.exp_type $1) }
+                                                                        case expType of
+                                                                            AST.Simple "Error" -> return SemData.errorExp
+                                                                            _ -> do
+                                                                                if AST.type_str expType /= "Sample"
+                                                                                    then pushError $2 "Dereferencing a not sample expression:"
+                                                                                    else return ()
+                                                                                return $ AST.DereferenceExp $1 $2 (AST.type_type $ AST.exp_type $1) }
 
 Type                    :: { AST.Type }
 Type                    : PrimitiveType                         { $1 }
@@ -449,42 +467,49 @@ Literal                 : int                                   { AST.Literal $1
                         | MelodyLiteral                         { $1 }
 
                         | IdType '(' ListExp ClosePar           {% do 
-                                                                    pushIfError $4 $2 $ matchingError "parentheses"
+                                                                    if $1 == SemData.errorType
+                                                                        then do
+                                                                            return SemData.errorExp
+                                                                        else do
+                                                                            pushIfError $4 $2 $ matchingError "parentheses"
 
-                                                                    -- Check if listExp is equal type of fields
-                                                                    Just a <- PMonad.lookup (AST.type_str $1)
-                                                                    let fields = fromJust $ SemData.type_fields $ SemData.entry_category a
-                                                                    case (SemData.type_adt $ SemData.entry_category a) of
-                                                                        Just SemData.Chord -> do
-                                                                            casted_args <- checkParams $2 (reverse $3) fields
-                                                                            return $ AST.ChordLiteral casted_args $1
+                                                                            -- Check if listExp is equal type of fields
+                                                                            Just a <- PMonad.lookup (AST.type_str $1)
+                                                                            let fields = fromJust $ SemData.type_fields $ SemData.entry_category a
+                                                                            case (SemData.type_adt $ SemData.entry_category a) of
+                                                                                Just SemData.Chord -> do
+                                                                                    casted_args <- checkParams $2 (reverse $3) fields
+                                                                                    return $ AST.ChordLiteral casted_args $1
 
-                                                                        Just SemData.Legato -> do
-                                                                            pushError $2 "This sintax is for chords only:"
-                                                                            return $ AST.LegatoLiteral (AST.Id $2) (head $3) $1} -- Just for returning a legato and error recovering
+                                                                                Just SemData.Legato -> do
+                                                                                    pushError $2 "This sintax is for chords only:"
+                                                                                    return $ AST.LegatoLiteral (AST.Id $2) (head $3) $1} -- Just for returning a legato and error recovering
 
                         | IdType '(' Id ':' Expression ClosePar     {% do 
-                                                                        pushIfError $6 $2 $ matchingError "parentheses"
+                                                                        if $1 == SemData.errorType
+                                                                            then return SemData.errorExp
+                                                                            else do
+                                                                                pushIfError $6 $2 $ matchingError "parentheses"
 
-                                                                        -- Check if listExp is equal type of fields
-                                                                        Just entry <- PMonad.lookup (AST.type_str $1)
-                                                                        let fields = fromJust $ SemData.type_fields $ SemData.entry_category entry
-                                                                        case (SemData.type_adt $ SemData.entry_category entry) of
-                                                                            Just SemData.Chord -> do
-                                                                                pushError $2 "This sintax is for legatos only:"
-                                                                                return $ AST.ChordLiteral [$5] $1 -- just for returning a chord
+                                                                                -- Check if listExp is equal type of fields
+                                                                                Just entry <- PMonad.lookup (AST.type_str $1)
+                                                                                let fields = fromJust $ SemData.type_fields $ SemData.entry_category entry
+                                                                                case (SemData.type_adt $ SemData.entry_category entry) of
+                                                                                    Just SemData.Chord -> do
+                                                                                        pushError $2 "This sintax is for legatos only:"
+                                                                                        return $ AST.ChordLiteral [$5] $1 -- just for returning a chord
 
-                                                                            Just SemData.Legato -> do
-                                                                                -- Check if `Id` is a field in the legato.
-                                                                                let idToken = token $ AST.id_token $3
-                                                                                    equalId = \(AST.VarDec var_id _) -> token (AST.id_token var_id) == idToken
-                                                                                case filter equalId fields of
-                                                                                    [] -> do
-                                                                                        pushError $2 $ show idToken ++ " is not a field in " ++ show $1 ++ ":"
-                                                                                        return $ AST.LegatoLiteral $3 $5 $1 -- just for returning a legato
-                                                                                    matchedField -> do
-                                                                                        casted_arg <- checkParams $2 [$5] matchedField
-                                                                                        return $ AST.LegatoLiteral $3 (head casted_arg) $1}
+                                                                                    Just SemData.Legato -> do
+                                                                                        -- Check if `Id` is a field in the legato.
+                                                                                        let idToken = token $ AST.id_token $3
+                                                                                            equalId = \(AST.VarDec var_id _) -> token (AST.id_token var_id) == idToken
+                                                                                        case filter equalId fields of
+                                                                                            [] -> do
+                                                                                                pushError $2 $ show idToken ++ " is not a field in " ++ show $1 ++ ":"
+                                                                                                return $ AST.LegatoLiteral $3 $5 $1 -- just for returning a legato
+                                                                                            matchedField -> do
+                                                                                                casted_arg <- checkParams $2 [$5] matchedField
+                                                                                                return $ AST.LegatoLiteral $3 (head casted_arg) $1}
 
                         | PrimitiveType '(' Expression ClosePar     {%do
                                                                         pushIfError $4 $2 $ matchingError "parentheses"
@@ -653,9 +678,10 @@ IdType                  :: { AST.Type }
 IdType                  : id_type                               {%do
                                                                     entryMaybe <- PMonad.lookup (token $1)
                                                                     case entryMaybe of
-                                                                        Nothing -> pushError $1 "Type not declared in scope:"
-                                                                        Just _ -> return ()
-                                                                    return $ AST.Simple (token $1) }
+                                                                        Nothing -> do
+                                                                            pushError $1 "Type not declared in scope:"
+                                                                            return SemData.errorType
+                                                                        Just _ -> return $ AST.Simple (token $1) }
 
 NewType                 :: { String }
 NewType                 : chord IdType                         { AST.type_str $2 }

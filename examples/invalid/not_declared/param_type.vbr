@@ -1,0 +1,6 @@
+track f (x: A) {
+    |>(x.a)|
+}
+moderato () {
+    |>(2)|
+}

@@ -264,7 +264,7 @@ Type                    :: { AST.Type }
 Type                    : PrimitiveType                         { $1 }
                         | MelodyType                            { $1 }
                         | sample '<' Type CloseAngular          { AST.Compound (token $1) $3 }
-                        | IdType                                { $1 }
+                        | AlreadyDeclaredIdType                 { $1 }
 
 PrimitiveType           :: { AST.Type }
 PrimitiveType           : whole                                 { AST.Simple (token $1) }
@@ -329,6 +329,14 @@ Expression              : LValue %prec LVALUE                   { }
 
 IdType                  :: { AST.Type }
 IdType                  : id_type                               { AST.Simple (token $1) }
+
+AlreadyDeclaredIdType   :: { AST.Type }
+AlreadyDeclaredIdType   : id_type                               {%do
+                                                                    entryMaybe <- PMonad.lookup (token $1)
+                                                                    case entryMaybe of
+                                                                        Nothing -> do
+                                                                            return SemData.errorType
+                                                                        Just _ -> return $ AST.Simple (token $1) }
 
 NewType                 : chord IdType                         {% createTypeEntry $1 (AST.type_str $2) }
                         | legato IdType                        {% createTypeEntry $1 (AST.type_str $2) }

@@ -1,0 +1,4 @@
+moderato() {
+    |>(2 * play f with (20) + 10)|
+    |>(play g and min)|
+}

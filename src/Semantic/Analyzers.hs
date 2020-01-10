@@ -27,12 +27,12 @@ throwIfNothing (Just _) _ _ = return ()
 -----------------------------------------------------------------------------------------------
 
 -- | Checks if variable is declared, throws an error if it is not
-checkVarIsDeclared :: Token -> ParserMonad Sem.Entry
+checkVarIsDeclared :: Token -> ParserMonad (Maybe Sem.Entry)
 checkVarIsDeclared tk = do
     let tkString = token tk
     entryMaybe <- PMonad.lookup tkString
-    throwIfNothing entryMaybe tk "Variable not in scope:"
-    return $ fromJust entryMaybe
+    throwIfNothing entryMaybe tk "Identifier not in scope:"
+    return entryMaybe
 
 -- Chequea que un lvalue no sea const
 checkConstLvalue :: AST.Expression -> ParserMonad ()

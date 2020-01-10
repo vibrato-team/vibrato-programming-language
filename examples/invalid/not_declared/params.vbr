@@ -1,0 +1,11 @@
+track f(x: whole, y: quarter): quarter {
+    if (x) {
+        2*y||
+    } else {
+        y||
+    }
+}
+
+moderato() {
+    |>(play f with (a + b, 10))|
+}

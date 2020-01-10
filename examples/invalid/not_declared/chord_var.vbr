@@ -1,0 +1,7 @@
+chord B {
+    x: B
+}
+
+moderato() {
+    a: B <-> b.x|
+}
