@@ -1,3 +1,3 @@
 [submodule "TAC"]
-	path = src/TAC
+	path = src/backend/TAC
 	url = https://github.com/Naty-S/TAC
