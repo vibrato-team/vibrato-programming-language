@@ -1,6 +1,6 @@
 module Semantic.Data where
 import qualified AST
-import qualified Tokens
+import qualified Frontend.Tokens
 import qualified Data.Set as Set
 import qualified Data.Map.Lazy as Map
 

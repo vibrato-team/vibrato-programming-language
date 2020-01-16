@@ -1,5 +1,5 @@
 module AST where
-import Tokens
+import Frontend.Tokens
 import Data.Maybe
 import Data.List
 

@@ -1,10 +1,10 @@
 module Main where
 
 import Lib
-import qualified Lexer
-import qualified Parser.Parser as Parser
-import qualified Parser.PreParser as PreParser
-import qualified Parser.Monad as PMonad
+import qualified Frontend.Lexer as Lexer
+import qualified Frontend.Parser.Parser as Parser
+import qualified Frontend.Parser.PreParser as PreParser
+import qualified Frontend.Parser.Monad as PMonad
 import AST
 import Util.Error
 import qualified Control.Monad.RWS.Lazy as RWS

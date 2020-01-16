@@ -1,7 +1,7 @@
 module Util.Error where
 
 import Data.List.Split
-import Tokens
+import Frontend.Tokens
 
 showError :: String -> Error -> String
 showError src (Error ln col msg) =

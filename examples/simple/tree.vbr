@@ -1,0 +1,37 @@
+legato Tree {
+    leaf: quarter,
+    node: Melody<Tree>
+}
+
+sum(tree: >Tree, acc: >quarter): quarter {
+    like arpeggio tree {
+        (leaf: x) -> {
+            acc <-> acc + x|
+        }
+        (node: xs) -> {
+            loop idx {
+                sum(xs[idx], acc)|
+            } in (length(xs))
+        }
+    }
+}
+
+moderato() {
+    tree: Tree <-> Tree(node: [
+        Tree(node: [
+            Tree(leaf: 0),
+            Tree(leaf: 1)
+        ]),
+        Tree(leaf: 2),
+        Tree(node: [
+            Tree(leaf: 3),
+            Tree(node: [
+                Tree(leaf: 4)
+            ])
+        ])
+    ])|
+
+    total: quarter <-> 0|
+    sum(tree, total)|
+    |>(total)|          -- this should print 10
+}

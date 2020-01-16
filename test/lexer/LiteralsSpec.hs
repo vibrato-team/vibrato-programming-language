@@ -1,9 +1,9 @@
 module LiteralsSpec where
 
 import Test.Hspec
-import Lexer
+import Frontend.Lexer
 import Utils
-import Tokens
+import Frontend.Tokens
 
 spec :: Spec
 spec = describe "Lexer.literals" $ do

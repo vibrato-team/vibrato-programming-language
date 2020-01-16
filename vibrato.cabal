@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 322ae8346f06e6bbdd59f485c72243754fa23af420ae0eb674e358a9077c2076
+-- hash: 032ace8b4c685cd24cf7ea27c33fbe525616bf11a7c29192b2dae2869e4bee61
 
 name:           vibrato
 version:        0.1.0.0
@@ -23,7 +23,8 @@ build-type:     Simple
 extra-source-files:
     README.md
     ChangeLog.md
-    src/Lexer.x
+    src/Frontend/Parser/Parser.y
+    src/Frontend/Lexer.x
 
 source-repository head
   type: git
@@ -32,19 +33,21 @@ source-repository head
 library
   exposed-modules:
       AST
-      Lexer
+      Frontend.Lexer
+      Frontend.Parser.Monad
+      Frontend.Parser.Parser
+      Frontend.Parser.PreParser
+      Frontend.Tokens
       Lib
-      Parser.Monad
-      Parser.Parser
-      Parser.PreParser
       Semantic.Analyzers
       Semantic.Data
-      Tokens
       Util.Error
+      TACType
   other-modules:
       Paths_vibrato
   hs-source-dirs:
       src
+      TAC
   build-tools:
       alex
     , happy

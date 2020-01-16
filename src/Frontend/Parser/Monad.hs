@@ -1,5 +1,5 @@
 {-|
-Module      : Parser.Monad
+Module      : Frontend.Parser.Monad
 Description : All monadic operations for the parser.
 License     : BSD 3-Clause "New" or "Revised" License
 Maintainer  : gustavoaca1997@outlook.com, dave00dark@gmail.com
@@ -9,7 +9,7 @@ Here is a longer description of this module, containing some
 commentary with @some markup@.
 -}
 
-module Parser.Monad where
+module Frontend.Parser.Monad where
 
 import qualified Semantic.Data as Sem
 import qualified Control.Monad.RWS.Lazy as RWS
@@ -17,7 +17,7 @@ import qualified Data.Set as Set
 import qualified Data.Map.Lazy as Map
 import Data.Maybe
 import Control.Monad.Trans
-import Tokens
+import Frontend.Tokens
 import qualified AST
 import Util.Error
 
@@ -129,7 +129,7 @@ incrementScope = do
 
 -- | Entry of a Type
 typeEntry :: AST.Type -> ParserMonad (Maybe Sem.Entry)
-typeEntry = Parser.Monad.lookup . AST.type_str
+typeEntry = Frontend.Parser.Monad.lookup . AST.type_str
 
 -- | Get current scope
 currScope :: ParserMonad Int

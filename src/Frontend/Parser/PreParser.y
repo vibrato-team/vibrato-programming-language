@@ -1,14 +1,14 @@
 {
-module Parser.PreParser(preparse) where
-import Parser.Parser
-import Lexer
-import Tokens
+module Frontend.Parser.PreParser(preparse) where
+import Frontend.Parser.Parser
+import Frontend.Lexer
+import Frontend.Tokens
 import qualified AST
 import Util.Error
 import Data.Either
 import Data.Maybe
-import Parser.Monad (ParserMonad)
-import qualified Parser.Monad as PMonad
+import Frontend.Parser.Monad (ParserMonad)
+import qualified Frontend.Parser.Monad as PMonad
 import qualified Control.Monad.RWS.Lazy as RWS
 import Control.Monad.Trans
 import qualified Semantic.Data as SemData 

@@ -1,4 +1,4 @@
-module Tokens (Token(..), Rest(..)) where
+module Frontend.Tokens (Token(..), Rest(..)) where
 
 -- Data types
 -- rests

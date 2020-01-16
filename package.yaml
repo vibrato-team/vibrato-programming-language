@@ -8,7 +8,8 @@ maintainer:          ["gustavoaca1997@gmail.com", "dave00dark@gmail.com"]
 extra-source-files:
 - README.md
 - ChangeLog.md
-- src/Lexer.x
+- src/Frontend/Parser/Parser.y
+- src/Frontend/Lexer.x
 
 # Metadata used when publishing your package
 synopsis:            An imperative programming language based on music and production theory.
@@ -27,7 +28,9 @@ dependencies:
 - containers
 
 library:
-  source-dirs: src
+  source-dirs:
+    - src
+    - TAC
   build-tools:
     - alex
     - happy
