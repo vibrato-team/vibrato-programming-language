@@ -32,6 +32,6 @@ spec = describe "Lexer.Functions" $ do
         let x = "track f()"
         let atok = getTok $ runAlexScan x
         case atok of
-            [_, IdToken idf _ _, _, _] -> do
+            [_, IdToken idf _ _, _, _] ->
                 idf `shouldBe` "f"
             _ -> error "Pattern failed"
