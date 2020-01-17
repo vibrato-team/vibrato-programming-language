@@ -1,8 +1,7 @@
-module Backend.TAC where
+module Backend.TAC.TAC where
 
 class SymEntryCompatible a where
   getSymID :: a -> String
-
 
 data (SymEntryCompatible a) => ThreeAddressCode a b = ThreeAddressCode
   { tacOperand :: Operation,
@@ -10,6 +9,8 @@ data (SymEntryCompatible a) => ThreeAddressCode a b = ThreeAddressCode
     tacRvalue1 :: Maybe (Operand a b),
     tacRvalue2 :: Maybe (Operand a b)
   }
+
+type TAC a b = ThreeAddressCode a b
 
 data (SymEntryCompatible a) => Operand a b = Variable a | Constant b
 
