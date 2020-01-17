@@ -35,6 +35,7 @@ data Operation =
     Or               |
     -- | Logical not
     Not             |
+
     -- Comparators
     -- | Greater than
     Gt           |
@@ -56,6 +57,8 @@ data Operation =
     If          |
     -- | if ~<var> goto <label>
     IfFalse     |
+    -- | New label
+    Label       |
 
     -- Calling functions
     -- | Define a parameter
