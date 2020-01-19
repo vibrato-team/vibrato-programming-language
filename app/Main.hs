@@ -1,6 +1,5 @@
 module Main where
 
-import Lib
 import qualified Frontend.Lexer as Lexer
 import qualified Frontend.Parser.Parser as Parser
 import qualified Frontend.Parser.PreParser as PreParser

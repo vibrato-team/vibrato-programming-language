@@ -36,7 +36,7 @@ checkVarIsDeclared tk = do
 
 -- Chequea que un lvalue no sea const
 checkConstLvalue :: AST.Expression -> ParserMonad ()
-checkConstLvalue (AST.IdExp id _) = do
+checkConstLvalue (AST.IdExp id _ _) = do
     let tkString = token $ AST.id_token id
     entryMaybe <- PMonad.lookup tkString
     case entryMaybe of

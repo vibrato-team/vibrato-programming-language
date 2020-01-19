@@ -261,8 +261,12 @@ VarDeclaration          : Id ':' Type                           {% do
 
 VarInit                 :: { AST.Instruction }
 VarInit                 : Id ':' Type '<->' Expression          {% do 
-                                                                    createVarEntry (AST.id_token $1) (Just $3)
-                                                                    let idExp = AST.IdExp $1 $3
+                                                                    maybeEntry <- createVarEntry (AST.id_token $1) (Just $3)
+                                                                    let scope = case maybeEntry of
+                                                                                    Nothing -> -1
+                                                                                    Just entry -> SemData.entry_scope entry
+
+                                                                    let idExp = AST.IdExp $1 $3 scope
                                                                         expType = AST.exp_type $5
 
                                                                     checkAssignment idExp $5 $4
@@ -288,7 +292,7 @@ LValue                  : Indexing                              { $1 }
                                                                         Nothing ->
                                                                             return SemData.errorExp
                                                                         Just entry ->
-                                                                            return $ (AST.IdExp $1 (fromJust $ SemData.entry_type entry) )}
+                                                                            return $ AST.IdExp $1 (fromJust $ SemData.entry_type entry) $ SemData.entry_scope entry}
 
 Return                  :: { AST.Instruction }
 Return                  : Expression '||'                       {% do
@@ -421,7 +425,7 @@ DotExpression           : Expression '.' Id                         {% do
                                                                             _ -> do
                                                                                 entryMaybe <- PMonad.lookup $ AST.type_str lType
                                                                                 let entry = fromJust entryMaybe
-                                                                                let levelMaybe = SemData.entry_level entry 
+                                                                                    levelMaybe = SemData.entry_level entry
                                                                                 throwIfNothing levelMaybe $2 "Expression is not a chord or legato:"
 
                                                                                 fieldEntry <- analyzeField (AST.id_token $3) (fromJust levelMaybe)
@@ -745,7 +749,7 @@ createFunctionEntry tk semType funcId params block = do
     else
         pushError tk "Function already declared:"
 
-createVarEntry :: Token -> Maybe AST.Type -> ParserMonad ()
+createVarEntry :: Token -> Maybe AST.Type -> ParserMonad (Maybe SemData.Entry)
 createVarEntry tk semType = do
     curr <- PMonad.currScope
     result <- verifyVarEntry (token tk) curr
@@ -758,8 +762,10 @@ createVarEntry tk semType = do
             SemData.entry_level = Nothing
         }
         PMonad.insertEntry entry
-    else
+        return $ Just entry
+    else do
         pushError tk "Variable already declared in the same scope:"
+        return Nothing
 
 createConstEntry :: Token -> Maybe AST.Type -> ParserMonad ()
 createConstEntry tk semType = do 
@@ -883,6 +889,7 @@ verifyParamsEntry name current_scope = do
         Just (SemData.Entry _ (SemData.Param _) scope _ _) -> return $ scope /= current_scope
         Just _ -> return True
 
+-- | Add block to a function
 addBlock :: AST.Block -> [SemData.Entry] -> Maybe [SemData.Entry]
 addBlock block lst = Just $ map mapping lst
     where 

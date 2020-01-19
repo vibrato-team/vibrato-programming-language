@@ -5,9 +5,6 @@ import Data.List
 
 type Indent = Int
 
-class ASTNode a where
-    printNode :: Indent -> a -> String
-
 putTabs :: Indent -> String
 putTabs indent = replicate (4*indent) '.'
 
@@ -18,37 +15,15 @@ data FunctionDeclaration =
                     func_body :: Block  }
     deriving (Eq, Show)
 
-instance ASTNode FunctionDeclaration where
-    printNode tabs funcDec =
-        putTabs tabs ++ "Function Declaration: " ++ 
-        (printNode (tabs+1) (func_id funcDec)) ++ 
-        (concat $ map (printNode (tabs+1)) $ func_params funcDec) ++ 
-        (maybe "" (printNode (tabs+1)) $ func_type funcDec) ++ 
-        (printNode (tabs+1) $ func_body funcDec) ++ 
-        "\n"
-
 -- Variable declaration
 data VarDeclaration =
     VarDec {    var_id :: Id, var_type :: Type }
     deriving (Eq, Show)
 
-instance ASTNode VarDeclaration where
-    printNode tabs varDec =
-        putTabs tabs ++
-        "Variable Declaration:" ++
-        (printNode (tabs+1) $ var_id varDec )++
-        (printNode (tabs+1) $ var_type varDec)
-
 -- Identifier
 newtype Id = 
     Id    { id_token :: Token }
     deriving (Eq, Show)
-
-instance ASTNode Id where
-    printNode tabs identifier =
-        putTabs tabs ++
-        "Identifier: " ++
-        (show (token $ id_token identifier))
 
 data Type =
     Simple      { type_str :: String } |
@@ -58,10 +33,6 @@ data Type =
 instance Show Type where
     show (Simple str) = str
     show (Compound str type') = str ++ "<" ++ show type' ++ ">"
-
-instance ASTNode Type where
-    printNode tabs tp =
-        putTabs tabs ++ show tp
         
 numberTypes = [AST.Simple "quarter", AST.Simple "eighth", AST.Simple "32th", AST.Simple "64th"]
 primitiveTypes =  [AST.Simple "whole", AST.Simple "half"] ++ numberTypes
@@ -92,7 +63,7 @@ data Expression =
     MelodyLiteral'   {   exp_size :: Expression, exp_type :: Type }                              |
 
     -- | Identifier
-    IdExp           {   exp_id :: Id, exp_type :: Type }                                        |
+    IdExp           {   exp_id :: Id, exp_type :: Type, exp_scope :: Int }                      |
 
     -- | Call function
     CallExp         {   exp_id :: Id, exp_params :: [Expression], exp_type :: Type }            |
@@ -140,10 +111,6 @@ data Expression =
     CastExp         {   exp_exp :: Expression, exp_from :: Type, exp_type :: Type }
     deriving (Eq, Show)
 
-instance ASTNode Expression where
-    printNode tabs exp =
-        putTabs tabs ++ show exp
-
 -- Instructions
 data Instruction =
     VarDecInst      {   inst_dec :: VarDeclaration  }                         |
@@ -186,19 +153,7 @@ data Instruction =
     FlatExp         {   inst_exp :: Expression }                              
     deriving (Eq, Show)
 
-instance ASTNode Instruction where
-    printNode tabs inst =
-        putTabs tabs ++ (case inst of
-            IfInst exp' inst' Nothing -> "If:\n" ++ (printNode (tabs+1) exp') ++ "\n" ++ (printNode (tabs+1) inst')
-            IfInst exp' inst' (Just inst'') -> "If:\n" ++ (printNode (tabs+1) exp') ++ "\n" ++ (printNode (tabs+1) inst') ++ "\n" ++ (putTabs (tabs+1)) ++ "Else:\n" ++ (printNode (tabs+2) inst'')
-            inst' -> show inst) ++ "\n"
-            
 -- Block (Scope)
 newtype Block = 
     Block { statements :: [Instruction] }
     deriving (Eq, Show)
-
-instance ASTNode Block where
-    printNode tabs block =
-        putTabs tabs ++ "Block of instructions:\n" ++
-        (concat $ map (printNode (tabs+1)) $ statements block)

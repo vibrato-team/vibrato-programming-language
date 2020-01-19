@@ -7,11 +7,12 @@ import Data.Maybe
 
 data Entry = Entry {
     entry_name  :: String,
-    entry_type  :: AST.Type
+    entry_type  :: AST.Type,
+    entry_scope :: Int
 } deriving (Eq, Show)
 
 instance TAC.SymEntryCompatible Entry where
     getSymID = entry_name
 
 entryToTAC :: Sem.Entry -> Entry
-entryToTAC e = Entry (Sem.entry_name e) (fromJust $ Sem.entry_type e)
+entryToTAC e = Entry (Sem.entry_name e) (fromJust $ Sem.entry_type e) (Sem.entry_scope e)
