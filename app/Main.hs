@@ -10,6 +10,8 @@ import qualified Control.Monad.RWS.Lazy as RWS
 import Control.Monad.Trans
 import qualified Data.Set as Set
 import qualified Data.Map.Lazy as Map
+import qualified Semantic.Data as Sem
+import qualified Backend.TAC.Monad as TACMonad
 
 import System.Environment
 import System.Exit
@@ -21,6 +23,7 @@ main = do
     args <- getArgs
     handle <- openFile (head args) ReadMode  
     srcFile <- hGetContents handle
+
     let lexResult = Lexer.runAlexScan srcFile
     case lexResult of
         Left err -> error err
@@ -36,7 +39,12 @@ main = do
                 -- If there is an error:
                 case PMonad.state_errors pstate of
                     errs@(_:_) -> throwCompilerError srcFile $ reverse errs
-                    [] -> printTable $ PMonad.state_table pstate
+                    [] -> do
+                        let table = PMonad.state_table pstate
+                            Just [moderatoEntry] = Map.lookup "moderato" table
+                            Just astBlock = Sem.function_block $ Sem.entry_category moderatoEntry
+                        (_, tac) <- RWS.execRWST (TACMonad.genForBlock astBlock) () TACMonad.initialState
+                        mapM_ print tac
                 
     
     hClose handle

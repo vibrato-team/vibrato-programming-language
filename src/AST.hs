@@ -48,7 +48,8 @@ instance Ord Type where
                 Just False -> GT
 
 -- Expression
-data Expression =
+data Expression = 
+
     -- | Error Expression
     ErrorExp        {   exp_type :: Type }                                                      |
 
@@ -109,7 +110,10 @@ data Expression =
 
     -- Cast expression
     CastExp         {   exp_exp :: Expression, exp_from :: Type, exp_type :: Type }
-    deriving (Eq, Show)
+    deriving (Eq)
+
+instance Show Expression where
+    show (AST.Literal expToken _) = token expToken
 
 -- Instructions
 data Instruction =

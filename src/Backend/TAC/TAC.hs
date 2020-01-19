@@ -1,5 +1,9 @@
 module Backend.TAC.TAC where
 
+import qualified Semantic.Data as Sem
+import qualified AST
+import Data.Maybe
+
 class SymEntryCompatible a where
   getSymID :: a -> String
 
@@ -9,12 +13,29 @@ data (SymEntryCompatible a) => ThreeAddressCode a b = ThreeAddressCode
     tacRvalue1 :: Maybe (Operand a b),
     tacRvalue2 :: Maybe (Operand a b)
   }
+  deriving (Eq)
 
-type TAC a b = ThreeAddressCode a b
+instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) where
+  show (ThreeAddressCode Assign (Just x) (Just y) _) = show x ++ " = " ++ show y
+  show (ThreeAddressCode Add (Just x) (Just y) (Just z)) = show x ++ " = " ++ show y ++ " + " ++ show z
+  show tac = show (tacLvalue tac) ++ " = " ++ show (tacRvalue1 tac) ++ " (?) " ++ show (tacRvalue2 tac)
 
-data (SymEntryCompatible a) => Operand a b = Variable a | Constant b
+type Instruction = ThreeAddressCode Entry AST.Expression
+type Value = Operand Entry AST.Expression
+
+data (SymEntryCompatible a) => Operand a b = 
+  Variable a | 
+  Constant b | 
+  Label Int
+  deriving (Eq)
+
+instance (SymEntryCompatible a, Show a, Show b) => Show (Operand a b) where
+  show (Variable x) = show x
+  show (Constant c) = show c
+  show (Label l) = show l
 
 data Operation =
+    Assign        |
     -- Arithmetic
     -- | Addition
     Add            |
@@ -59,7 +80,7 @@ data Operation =
     -- | if ~<var> goto <label>
     IfFalse     |
     -- | New label
-    Label       |
+    NewLabel       |
 
     -- Calling functions
     -- | Define a parameter
@@ -78,4 +99,20 @@ data Operation =
     Ref         |
     -- | x=*y
     Deref       
-    deriving (Eq)
+    deriving (Eq, Show)
+
+
+data Entry = Entry {
+    entry_name  :: String,
+    entry_type  :: AST.Type,
+    entry_scope :: Maybe Int
+} deriving (Eq)
+
+instance Show Entry where
+  show = entry_name
+
+instance SymEntryCompatible Entry where
+    getSymID = entry_name
+
+entryToTAC :: Sem.Entry -> Entry
+entryToTAC e = Entry (Sem.entry_name e) (fromJust $ Sem.entry_type e) $ Just $ Sem.entry_scope e
