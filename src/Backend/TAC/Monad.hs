@@ -48,50 +48,52 @@ genForExp exp@AST.Literal{} = return $ TAC.Constant exp
 genForExp idExp@AST.IdExp{} = return $ TAC.Variable $ expToEntry idExp
 -- Addition arithmetic expression
 genForExp (AST.NegativeExp exp expType) = do
-    temp <- newTemp expType
     rValue <- genForExp exp
+    temp <- newTemp expType
     genRaw [TAC.ThreeAddressCode TAC.Minus (Just temp) (Just rValue) Nothing]
     return temp
 
 -- Addition arithmetic expression
 genForExp (AST.AdditionExp expLeft expRight expType) = do
-    temp <- newTemp expType
     rValue1 <- genForExp expLeft
     rValue2 <- genForExp expRight
+    temp <- newTemp expType
     genRaw [TAC.ThreeAddressCode TAC.Add (Just temp) (Just rValue1) (Just rValue2)]
     return temp
 
 -- Substraction arithmetic expression
 genForExp (AST.SubstractionExp expLeft expRight expType) = do
-    temp <- newTemp expType
     rValue1 <- genForExp expLeft
     rValue2 <- genForExp expRight
+    temp <- newTemp expType
     genRaw [TAC.ThreeAddressCode TAC.Sub (Just temp) (Just rValue1) (Just rValue2)]
     return temp
 
 -- Module arithmetic expression
 genForExp (AST.ModExp expLeft expRight expType) = do
-    temp <- newTemp expType
     rValue1 <- genForExp expLeft
     rValue2 <- genForExp expRight
+    temp <- newTemp expType
     genRaw [TAC.ThreeAddressCode TAC.Mod (Just temp) (Just rValue1) (Just rValue2)]
     return temp
 
 -- Multiplication arithmetic expression
 genForExp (AST.MultExp expLeft expRight expType) = do
-    temp <- newTemp expType
     rValue1 <- genForExp expLeft
     rValue2 <- genForExp expRight
+    temp <- newTemp expType
     genRaw [TAC.ThreeAddressCode TAC.Mult (Just temp) (Just rValue1) (Just rValue2)]
     return temp
 
 -- Division arithmetic expression
 genForExp (AST.DivExp expLeft expRight expType) = do
-    temp <- newTemp expType
     rValue1 <- genForExp expLeft
     rValue2 <- genForExp expRight
+    temp <- newTemp expType
     genRaw [TAC.ThreeAddressCode TAC.Div (Just temp) (Just rValue1) (Just rValue2)]
     return temp
+
+-- TODO: CastExp, Logical Expressions, Conditional
 
 -- | Insert a list of raw instructions into final Three Address Code
 genRaw :: [TAC.Instruction] -> TACMonad ()

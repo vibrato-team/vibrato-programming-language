@@ -1,4 +1,0 @@
-moderato() {
-    y: quarter|
-    x: quarter <-> (y+10) + 2|
-}
