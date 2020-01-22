@@ -52,14 +52,25 @@ genForBinOp exp op = do
 
 -- | Generate corresponding TAC to Expression
 genForExp :: AST.Expression -> TACMonad TAC.Value
+
+-- Literal expression
 genForExp exp@AST.Literal{} = return $ TAC.Constant exp
 
+-- Identifier
 genForExp idExp@AST.IdExp{} = return $ TAC.Variable $ expToEntry idExp
+
 -- Addition arithmetic expression
 genForExp (AST.NegativeExp exp expType) = do
     rValue <- genForExp exp
     temp <- newTemp expType
     genRaw [TAC.ThreeAddressCode TAC.Minus (Just temp) (Just rValue) Nothing]
+    return temp
+
+-- Casting expression
+genForExp (AST.CastExp exp (AST.Simple fromType) to@(AST.Simple toType)) = do
+    rValue <- genForExp exp
+    temp <- newTemp to
+    genRaw [TAC.ThreeAddressCode (TAC.Cast fromType toType) (Just temp) (Just rValue) Nothing]
     return temp
 
 -- Addition arithmetic expression
@@ -77,7 +88,7 @@ genForExp exp@AST.MultExp{} = genForBinOp exp TAC.Mult
 -- Division arithmetic expression
 genForExp exp@AST.DivExp{} = genForBinOp exp TAC.Div
 
--- TODO: CastExp, Logical Expressions, Conditional
+-- TODO: CastExp, Pow, Logical Expressions, Conditional
 
 -- | Insert a list of raw instructions into final Three Address Code
 genRaw :: [TAC.Instruction] -> TACMonad ()

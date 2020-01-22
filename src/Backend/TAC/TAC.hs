@@ -22,6 +22,7 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) w
   show (ThreeAddressCode Sub (Just x) (Just y) (Just z)) = show x ++ " = " ++ show y ++ " - " ++ show z
   show (ThreeAddressCode Mult (Just x) (Just y) (Just z)) = show x ++ " = " ++ show y ++ " * " ++ show z
   show (ThreeAddressCode Div (Just x) (Just y) (Just z)) = show x ++ " = " ++ show y ++ " / " ++ show z
+  show (ThreeAddressCode (Cast _ toType) (Just x) (Just y) _) = show x ++ " = " ++ toType ++ "(" ++ show y ++ ")"
   show tac = show (tacLvalue tac) ++ " = " ++ show (tacRvalue1 tac) ++ " (?) " ++ show (tacRvalue2 tac)
 
 type Instruction = ThreeAddressCode Entry AST.Expression
@@ -102,7 +103,9 @@ data Operation =
     -- | x=&y
     Ref         |
     -- | x=*y
-    Deref       
+    Deref       |
+
+    Cast String String
     deriving (Eq, Show)
 
 
