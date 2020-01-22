@@ -41,6 +41,15 @@ getStringFromIdExp = getStringFromId . AST.exp_id
 expToEntry :: AST.Expression -> TAC.Entry
 expToEntry (AST.IdExp expId expType expScope) = TAC.Entry (getStringFromId expId) expType (Just expScope)
 
+-- | Generate TAC for binary operation
+genForBinOp :: AST.Expression -> TAC.Operation -> TACMonad TAC.Value
+genForBinOp exp op = do
+    rValue1 <- genForExp $ AST.exp_left exp
+    rValue2 <- genForExp $ AST.exp_right exp
+    temp <- newTemp $ AST.exp_type exp
+    genRaw [TAC.ThreeAddressCode op (Just temp) (Just rValue1) (Just rValue2)]
+    return temp
+
 -- | Generate corresponding TAC to Expression
 genForExp :: AST.Expression -> TACMonad TAC.Value
 genForExp exp@AST.Literal{} = return $ TAC.Constant exp
@@ -54,44 +63,19 @@ genForExp (AST.NegativeExp exp expType) = do
     return temp
 
 -- Addition arithmetic expression
-genForExp (AST.AdditionExp expLeft expRight expType) = do
-    rValue1 <- genForExp expLeft
-    rValue2 <- genForExp expRight
-    temp <- newTemp expType
-    genRaw [TAC.ThreeAddressCode TAC.Add (Just temp) (Just rValue1) (Just rValue2)]
-    return temp
+genForExp exp@AST.AdditionExp{} = genForBinOp exp TAC.Add
 
 -- Substraction arithmetic expression
-genForExp (AST.SubstractionExp expLeft expRight expType) = do
-    rValue1 <- genForExp expLeft
-    rValue2 <- genForExp expRight
-    temp <- newTemp expType
-    genRaw [TAC.ThreeAddressCode TAC.Sub (Just temp) (Just rValue1) (Just rValue2)]
-    return temp
+genForExp exp@AST.SubstractionExp{} = genForBinOp exp TAC.Sub
 
 -- Module arithmetic expression
-genForExp (AST.ModExp expLeft expRight expType) = do
-    rValue1 <- genForExp expLeft
-    rValue2 <- genForExp expRight
-    temp <- newTemp expType
-    genRaw [TAC.ThreeAddressCode TAC.Mod (Just temp) (Just rValue1) (Just rValue2)]
-    return temp
+genForExp exp@AST.ModExp{} = genForBinOp exp TAC.Mod
 
 -- Multiplication arithmetic expression
-genForExp (AST.MultExp expLeft expRight expType) = do
-    rValue1 <- genForExp expLeft
-    rValue2 <- genForExp expRight
-    temp <- newTemp expType
-    genRaw [TAC.ThreeAddressCode TAC.Mult (Just temp) (Just rValue1) (Just rValue2)]
-    return temp
+genForExp exp@AST.MultExp{} = genForBinOp exp TAC.Mult
 
 -- Division arithmetic expression
-genForExp (AST.DivExp expLeft expRight expType) = do
-    rValue1 <- genForExp expLeft
-    rValue2 <- genForExp expRight
-    temp <- newTemp expType
-    genRaw [TAC.ThreeAddressCode TAC.Div (Just temp) (Just rValue1) (Just rValue2)]
-    return temp
+genForExp exp@AST.DivExp{} = genForBinOp exp TAC.Div
 
 -- TODO: CastExp, Logical Expressions, Conditional
 
