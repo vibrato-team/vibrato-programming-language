@@ -34,9 +34,9 @@ instance Show Type where
     show (Simple str) = str
     show (Compound str type') = str ++ "<" ++ show type' ++ ">"
         
-numberTypes = [AST.Simple "quarter", AST.Simple "eighth", AST.Simple "32th", AST.Simple "64th"]
-primitiveTypes =  [AST.Simple "whole", AST.Simple "half"] ++ numberTypes
-simpleTypes = [AST.Simple "void", AST.Simple "null", AST.Simple "empty_list"] ++ primitiveTypes
+numberTypes     =   [AST.Simple "quarter", AST.Simple "eighth", AST.Simple "32th", AST.Simple "64th"]
+primitiveTypes  =   [AST.Simple "whole", AST.Simple "half"] ++ numberTypes
+simpleTypes     =   [AST.Simple "void", AST.Simple "null", AST.Simple "empty_list"] ++ primitiveTypes
 
 instance Ord Type where
     compare a b =

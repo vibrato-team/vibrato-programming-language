@@ -1,0 +1,5 @@
+moderato() {
+    b0: whole|
+    b1: whole|
+    b2: whole <-> not b1 or b0|
+}

@@ -12,6 +12,7 @@ import qualified Data.Set as Set
 import qualified Data.Map.Lazy as Map
 import qualified Semantic.Data as Sem
 import qualified Backend.TAC.Monad as TACMonad
+import qualified Backend.TAC.TAC as TAC
 
 import System.Environment
 import System.Exit
@@ -42,12 +43,22 @@ main = do
                     [] -> do
                         let table = PMonad.state_table pstate
                             Just [moderatoEntry] = Map.lookup "moderato" table
-                            Just astBlock = Sem.function_block $ Sem.entry_category moderatoEntry
-                        (_, tac) <- RWS.execRWST (TACMonad.genForBlock astBlock) () TACMonad.initialState
-                        mapM_ print tac
+                            Just (AST.Block stmts) = Sem.function_block $ Sem.entry_category moderatoEntry
+                        (state, tac) <- RWS.execRWST (TACMonad.genForList stmts) () TACMonad.initialState
+
+                        -- Backpatching
+                        let bpMap = TACMonad.bp_map state
+                            finalTAC = TACMonad.backpatchAll bpMap tac
+                        printTAC finalTAC 0
                 
     
     hClose handle
 
-printTable ::(Show a, Show b) => Map.Map a [b] -> IO ()
+printTable :: (Show a, Show b) => Map.Map a [b] -> IO ()
 printTable table = mapM_ (\(str, entry) -> print str >> mapM_ (\a -> putStr "\t" >> print a) entry ) (Map.toList table)
+
+printTAC :: [TAC.Instruction] -> Int -> IO ()
+printTAC [] _ = return ()
+printTAC (inst:insts) i = do
+    putStrLn $ show i ++ ": " ++ show inst
+    printTAC insts (i+1)
