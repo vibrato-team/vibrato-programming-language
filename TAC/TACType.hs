@@ -26,6 +26,12 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) w
   show (ThreeAddressCode GoTo Nothing Nothing Nothing)        = "goto __"
   show (ThreeAddressCode If Nothing (Just b) (Just label))    = "if " ++ show b ++ " then goto " ++ show label
   show (ThreeAddressCode If Nothing (Just b) Nothing)         = "if " ++ show b ++ " then goto __"
+  show (ThreeAddressCode Eq (Just x) (Just y) (Just label))   = "if " ++ show x ++ " = " ++ show y ++ " then goto " ++ show label
+  show (ThreeAddressCode Neq (Just x) (Just y) (Just label))   = "if " ++ show x ++ " != " ++ show y ++ " then goto " ++ show label
+  show (ThreeAddressCode Lt (Just x) (Just y) (Just label))   = "if " ++ show x ++ " < " ++ show y ++ " then goto " ++ show label
+  show (ThreeAddressCode Gt (Just x) (Just y) (Just label))   = "if " ++ show x ++ " > " ++ show y ++ " then goto " ++ show label
+  show (ThreeAddressCode Lte (Just x) (Just y) (Just label))   = "if " ++ show x ++ " <= " ++ show y ++ " then goto " ++ show label
+  show (ThreeAddressCode Gte (Just x) (Just y) (Just label))   = "if " ++ show x ++ " >= " ++ show y ++ " then goto " ++ show label
 
   show tac = show (tacLvalue tac) ++ " = " ++ show (tacRvalue1 tac) ++ " (?) " ++ show (tacRvalue2 tac)
 
