@@ -12,6 +12,9 @@ type Idx = Int
 type IdxList = [Idx]
 type BackpatchMap = Map.Map Idx IdxList
 
+{-# ANN genForBinOp "HLint: warn" #-}
+{-# ANN genForComp "HLint: warn" #-}
+
 -- | State of the monad
 data TACState = TACState {
     label_count     :: Int,
@@ -59,67 +62,78 @@ expToEntry :: AST.Expression -> TAC.Entry
 expToEntry (AST.IdExp expId expType expScope) = TAC.Entry (getStringFromId expId) expType (Just expScope)
 
 -- | Generate TAC for binary operation
-{-# ANN genForBinOp "HLint: warn" #-}
-genForBinOp :: AST.Expression -> TAC.Operation -> TACMonad (TAC.Value, IdxList, IdxList)
+genForBinOp :: AST.Expression -> TAC.Operation -> TACMonad (Maybe TAC.Value, IdxList, IdxList)
 
 -- Or Expression
 genForBinOp exp@(AST.OrExp expLeft expRight expType) op@TAC.Or = do
-    (rValue1, truelist1, falselist1) <- genForExp expLeft
+    (_, truelist1, falselist1) <- genForExp expLeft
     inst <- nextInst
-    (rValue2, truelist2, falselist2) <- genForExp expRight
+    (_, truelist2, falselist2) <- genForExp expRight
 
     bindLabel falselist1 inst
     let truelist    = merge truelist1 truelist2
         falselist   = falselist2
 
-    temp <- newTemp expType
-    -- genRaw [TAC.ThreeAddressCode op (Just temp) (Just rValue1) (Just rValue2)]
-    return (temp, truelist, falselist)
+    return (Nothing, truelist, falselist)
 
 -- And Expression
 genForBinOp exp@(AST.AndExp expLeft expRight expType) op@TAC.And = do
-    (rValue1, truelist1, falselist1) <- genForExp expLeft
+    (_, truelist1, falselist1) <- genForExp expLeft
     inst <- nextInst
-    (rValue2, truelist2, falselist2) <- genForExp expRight
+    (_, truelist2, falselist2) <- genForExp expRight
 
     bindLabel truelist1 inst
     let falselist    = merge falselist1 falselist2
         truelist     = truelist2
 
-    temp <- newTemp expType
-    -- genRaw [TAC.ThreeAddressCode op (Just temp) (Just rValue1) (Just rValue2)]
-    return (temp, truelist, falselist)
+    return (Nothing, truelist, falselist)
 
 -- Every other binary expression
 genForBinOp exp op = do
-    (rValue1, _, _) <- genForExp $ AST.exp_left exp
-    (rValue2, _, _) <- genForExp $ AST.exp_right exp
+    (maybeRValue1, _, _) <- genForExp $ AST.exp_left exp
+    (maybeRValue2, _, _) <- genForExp $ AST.exp_right exp
     temp            <- newTemp $ AST.exp_type exp
-    genRaw [TAC.ThreeAddressCode op (Just temp) (Just rValue1) (Just rValue2)]
-    return (temp, [], [])
+    genRaw [TAC.ThreeAddressCode op (Just temp) maybeRValue1 maybeRValue2]
+    return (Just temp, [], [])
+
+-- | Generate three address code for comparators
+genForComp :: AST.Expression -> TAC.Operation -> TACMonad (Maybe TAC.Value, IdxList, IdxList)
+genForComp exp op = do
+    (Just rValue1, _, _) <- genForExp $ AST.exp_left exp
+    (Just rValue2, _, _) <- genForExp $ AST.exp_right exp
+
+    inst1 <- nextInst
+    let truelist = makelist inst1
+    genRaw [TAC.ThreeAddressCode op (Just rValue1) (Just rValue2) Nothing]
+
+    inst2 <- nextInst
+    let falselist = makelist inst2
+    genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
+
+    return (Nothing, truelist, falselist)
 
 -- | Generate corersponding TAC for LValue
-genForLValue idExp@AST.IdExp{} = return (TAC.Variable $ expToEntry idExp, [], [])
+genForLValue idExp@AST.IdExp{} = return (Just $ TAC.Variable $ expToEntry idExp, [], [])
 
 -- | Generate corresponding TAC to Expression
-genForExp :: AST.Expression -> TACMonad (TAC.Value, IdxList, IdxList)
+genForExp :: AST.Expression -> TACMonad (Maybe TAC.Value, IdxList, IdxList)
 
 -- Literal expression
-genForExp exp@(AST.Literal expToken expType) = return (TAC.Constant (Tokens.token expToken, expType), [], [])
+genForExp exp@(AST.Literal expToken expType) = return (Just $ TAC.Constant (Tokens.token expToken, expType), [], [])
 
 -- False
 genForExp idExp@(AST.IdExp (AST.Id (Tokens.MinToken "min" _ _)) _ _) = do
     nextinst <- nextInst
     let falselist = makelist nextinst
     genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
-    return (tacFalse, [], falselist)
+    return (Nothing, [], falselist)
 
 -- True
 genForExp idExp@(AST.IdExp (AST.Id (Tokens.MajToken "maj" _ _)) _ _) = do
     nextinst <- nextInst
     let truelist = makelist nextinst
     genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
-    return (tacTrue, truelist, [])
+    return (Nothing, truelist, [])
 
 -- Identifier
 genForExp idExp@AST.IdExp{AST.exp_type=AST.Simple "whole", AST.exp_scope=expScope} = do
@@ -135,30 +149,28 @@ genForExp idExp@AST.IdExp{AST.exp_type=AST.Simple "whole", AST.exp_scope=expScop
     let falselist = makelist inst2
     genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
 
-    return (value, truelist, falselist)
+    return (Nothing, truelist, falselist)
 
 genForExp idExp@AST.IdExp{} = genForLValue idExp
 
 -- Logical Not
 genForExp (AST.NotExp exp expType) = do
-    (rValue, truelist, falselist)   <- genForExp exp
-    temp                            <- newTemp expType
-    -- genRaw [TAC.ThreeAddressCode TAC.Not (Just temp) (Just rValue) Nothing]
-    return (temp, falselist, truelist)
+    (_, truelist, falselist)   <- genForExp exp
+    return (Nothing, falselist, truelist)
 
 -- Addition arithmetic expression
 genForExp (AST.NegativeExp exp expType) = do
-    (rValue, _, _)  <- genForExp exp
+    (Just rValue, _, _)  <- genForExp exp
     temp            <- newTemp expType
     genRaw [TAC.ThreeAddressCode TAC.Minus (Just temp) (Just rValue) Nothing]
-    return (temp, [], [])
+    return (Just temp, [], [])
 
 -- Casting expression
 genForExp (AST.CastExp exp (AST.Simple fromType) to@(AST.Simple toType)) = do
-    (rValue, _, _)  <- genForExp exp
+    (Just rValue, _, _)  <- genForExp exp
     temp            <- newTemp to
     genRaw [TAC.ThreeAddressCode (TAC.Cast fromType toType) (Just temp) (Just rValue) Nothing]
-    return (temp, [], [])
+    return (Just temp, [], [])
 
 -- Addition arithmetic expression
 genForExp exp@AST.AdditionExp{} = genForBinOp exp TAC.Add
@@ -180,6 +192,19 @@ genForExp exp@AST.AndExp{} = genForBinOp exp TAC.And
 
 -- Logical Or
 genForExp exp@AST.OrExp{} = genForBinOp exp TAC.Or
+
+-- ==
+genForExp exp@AST.EqualExp{} = genForComp exp TAC.Eq
+-- !=
+genForExp exp@AST.NotEqualExp{} = genForComp exp TAC.Neq
+-- <
+genForExp exp@AST.LessExp{} = genForComp exp TAC.Lt
+-- >
+genForExp exp@AST.GreaterExp{} = genForComp exp TAC.Gt
+-- <=
+genForExp exp@AST.LessEqualExp{} = genForComp exp TAC.Lte
+-- >=
+genForExp exp@AST.GreaterEqualExp{} = genForComp exp TAC.Gte
 
 -- TODO: Pow, Relations, Conditional
 
@@ -204,10 +229,10 @@ gen :: AST.Instruction -> TACMonad IdxList
 gen (AST.VarDecInst _) = return []
 
 gen (AST.AssignInst leftExp rightExp) = do
-    (lValue, _, _) <- genForLValue leftExp
+    (Just lValue, _, _) <- genForLValue leftExp
     case AST.exp_type rightExp of
         AST.Simple "whole" -> do
-            (rValue, truelist, falselist)   <- genForExp rightExp
+            (_, truelist, falselist)   <- genForExp rightExp
 
             nextinst <- nextInst
             bindLabel truelist nextinst
@@ -224,7 +249,7 @@ gen (AST.AssignInst leftExp rightExp) = do
             return nextlist 
 
         _ -> do
-            (rValue, _, _)  <- genForExp rightExp
+            (Just rValue, _, _)  <- genForExp rightExp
             genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just rValue) Nothing]
             return []
 ----------------------------------------------------------------------------
