@@ -107,6 +107,8 @@ import Semantic.Analyzers
 %nonassoc play
 %nonassoc loop
 %nonassoc '<->'
+%left and or
+%right not
 %nonassoc '=' '/=' 
 %nonassoc '>' '<' '<=' '>='
 %left LVALUE
@@ -114,8 +116,6 @@ import Semantic.Analyzers
 %left '*' '/' mod
 %left '^'
 %left NEG '#' '&'
-%left and or
-%right not
 %right '['
 %left ']'
 %left '!'
