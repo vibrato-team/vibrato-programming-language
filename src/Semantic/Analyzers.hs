@@ -1,8 +1,8 @@
 module Semantic.Analyzers where
-import Tokens
+import Frontend.Tokens
 import qualified AST
-import Parser.Monad (ParserMonad)
-import Parser.Monad as PMonad
+import Frontend.Parser.Monad (ParserMonad)
+import Frontend.Parser.Monad as PMonad
 import qualified Semantic.Data as Sem
 import Data.Maybe
 import qualified Control.Monad.RWS.Lazy as RWS
@@ -36,7 +36,7 @@ checkVarIsDeclared tk = do
 
 -- Chequea que un lvalue no sea const
 checkConstLvalue :: AST.Expression -> ParserMonad ()
-checkConstLvalue (AST.IdExp id _) = do
+checkConstLvalue (AST.IdExp id _ _) = do
     let tkString = token $ AST.id_token id
     entryMaybe <- PMonad.lookup tkString
     case entryMaybe of

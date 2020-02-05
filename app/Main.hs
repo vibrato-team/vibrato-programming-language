@@ -1,16 +1,18 @@
 module Main where
 
-import Lib
-import qualified Lexer
-import qualified Parser.Parser as Parser
-import qualified Parser.PreParser as PreParser
-import qualified Parser.Monad as PMonad
+import qualified Frontend.Lexer as Lexer
+import qualified Frontend.Parser.Parser as Parser
+import qualified Frontend.Parser.PreParser as PreParser
+import qualified Frontend.Parser.Monad as PMonad
 import AST
 import Util.Error
 import qualified Control.Monad.RWS.Lazy as RWS
 import Control.Monad.Trans
 import qualified Data.Set as Set
 import qualified Data.Map.Lazy as Map
+import qualified Semantic.Data as Sem
+import qualified Backend.TAC.Monad as TACMonad
+import qualified Backend.TAC.TAC as TAC
 
 import System.Environment
 import System.Exit
@@ -22,6 +24,7 @@ main = do
     args <- getArgs
     handle <- openFile (head args) ReadMode  
     srcFile <- hGetContents handle
+
     let lexResult = Lexer.runAlexScan srcFile
     case lexResult of
         Left err -> error err
@@ -37,10 +40,25 @@ main = do
                 -- If there is an error:
                 case PMonad.state_errors pstate of
                     errs@(_:_) -> throwCompilerError srcFile $ reverse errs
-                    [] -> printTable $ PMonad.state_table pstate
+                    [] -> do
+                        let table = PMonad.state_table pstate
+                            Just [moderatoEntry] = Map.lookup "moderato" table
+                            Just (AST.Block stmts) = Sem.function_block $ Sem.entry_category moderatoEntry
+                        (state, tac) <- RWS.execRWST (TACMonad.genForList stmts) () TACMonad.initialState
+
+                        -- Backpatching
+                        let bpMap = TACMonad.bp_map state
+                            finalTAC = TACMonad.backpatchAll bpMap tac
+                        printTAC finalTAC 0
                 
     
     hClose handle
 
-printTable ::(Show a, Show b) => Map.Map a [b] -> IO ()
+printTable :: (Show a, Show b) => Map.Map a [b] -> IO ()
 printTable table = mapM_ (\(str, entry) -> print str >> mapM_ (\a -> putStr "\t" >> print a) entry ) (Map.toList table)
+
+printTAC :: [TAC.Instruction] -> Int -> IO ()
+printTAC [] _ = return ()
+printTAC (inst:insts) i = do
+    putStrLn $ show i ++ ": " ++ show inst
+    printTAC insts (i+1)

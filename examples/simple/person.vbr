@@ -1,0 +1,21 @@
+chord Person {
+    name: Melody<half>,
+    age: quarter
+}
+
+moderato() {
+    persons: Melody<Person> <-> [
+        Person("David", 23),
+        Person("Andres", 23),
+        Person("German", 22),
+        Person("Gus", 22),
+        Leonardo("Leonardo", 23)
+    ]|
+
+    loop idx {
+        like arpeggio persons[idx]
+            (name, age) -> {
+                |>("Se llama", name, "y tiene", age)|
+            }
+    } in (length(persons))
+}

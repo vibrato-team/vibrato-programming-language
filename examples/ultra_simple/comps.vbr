@@ -1,0 +1,5 @@
+moderato() {
+    q1: quarter <-> 14|
+    q2: quarter <-> 20|
+    b0: whole <-> q1 <= q2 and q2/3 = q1|
+}

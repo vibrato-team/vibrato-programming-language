@@ -1,6 +1,6 @@
 {
-module Lexer (Error(..), Token(..), Alex, alexError, runAlex, runAlexScan, alexEOF, lexerWrapper, AlexUserState(..), AlexState(..)) where
-import Tokens
+module Frontend.Lexer (Error(..), Token(..), Alex, alexError, runAlex, runAlexScan, alexEOF, lexerWrapper, AlexUserState(..), AlexState(..)) where
+import Frontend.Tokens
 import Data.Either
 import Util.Error
 }

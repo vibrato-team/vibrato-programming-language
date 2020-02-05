@@ -1,6 +1,6 @@
 module Utils where
-import Lexer
-import Tokens
+import Frontend.Lexer
+import Frontend.Tokens
 
 getTok :: Either String AlexUserState -> [Token]
 getTok lexTok = 
