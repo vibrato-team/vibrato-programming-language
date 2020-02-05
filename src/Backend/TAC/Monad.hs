@@ -252,6 +252,44 @@ gen (AST.AssignInst leftExp rightExp) = do
             (Just rValue, _, _)  <- genForExp rightExp
             genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just rValue) Nothing]
             return []
+
+gen AST.IfInst{AST.inst_exp=instExp, AST.inst_inst=instInst, AST.inst_else=instElse} = do
+    (_, truelist, falselist) <- genForExp instExp
+    nextinst <- nextInst
+    bindLabel truelist nextinst
+    nextlist1 <- gen instInst
+
+    case instElse of
+        Nothing -> return $ merge falselist nextlist1
+        Just inst1 -> do
+            nextinst1 <- nextInst
+            genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
+
+            nextinst2 <- nextInst
+            bindLabel falselist nextinst2
+
+            nextlist2 <- gen inst1
+            let t = merge (makelist nextinst1) nextlist2
+            return $ merge nextlist1 t
+
+gen AST.BlockInst{AST.inst_block=instBlock} = 
+    genForList $ AST.statements instBlock
+
+gen AST.SharpExp{AST.inst_exp=instExp} =
+    genForAbrev instExp TAC.Add
+
+gen AST.FlatExp{AST.inst_exp=instExp} =
+    genForAbrev instExp TAC.Sub
+
+-- | Generate TAC for increment or decrement instruction
+genForAbrev :: AST.Expression -> TAC.Operation -> TACMonad IdxList
+genForAbrev exp op = do
+    (Just lValue, _, _) <- genForExp exp
+    let expType = AST.exp_type exp
+    temp <- newTemp expType
+    genRaw [TAC.ThreeAddressCode op (Just temp) (Just lValue) (Just $ TAC.Constant ("1", expType))]
+    return []
+
 ----------------------------------------------------------------------------
 ----------------------------- Backpatching ---------------------------------
 ----------------------------------------------------------------------------

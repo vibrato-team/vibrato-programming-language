@@ -1,0 +1,17 @@
+moderato() {
+    q1: quarter <-> 10|
+    q2: quarter <-> 21|
+    s0: Melody<half>|
+    if (q1 < q2) {
+        q1#|
+        s0 <-> "Menor"|
+    }
+    else {
+        q2 <-> 2*q2|
+        if (q1 = q2) s0 <-> "Igual"|
+        else {
+            q1&|
+            s0 <-> "Mayor"|
+        }
+    }
+}

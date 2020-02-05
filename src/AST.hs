@@ -110,10 +110,10 @@ data Expression =
 
     -- Cast expression
     CastExp         {   exp_exp :: Expression, exp_from :: Type, exp_type :: Type }
-    deriving (Eq)
+    deriving (Eq, Show)
 
-instance Show Expression where
-    show (AST.Literal expToken _) = token expToken
+-- instance Show Expression where
+--     show (AST.Literal expToken _) = token expToken
 
 -- Instructions
 data Instruction =
