@@ -49,7 +49,7 @@ main = do
                         -- Backpatching
                         let bpMap = TACMonad.bp_map state
                             finalTAC = TACMonad.backpatchAll bpMap tac
-                        printTAC finalTAC 0
+                        printTAC finalTAC
                 
     
     hClose handle
@@ -57,8 +57,8 @@ main = do
 printTable :: (Show a, Show b) => Map.Map a [b] -> IO ()
 printTable table = mapM_ (\(str, entry) -> print str >> mapM_ (\a -> putStr "\t" >> print a) entry ) (Map.toList table)
 
-printTAC :: [TAC.Instruction] -> Int -> IO ()
-printTAC [] _ = return ()
-printTAC (inst:insts) i = do
-    putStrLn $ show i ++ ": " ++ show inst
-    printTAC insts (i+1)
+printTAC :: [TAC.Instruction] -> IO ()
+printTAC [] = return ()
+printTAC (inst:insts) = do
+    print inst
+    printTAC insts

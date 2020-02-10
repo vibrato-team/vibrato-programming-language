@@ -16,27 +16,27 @@ data (SymEntryCompatible a) => ThreeAddressCode a b = ThreeAddressCode
   deriving (Eq)
 
 instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) where
-  show (ThreeAddressCode Assign (Just x) (Just y) _)          = show x ++ " := " ++ show y
-  show (ThreeAddressCode Add (Just x) (Just y) (Just z))      = show x ++ " := " ++ show y ++ " + " ++ show z
-  show (ThreeAddressCode Minus (Just x) (Just y) Nothing)     = show x ++ " := -" ++ show y 
-  show (ThreeAddressCode Sub (Just x) (Just y) (Just z))      = show x ++ " := " ++ show y ++ " - " ++ show z
-  show (ThreeAddressCode Mult (Just x) (Just y) (Just z))     = show x ++ " := " ++ show y ++ " * " ++ show z
-  show (ThreeAddressCode Div (Just x) (Just y) (Just z))      = show x ++ " := " ++ show y ++ " / " ++ show z
-  show (ThreeAddressCode (Cast _ toType) (Just x) (Just y) _) = show x ++ " := " ++ toType ++ "(" ++ show y ++ ")"
-  show (ThreeAddressCode Not (Just x) (Just y) _)             = show x ++ " := ~" ++ show y
-  show (ThreeAddressCode And (Just x) (Just y) (Just z))      = show x ++ " := " ++ show y ++ " && " ++ show z
-  show (ThreeAddressCode Or (Just x) (Just y) (Just z))       = show x ++ " := " ++ show y ++ " || " ++ show z
-  show (ThreeAddressCode GoTo Nothing Nothing (Just label))   = "goto " ++ show label
-  show (ThreeAddressCode GoTo Nothing Nothing Nothing)        = "goto __"
-  show (ThreeAddressCode If Nothing (Just b) (Just label))    = "if " ++ show b ++ " then goto " ++ show label
-  show (ThreeAddressCode If Nothing (Just b) Nothing)         = "if " ++ show b ++ " then goto __"
-  show (ThreeAddressCode Eq (Just x) (Just y) (Just label))   = "if " ++ show x ++ " = " ++ show y ++ " then goto " ++ show label
-  show (ThreeAddressCode Neq (Just x) (Just y) (Just label))   = "if " ++ show x ++ " != " ++ show y ++ " then goto " ++ show label
-  show (ThreeAddressCode Lt (Just x) (Just y) (Just label))   = "if " ++ show x ++ " < " ++ show y ++ " then goto " ++ show label
-  show (ThreeAddressCode Gt (Just x) (Just y) (Just label))   = "if " ++ show x ++ " > " ++ show y ++ " then goto " ++ show label
-  show (ThreeAddressCode Lte (Just x) (Just y) (Just label))   = "if " ++ show x ++ " <= " ++ show y ++ " then goto " ++ show label
-  show (ThreeAddressCode Gte (Just x) (Just y) (Just label))   = "if " ++ show x ++ " >= " ++ show y ++ " then goto " ++ show label
-
+  show (ThreeAddressCode Assign (Just x) (Just y) _)              = "\t" ++ show x ++ " := " ++ show y
+  show (ThreeAddressCode Add (Just x) (Just y) (Just z))          = "\t" ++ show x ++ " := " ++ show y ++ " + " ++ show z
+  show (ThreeAddressCode Minus (Just x) (Just y) Nothing)         = "\t" ++ show x ++ " := -" ++ show y 
+  show (ThreeAddressCode Sub (Just x) (Just y) (Just z))          = "\t" ++ show x ++ " := " ++ show y ++ " - " ++ show z
+  show (ThreeAddressCode Mult (Just x) (Just y) (Just z))         = "\t" ++ show x ++ " := " ++ show y ++ " * " ++ show z
+  show (ThreeAddressCode Div (Just x) (Just y) (Just z))          = "\t" ++ show x ++ " := " ++ show y ++ " / " ++ show z
+  show (ThreeAddressCode (Cast _ toType) (Just x) (Just y) _)     = "\t" ++ show x ++ " := " ++ toType ++ "(" ++ show y ++ ")"
+  show (ThreeAddressCode Not (Just x) (Just y) _)                 = "\t" ++ show x ++ " := ~" ++ show y
+  show (ThreeAddressCode And (Just x) (Just y) (Just z))          = "\t" ++ show x ++ " := " ++ show y ++ " && " ++ show z
+  show (ThreeAddressCode Or (Just x) (Just y) (Just z))           = "\t" ++ show x ++ " := " ++ show y ++ " || " ++ show z
+  show (ThreeAddressCode GoTo Nothing Nothing (Just label))       = "\t" ++ "goto " ++ show label
+  show (ThreeAddressCode GoTo Nothing Nothing Nothing)            = "\t" ++ "goto __"
+  show (ThreeAddressCode If Nothing (Just b) (Just label))        = "\t" ++ "if " ++ show b ++ " then goto " ++ show label
+  show (ThreeAddressCode If Nothing (Just b) Nothing)             = "\t" ++ "if " ++ show b ++ " then goto __"
+  show (ThreeAddressCode Eq (Just x) (Just y) (Just label))       = "\t" ++ "if " ++ show x ++ " = " ++ show y ++ " then goto " ++ show label
+  show (ThreeAddressCode Neq (Just x) (Just y) (Just label))      = "\t" ++  "if " ++ show x ++ " != " ++ show y ++ " then goto " ++ show label
+  show (ThreeAddressCode Lt (Just x) (Just y) (Just label))       = "\t" ++ "if " ++ show x ++ " < " ++ show y ++ " then goto " ++ show label
+  show (ThreeAddressCode Gt (Just x) (Just y) (Just label))       = "\t" ++ "if " ++ show x ++ " > " ++ show y ++ " then goto " ++ show label
+  show (ThreeAddressCode Lte (Just x) (Just y) (Just label))      = "\t" ++  "if " ++ show x ++ " <= " ++ show y ++ " then goto " ++ show label
+  show (ThreeAddressCode Gte (Just x) (Just y) (Just label))      = "\t" ++  "if " ++ show x ++ " >= " ++ show y ++ " then goto " ++ show label
+  show (ThreeAddressCode NewLabel Nothing (Just label) Nothing)   = show label ++ ":"
   show tac = show (tacLvalue tac) ++ " := " ++ show (tacRvalue1 tac) ++ " (?) " ++ show (tacRvalue2 tac)
 
 type Instruction = ThreeAddressCode Entry AST.Type
@@ -130,7 +130,7 @@ data Entry = Entry {
 } deriving (Eq)
 
 instance Show Entry where
-  show = entry_name
+  show x = entry_name x ++ "_" ++ show (fromMaybe 0 (entry_scope x))
 
 instance SymEntryCompatible Entry where
     getSymID = entry_name

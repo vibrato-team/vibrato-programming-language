@@ -67,10 +67,14 @@ genForBinOp :: AST.Expression -> TAC.Operation -> TACMonad (Maybe TAC.Value, Idx
 -- Or Expression
 genForBinOp exp@(AST.OrExp expLeft expRight expType) op@TAC.Or = do
     (_, truelist1, falselist1) <- genForExp expLeft
+
     inst <- nextInst
+    label@(TAC.Label l) <- newLabel
+    genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
+    
     (_, truelist2, falselist2) <- genForExp expRight
 
-    bindLabel falselist1 inst
+    bindLabel falselist1 l
     let truelist    = merge truelist1 truelist2
         falselist   = falselist2
 
@@ -79,10 +83,14 @@ genForBinOp exp@(AST.OrExp expLeft expRight expType) op@TAC.Or = do
 -- And Expression
 genForBinOp exp@(AST.AndExp expLeft expRight expType) op@TAC.And = do
     (_, truelist1, falselist1) <- genForExp expLeft
+
     inst <- nextInst
+    label@(TAC.Label l) <- newLabel
+    genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
+
     (_, truelist2, falselist2) <- genForExp expRight
 
-    bindLabel truelist1 inst
+    bindLabel truelist1 l
     let falselist    = merge falselist1 falselist2
         truelist     = truelist2
 
@@ -220,8 +228,12 @@ genForList :: [AST.Instruction] -> TACMonad IdxList
 genForList [] = return []
 genForList stmts@(s:ss) = do
     nextlist1 <- gen s
+
     nextinst <- nextInst
-    bindLabel nextlist1 nextinst
+    label@(TAC.Label l) <- newLabel
+    genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
+
+    bindLabel nextlist1 l
     genForList ss
 
 -- | Generate corresponding TAC for Instruction
@@ -235,7 +247,10 @@ gen (AST.AssignInst leftExp rightExp) = do
             (_, truelist, falselist)   <- genForExp rightExp
 
             nextinst <- nextInst
-            bindLabel truelist nextinst
+            label@(TAC.Label l) <- newLabel
+            genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
+
+            bindLabel truelist l
             genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just tacTrue) Nothing]
 
             nextinst <- nextInst
@@ -243,7 +258,10 @@ gen (AST.AssignInst leftExp rightExp) = do
             genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
 
             nextinst <- nextInst
-            bindLabel falselist nextinst
+            label@(TAC.Label l) <- newLabel
+            genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
+
+            bindLabel falselist l
             genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just tacFalse) Nothing ]
 
             return nextlist 
@@ -256,7 +274,10 @@ gen (AST.AssignInst leftExp rightExp) = do
 gen AST.IfInst{AST.inst_exp=instExp, AST.inst_inst=instInst, AST.inst_else=instElse} = do
     (_, truelist, falselist) <- genForExp instExp
     nextinst <- nextInst
-    bindLabel truelist nextinst
+    label@(TAC.Label l) <- newLabel
+    genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
+
+    bindLabel truelist l
     nextlist1 <- gen instInst
 
     case instElse of
@@ -266,7 +287,9 @@ gen AST.IfInst{AST.inst_exp=instExp, AST.inst_inst=instInst, AST.inst_else=instE
             genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
 
             nextinst2 <- nextInst
-            bindLabel falselist nextinst2
+            label@(TAC.Label l) <- newLabel
+            genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
+            bindLabel falselist l
 
             nextlist2 <- gen inst1
             let t = merge (makelist nextinst1) nextlist2
