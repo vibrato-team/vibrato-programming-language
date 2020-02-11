@@ -37,11 +37,11 @@ newLabel = do
     RWS.put state{label_count=labelCount+1}
     return $ TAC.Label labelCount
 
-newTemp :: AST.Type -> TACMonad TAC.Value
+newTemp :: AST.ASTType -> TACMonad TAC.Value
 newTemp astType = do
     state@TACState{temp_count=tempCount} <- RWS.get
     RWS.put state{temp_count=tempCount+1}
-    return $ TAC.Variable $ TAC.Entry ("_t" ++ show tempCount) astType Nothing
+    return $ TAC.Id $ TAC.Temp ("_t" ++ show tempCount) astType
 
 nextInst :: TACMonad Int
 nextInst = do
@@ -55,11 +55,11 @@ getStringFromId = Tokens.token . AST.id_token
 -- | Get name from IdExp
 getStringFromExp :: AST.Expression -> String
 getStringFromExp AST.IdExp{AST.exp_id=expId} = getStringFromId expId
-getStringFromExp AST.Literal{AST.exp_token=expToken} = Tokens.token expToken
+getStringFromExp AST.LiteralExp{AST.exp_token=expToken} = Tokens.token expToken
 
--- | IdExp to TAC.Entry
-expToEntry :: AST.Expression -> TAC.Entry
-expToEntry (AST.IdExp expId expType expScope) = TAC.Entry (getStringFromId expId) expType (Just expScope)
+-- | IdExp to TAC.Id
+expToEntry :: AST.Expression -> TAC.Id
+expToEntry (AST.IdExp _ _ (Just expEntry)) = TAC.Var expEntry
 
 -- | Generate TAC for binary operation
 genForBinOp :: AST.Expression -> TAC.Operation -> TACMonad (Maybe TAC.Value, IdxList, IdxList)
@@ -121,13 +121,13 @@ genForComp exp op = do
     return (Nothing, truelist, falselist)
 
 -- | Generate corersponding TAC for LValue
-genForLValue idExp@AST.IdExp{} = return (Just $ TAC.Variable $ expToEntry idExp, [], [])
+genForLValue idExp@AST.IdExp{AST.exp_entry=Just entry} = return (Just $ TAC.Id $ TAC.Var entry, [], [])
 
 -- | Generate corresponding TAC to Expression
 genForExp :: AST.Expression -> TACMonad (Maybe TAC.Value, IdxList, IdxList)
 
 -- Literal expression
-genForExp exp@(AST.Literal expToken expType) = return (Just $ TAC.Constant (Tokens.token expToken, expType), [], [])
+genForExp exp@(AST.LiteralExp expToken expType) = return (Just $ TAC.Constant (Tokens.token expToken, expType), [], [])
 
 -- False
 genForExp idExp@(AST.IdExp (AST.Id (Tokens.MinToken "min" _ _)) _ _) = do
@@ -144,10 +144,9 @@ genForExp idExp@(AST.IdExp (AST.Id (Tokens.MajToken "maj" _ _)) _ _) = do
     return (Nothing, truelist, [])
 
 -- Identifier
-genForExp idExp@AST.IdExp{AST.exp_type=AST.Simple "whole", AST.exp_scope=expScope} = do
-    let identifier = getStringFromExp idExp
-        entry = TAC.Entry identifier (AST.Simple "whole") (Just expScope)
-        value = TAC.Variable entry
+genForExp idExp@AST.IdExp{AST.exp_type=AST.Simple "whole", AST.exp_entry=Just expEntry} = do
+    let entry = TAC.Var expEntry
+        value = TAC.Id entry
 
     inst1 <- nextInst
     let truelist = makelist inst1

@@ -10,7 +10,6 @@ import qualified Control.Monad.RWS.Lazy as RWS
 import Control.Monad.Trans
 import qualified Data.Set as Set
 import qualified Data.Map.Lazy as Map
-import qualified Semantic.Data as Sem
 import qualified Backend.TAC.Monad as TACMonad
 import qualified Backend.TAC.TAC as TAC
 
@@ -43,7 +42,7 @@ main = do
                     [] -> do
                         let table = PMonad.state_table pstate
                             Just [moderatoEntry] = Map.lookup "moderato" table
-                            Just (AST.Block stmts) = Sem.function_block $ Sem.entry_category moderatoEntry
+                            Just (AST.Block stmts) = AST.function_block $ AST.entry_category moderatoEntry
                         (state, tac) <- RWS.execRWST (TACMonad.genForList stmts) () TACMonad.initialState
 
                         -- Backpatching

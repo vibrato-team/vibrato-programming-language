@@ -10,7 +10,6 @@ import Frontend.Parser.Monad (ParserMonad)
 import qualified Frontend.Parser.Monad as PMonad
 import qualified Control.Monad.RWS.Lazy as RWS
 import Control.Monad.Trans
-import qualified Semantic.Data as SemData 
 import Semantic.Analyzers
 import Data.List
 }
@@ -172,7 +171,7 @@ Id                      : id                                    { AST.Id $1 }
 --------------------------For error recovery------------------------------------
 --------------------------------------------------------------------------------
 
-MaybeType               :: { Maybe AST.Type }
+MaybeType               :: { Maybe AST.ASTType }
 MaybeType               : {- empty -}                           { Nothing }
                         | ':' Type                              { Just $2 }
 
@@ -262,11 +261,8 @@ VarDeclaration          : Id ':' Type                           {% do
 VarInit                 :: { AST.Instruction }
 VarInit                 : Id ':' Type '<->' Expression          {% do 
                                                                     maybeEntry <- createVarEntry (AST.id_token $1) (Just $3)
-                                                                    let scope = case maybeEntry of
-                                                                                    Nothing -> -1
-                                                                                    Just entry -> SemData.entry_scope entry
 
-                                                                    let idExp = AST.IdExp $1 $3 scope
+                                                                    let idExp = AST.IdExp $1 $3 maybeEntry
                                                                         expType = AST.exp_type $5
 
                                                                     checkAssignment idExp $5 $4
@@ -290,9 +286,9 @@ LValue                  : Indexing                              { $1 }
                                                                     idType <- PMonad.lookup $ token $ AST.id_token $1
                                                                     case idType of
                                                                         Nothing ->
-                                                                            return SemData.errorExp
-                                                                        Just entry ->
-                                                                            return $ AST.IdExp $1 (fromJust $ SemData.entry_type entry) $ SemData.entry_scope entry}
+                                                                            return AST.errorExp
+                                                                        maybeEntry@(Just entry) ->
+                                                                            return $ AST.IdExp $1 (fromJust $ AST.entry_type entry) maybeEntry}
 
 Return                  :: { AST.Instruction }
 Return                  : Expression '||'                       {% do
@@ -349,7 +345,7 @@ Loop                    : loop PushScope IdConst Block PopScope In '(' Expressio
                                                                     pushIfError $4 $2 $ matchingError "parentheses"
                                                                     checkExpType $3 [AST.Simple "whole"] $2
                                                                     return $ AST.WhileInst $3 $5 }
-IdConst                 :: { (AST.Id, Maybe AST.Type) }
+IdConst                 :: { (AST.Id, Maybe AST.ASTType) }
 IdConst                 : id MaybeType                                   {% do 
                                                                             createConstEntry $1 $2   
                                                                             return $ (AST.Id $1, $2) }
@@ -363,32 +359,32 @@ CallFuncion             : play Id With '(' ListExp ClosePar          {% do
 
                                                                         maybeEntry <- checkVarIsDeclared (AST.id_token $2)
                                                                         case maybeEntry of
-                                                                            Nothing -> return SemData.errorExp
+                                                                            Nothing -> return AST.errorExp
                                                                             Just entry -> do
-                                                                                let category = SemData.entry_category entry
+                                                                                let category = AST.entry_category entry
                                                                                 case category of
-                                                                                    SemData.Function _ params -> do
+                                                                                    AST.Function _ params -> do
                                                                                         -- Verificacion of the list of expressions
                                                                                         casted_args <- checkParams $4 (reverse $5) params
-                                                                                        return $ AST.CallExp $2 casted_args (fromMaybe voidType $ SemData.entry_type entry)
+                                                                                        return $ AST.CallExp $2 casted_args (fromMaybe voidType $ AST.entry_type entry)
 
                                                                                     _ -> do
                                                                                         pushError $1 "Calling a not track expression:"
-                                                                                        return $ AST.CallExp $2 (reverse $5) (fromMaybe voidType $ SemData.entry_type entry) }
+                                                                                        return $ AST.CallExp $2 (reverse $5) (fromMaybe voidType $ AST.entry_type entry) }
 
                         | play Id                               {% do
                                                                             maybeEntry <- checkVarIsDeclared (AST.id_token $2)
                                                                             case maybeEntry of
-                                                                                Nothing -> return SemData.errorExp
+                                                                                Nothing -> return AST.errorExp
                                                                                 Just entry -> do
-                                                                                    let category = SemData.entry_category entry
+                                                                                    let category = AST.entry_category entry
                                                                                     case category of
-                                                                                        SemData.Function _ params ->
+                                                                                        AST.Function _ params ->
                                                                                             if length params == 0
                                                                                                 then return () 
                                                                                                 else pushError (AST.id_token $2) "Wrong number of arguments:"
                                                                                         _ -> pushError $1 "Calling a not track expression:"
-                                                                                    return $ AST.CallExp $2 [] (fromMaybe voidType $ SemData.entry_type entry)}
+                                                                                    return $ AST.CallExp $2 [] (fromMaybe voidType $ AST.entry_type entry)}
 
 ListExp                 :: { [AST.Expression] }
 ListExp                 : Expression                            { [$1] }
@@ -403,7 +399,7 @@ Indexing                : Expression '[' Expression CloseSquare     {% do
                                                                         let expType = AST.exp_type $1
                                                                         -- Check if an error occurred
                                                                         case expType of
-                                                                            AST.Simple "Error" -> return SemData.errorExp
+                                                                            AST.Simple "Error" -> return AST.errorExp
                                                                             _ -> do
                                                                                 -- Check left expression is a melody
                                                                                 if AST.type_str expType /= "Melody"
@@ -421,28 +417,28 @@ DotExpression           : Expression '.' Id                         {% do
                                                                         -- Check if an error occurred
                                                                         case lType of
                                                                             AST.Simple "Error" -> do
-                                                                                return SemData.errorExp
+                                                                                return AST.errorExp
                                                                             _ -> do
                                                                                 entryMaybe <- PMonad.lookup $ AST.type_str lType
                                                                                 let entry = fromJust entryMaybe
-                                                                                    levelMaybe = SemData.entry_level entry
+                                                                                    levelMaybe = AST.entry_level entry
                                                                                 throwIfNothing levelMaybe $2 "Expression is not a chord or legato:"
 
                                                                                 fieldEntry <- analyzeField (AST.id_token $3) (fromJust levelMaybe)
-                                                                                return $ AST.DotExp $1 $3 (fromJust $ SemData.entry_type fieldEntry) }
+                                                                                return $ AST.DotExp $1 $3 (fromJust $ AST.entry_type fieldEntry) }
 
 Dereference             :: { AST.Expression }
 Dereference             : Expression '!'                            {% do 
                                                                         let expType = AST.exp_type $1
                                                                         case expType of
-                                                                            AST.Simple "Error" -> return SemData.errorExp
+                                                                            AST.Simple "Error" -> return AST.errorExp
                                                                             _ -> do
                                                                                 if AST.type_str expType /= "Sample"
                                                                                     then pushError $2 "Dereferencing a not sample expression:"
                                                                                     else return ()
                                                                                 return $ AST.DereferenceExp $1 $2 (AST.type_type $ AST.exp_type $1) }
 
-Type                    :: { AST.Type }
+Type                    :: { AST.ASTType }
 Type                    : PrimitiveType                         { $1 }
                         | MelodyType                            { $1 }
                         | sample '<' Type CloseAngular          {%do
@@ -450,7 +446,7 @@ Type                    : PrimitiveType                         { $1 }
                                                                     return $ AST.Compound (token $1) $3 }
                         | IdType                                { $1 }
 
-PrimitiveType           :: { AST.Type }
+PrimitiveType           :: { AST.ASTType }
 PrimitiveType           : whole                                 { AST.Simple (token $1) }
                         | half                                  { AST.Simple (token $1) }
                         | quarter                               { AST.Simple (token $1) }
@@ -458,52 +454,52 @@ PrimitiveType           : whole                                 { AST.Simple (to
                         | ThirtySecond                          { AST.Simple (token $1) }
                         | SixtyFourth                           { AST.Simple (token $1) }
 
-MelodyType              :: { AST.Type }
+MelodyType              :: { AST.ASTType }
 MelodyType              : melody '<' Type CloseAngular          {%do
                                                                     pushIfError $4 $2 $ matchingError "angle bracket"
                                                                     return $ AST.Compound (token $1) $3 }
 
 Literal                 :: { AST.Expression }
-Literal                 : int                                   { AST.Literal $1 (AST.Simple "quarter") }
-                        | float                                 { AST.Literal $1 (AST.Simple "32th") }
-                        | string                                { AST.Literal $1 (AST.Compound "Melody" $ AST.Simple "half") }
-                        | char                                  { AST.Literal $1 (AST.Simple "half") }
+Literal                 : int                                   { AST.LiteralExp $1 (AST.Simple "quarter") }
+                        | float                                 { AST.LiteralExp $1 (AST.Simple "32th") }
+                        | string                                { AST.LiteralExp $1 (AST.Compound "Melody" $ AST.Simple "half") }
+                        | char                                  { AST.LiteralExp $1 (AST.Simple "half") }
                         | MelodyLiteral                         { $1 }
 
                         | IdType '(' ListExp ClosePar           {% do 
-                                                                    if $1 == SemData.errorType
+                                                                    if $1 == AST.errorType
                                                                         then do
-                                                                            return SemData.errorExp
+                                                                            return AST.errorExp
                                                                         else do
                                                                             pushIfError $4 $2 $ matchingError "parentheses"
 
                                                                             -- Check if listExp is equal type of fields
                                                                             Just a <- PMonad.lookup (AST.type_str $1)
-                                                                            let fields = fromJust $ SemData.type_fields $ SemData.entry_category a
-                                                                            case (SemData.type_adt $ SemData.entry_category a) of
-                                                                                Just SemData.Chord -> do
+                                                                            let fields = fromJust $ AST.type_fields $ AST.entry_category a
+                                                                            case (AST.type_adt $ AST.entry_category a) of
+                                                                                Just AST.Chord -> do
                                                                                     casted_args <- checkParams $2 (reverse $3) fields
                                                                                     return $ AST.ChordLiteral casted_args $1
 
-                                                                                Just SemData.Legato -> do
+                                                                                Just AST.Legato -> do
                                                                                     pushError $2 "This sintax is for chords only:"
                                                                                     return $ AST.LegatoLiteral (AST.Id $2) (head $3) $1} -- Just for returning a legato and error recovering
 
                         | IdType '(' Id ':' Expression ClosePar     {% do 
-                                                                        if $1 == SemData.errorType
-                                                                            then return SemData.errorExp
+                                                                        if $1 == AST.errorType
+                                                                            then return AST.errorExp
                                                                             else do
                                                                                 pushIfError $6 $2 $ matchingError "parentheses"
 
                                                                                 -- Check if listExp is equal type of fields
                                                                                 Just entry <- PMonad.lookup (AST.type_str $1)
-                                                                                let fields = fromJust $ SemData.type_fields $ SemData.entry_category entry
-                                                                                case (SemData.type_adt $ SemData.entry_category entry) of
-                                                                                    Just SemData.Chord -> do
+                                                                                let fields = fromJust $ AST.type_fields $ AST.entry_category entry
+                                                                                case (AST.type_adt $ AST.entry_category entry) of
+                                                                                    Just AST.Chord -> do
                                                                                         pushError $2 "This sintax is for legatos only:"
                                                                                         return $ AST.ChordLiteral [$5] $1 -- just for returning a chord
 
-                                                                                    Just SemData.Legato -> do
+                                                                                    Just AST.Legato -> do
                                                                                         -- Check if `Id` is a field in the legato.
                                                                                         let idToken = token $ AST.id_token $3
                                                                                             equalId = \(AST.VarDec var_id _) -> token (AST.id_token var_id) == idToken
@@ -678,13 +674,13 @@ Expression              : LValue %prec LVALUE                   { $1 }
 
                         | CallFuncion                           { $1 }
 
-IdType                  :: { AST.Type }
+IdType                  :: { AST.ASTType }
 IdType                  : id_type                               {%do
                                                                     entryMaybe <- PMonad.lookup (token $1)
                                                                     case entryMaybe of
                                                                         Nothing -> do
                                                                             pushError $1 "Type not declared in scope:"
-                                                                            return SemData.errorType
+                                                                            return AST.errorType
                                                                         Just _ -> return $ AST.Simple (token $1) }
 
 NewType                 :: { String }
@@ -731,35 +727,35 @@ parseError (tk:_) = do
 -- Entry Creation
 -----------------------------------------------------------------------------------------------
 
-createFunctionEntry :: Token -> Maybe AST.Type -> AST.Id -> [AST.VarDeclaration] -> Maybe AST.Block -> ParserMonad ()
+createFunctionEntry :: Token -> Maybe AST.ASTType -> AST.Id -> [AST.VarDeclaration] -> Maybe AST.Block -> ParserMonad ()
 createFunctionEntry tk semType funcId params block = do
     a <- verifyFunctionEntry (token tk) 
     if a then do 
-        let funcat = SemData.Function { SemData.function_block = block, SemData.function_params = params }
-        (PMonad.ParserState (SemData.Scopes _ (_:prev:_)) _ _ _ _) <- RWS.get
+        let funcat = AST.Function { AST.function_block = block, AST.function_params = params }
+        (PMonad.ParserState (AST.Scopes _ (_:prev:_)) _ _ _ _) <- RWS.get
         
-        let entry = SemData.Entry {
-            SemData.entry_name = token tk,
-            SemData.entry_category = funcat,
-            SemData.entry_scope = prev,
-            SemData.entry_type = semType,
-            SemData.entry_level = Nothing
+        let entry = AST.Entry {
+            AST.entry_name = token tk,
+            AST.entry_category = funcat,
+            AST.entry_scope = prev,
+            AST.entry_type = semType,
+            AST.entry_level = Nothing
         }
         PMonad.insertEntry entry
     else
         pushError tk "Function already declared:"
 
-createVarEntry :: Token -> Maybe AST.Type -> ParserMonad (Maybe SemData.Entry)
+createVarEntry :: Token -> Maybe AST.ASTType -> ParserMonad (Maybe AST.Entry)
 createVarEntry tk semType = do
     curr <- PMonad.currScope
     result <- verifyVarEntry (token tk) curr
     if result then do 
-        let entry = SemData.Entry {
-            SemData.entry_name = token tk,
-            SemData.entry_category = SemData.Var,
-            SemData.entry_scope = curr,
-            SemData.entry_type = semType,
-            SemData.entry_level = Nothing
+        let entry = AST.Entry {
+            AST.entry_name = token tk,
+            AST.entry_category = AST.Var,
+            AST.entry_scope = curr,
+            AST.entry_type = semType,
+            AST.entry_level = Nothing
         }
         PMonad.insertEntry entry
         return $ Just entry
@@ -767,18 +763,18 @@ createVarEntry tk semType = do
         pushError tk "Variable already declared in the same scope:"
         return Nothing
 
-createConstEntry :: Token -> Maybe AST.Type -> ParserMonad ()
+createConstEntry :: Token -> Maybe AST.ASTType -> ParserMonad ()
 createConstEntry tk semType = do 
     curr <- PMonad.currScope
     result <- verifyVarEntry (token tk) curr
     let typeconst = fromMaybe (AST.Simple "quarter") semType  
     if result then do 
-        let entry = SemData.Entry {
-            SemData.entry_name = token tk,
-            SemData.entry_category = SemData.Const,
-            SemData.entry_scope = curr,
-            SemData.entry_type = Just typeconst,
-            SemData.entry_level = Nothing
+        let entry = AST.Entry {
+            AST.entry_name = token tk,
+            AST.entry_category = AST.Const,
+            AST.entry_scope = curr,
+            AST.entry_type = Just typeconst,
+            AST.entry_level = Nothing
         }
         PMonad.insertEntry entry
     else
@@ -791,22 +787,22 @@ createTypeEntry tk typeStr = do
         st@(PMonad.ParserState _ _ lvl _ _) <- RWS.get
         curr <- PMonad.currScope
 
-        let entry = SemData.Entry {
-            SemData.entry_name = typeStr,
-            SemData.entry_category = (SemData.Type Nothing (Just $ getAdt tk)),
-            SemData.entry_scope = curr,
-            SemData.entry_type = Nothing,
-            SemData.entry_level = Just (lvl+1)
+        let entry = AST.Entry {
+            AST.entry_name = typeStr,
+            AST.entry_category = (AST.Type Nothing (Just $ getAdt tk)),
+            AST.entry_scope = curr,
+            AST.entry_type = Nothing,
+            AST.entry_level = Just (lvl+1)
         }
         PMonad.insertEntry entry
     else
         pushError tk "Type already declared in same scope:"
     where
         getAdt tk 
-            | token tk == "chord"= SemData.Chord
-            | token tk == "legato"= SemData.Legato
+            | token tk == "chord"= AST.Chord
+            | token tk == "legato"= AST.Legato
 
-createFieldEntry :: Token -> AST.Type -> ParserMonad ()
+createFieldEntry :: Token -> AST.ASTType -> ParserMonad ()
 createFieldEntry tk semType = do
     curr <- PMonad.currScope
     result <- verifyFieldEntry (token tk) curr
@@ -815,28 +811,28 @@ createFieldEntry tk semType = do
         case entryMaybe of
             Nothing -> pushError tk $ "Type " ++ show semType ++ " not declared in scope:"
             Just _ -> do
-                let entry = SemData.Entry {
-                    SemData.entry_name = token tk,
-                    SemData.entry_category = SemData.Field,
-                    SemData.entry_scope = curr,
-                    SemData.entry_type = Just semType,
-                    SemData.entry_level = Nothing
+                let entry = AST.Entry {
+                    AST.entry_name = token tk,
+                    AST.entry_category = AST.Field,
+                    AST.entry_scope = curr,
+                    AST.entry_type = Just semType,
+                    AST.entry_level = Nothing
                 }
                 PMonad.insertEntry entry
     else
         pushError tk "Field already declared in same scope:"
 
-createParamEntry :: Token -> Maybe AST.Type -> Bool -> ParserMonad ()
+createParamEntry :: Token -> Maybe AST.ASTType -> Bool -> ParserMonad ()
 createParamEntry tk semType ref = do
     curr <- PMonad.currScope
     result <- verifyParamsEntry (token tk) curr
     if result then do
-        let entry = SemData.Entry {
-            SemData.entry_name = token tk,
-            SemData.entry_category = SemData.Param ref,
-            SemData.entry_scope = curr,
-            SemData.entry_type = semType,
-            SemData.entry_level = Nothing
+        let entry = AST.Entry {
+            AST.entry_name = token tk,
+            AST.entry_category = AST.Param ref,
+            AST.entry_scope = curr,
+            AST.entry_type = semType,
+            AST.entry_level = Nothing
         }
         PMonad.insertEntry entry
     else
@@ -853,7 +849,7 @@ verifyFunctionEntry name = do
     entry <- PMonad.lookup name
     case entry of
         Nothing -> return True
-        Just (SemData.Entry _ (SemData.Function _ _) _ _ _) -> return False
+        Just (AST.Entry _ (AST.Function _ _) _ _ _) -> return False
         Just _ -> return True
 
 verifyVarEntry :: String -> Int -> ParserMonad (Bool)
@@ -861,8 +857,8 @@ verifyVarEntry name current_scope = do
     entry <- PMonad.lookup name
     case entry of
         Nothing -> return True
-        Just (SemData.Entry _ SemData.Var scope _ _) -> return $ scope /= current_scope
-        Just (SemData.Entry _ SemData.Const scope _ _) -> return $ scope /= current_scope
+        Just (AST.Entry _ AST.Var scope _ _) -> return $ scope /= current_scope
+        Just (AST.Entry _ AST.Const scope _ _) -> return $ scope /= current_scope
         Just _ -> return True
 
 verifyTypeEntry :: String -> ParserMonad (Bool)
@@ -870,7 +866,7 @@ verifyTypeEntry name = do
     entry <- PMonad.lookup name
     case entry of
         Nothing -> return True
-        Just (SemData.Entry _ (SemData.Type _ _) _ _ _) -> return False
+        Just (AST.Entry _ (AST.Type _ _) _ _ _) -> return False
         Just _ -> return True
 
 verifyFieldEntry :: String -> Int -> ParserMonad (Bool)
@@ -878,7 +874,7 @@ verifyFieldEntry name current_scope = do
     entry <- PMonad.lookup name
     case entry of
         Nothing -> return True
-        Just (SemData.Entry _ SemData.Field scope _ _) -> return $ scope /= current_scope
+        Just (AST.Entry _ AST.Field scope _ _) -> return $ scope /= current_scope
         Just _ -> return True
 
 verifyParamsEntry :: String -> Int -> ParserMonad (Bool)
@@ -886,28 +882,28 @@ verifyParamsEntry name current_scope = do
     entry <- PMonad.lookup name
     case entry of
         Nothing -> return True
-        Just (SemData.Entry _ (SemData.Param _) scope _ _) -> return $ scope /= current_scope
+        Just (AST.Entry _ (AST.Param _) scope _ _) -> return $ scope /= current_scope
         Just _ -> return True
 
 -- | Add block to a function
-addBlock :: AST.Block -> [SemData.Entry] -> Maybe [SemData.Entry]
+addBlock :: AST.Block -> [AST.Entry] -> Maybe [AST.Entry]
 addBlock block lst = Just $ map mapping lst
     where 
         condition e = 
-            case SemData.entry_category e of
-                SemData.Function Nothing _ -> True
+            case AST.entry_category e of
+                AST.Function Nothing _ -> True
                 _ -> False
-        mapping e = if condition e then e { SemData.entry_category = (SemData.entry_category e) { SemData.function_block = Just block } }
+        mapping e = if condition e then e { AST.entry_category = (AST.entry_category e) { AST.function_block = Just block } }
                 else e
 
-addFields :: [AST.VarDeclaration] -> [SemData.Entry] -> Maybe [SemData.Entry]
+addFields :: [AST.VarDeclaration] -> [AST.Entry] -> Maybe [AST.Entry]
 addFields listFields lst = Just $ map mapping lst
     where 
         condition entry = 
-            case SemData.entry_category entry of
-                SemData.Type Nothing _-> True
+            case AST.entry_category entry of
+                AST.Type Nothing _-> True
                 _ -> False
-        mapping entry = if condition entry then entry { SemData.entry_category = (SemData.entry_category entry) { SemData.type_fields = Just listFields } }
+        mapping entry = if condition entry then entry { AST.entry_category = (AST.entry_category entry) { AST.type_fields = Just listFields } }
                 else entry
 
 

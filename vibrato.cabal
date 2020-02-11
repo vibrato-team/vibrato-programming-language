@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 187673bc5a404bea6d8e4996ddede81dd1b847f476c34c63f436fbf4e444329b
+-- hash: b8b5550d840fa8fd6627711d86c34817ab29948f1f60fb2c0fc44a69de64255d
 
 name:           vibrato
 version:        0.1.0.0
@@ -41,7 +41,6 @@ library
       Frontend.Parser.PreParser
       Frontend.Tokens
       Semantic.Analyzers
-      Semantic.Data
       Util.Error
       TACType
   other-modules:

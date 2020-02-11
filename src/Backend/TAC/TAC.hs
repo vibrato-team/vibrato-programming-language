@@ -1,6 +1,5 @@
 module Backend.TAC.TAC where
 
-import qualified Semantic.Data as Sem
 import qualified AST
 import Data.Maybe
 
@@ -39,17 +38,17 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) w
   show (ThreeAddressCode NewLabel Nothing (Just label) Nothing)   = show label ++ ":"
   show tac = show (tacLvalue tac) ++ " := " ++ show (tacRvalue1 tac) ++ " (?) " ++ show (tacRvalue2 tac)
 
-type Instruction = ThreeAddressCode Entry AST.Type
-type Value = Operand Entry AST.Type
+type Instruction = ThreeAddressCode Id AST.ASTType
+type Value = Operand Id AST.ASTType
 
 data (SymEntryCompatible a) => Operand a b = 
-  Variable a | 
+  Id a | 
   Constant (String, b) | 
   Label Int
   deriving (Eq)
 
 instance (SymEntryCompatible a, Show a, Show b) => Show (Operand a b) where
-  show (Variable x) = show x
+  show (Id x) = show x
   show (Constant c) = fst c
   show (Label l) = show l
 
@@ -123,17 +122,15 @@ data Operation =
     deriving (Eq, Show)
 
 
-data Entry = Entry {
-    entry_name  :: String,
-    entry_type  :: AST.Type,
-    entry_scope :: Maybe Int
-} deriving (Eq)
+data Id = 
+  Temp  { entry_name  :: String, entry_type  :: AST.ASTType } |
+  Var   { entry :: AST.Entry }
+  deriving (Eq)
 
-instance Show Entry where
-  show x = entry_name x ++ "_" ++ show (fromMaybe 0 (entry_scope x))
+instance Show Id where
+  show x@Temp{} = entry_name x
+  show x@Var{entry=e} = AST.entry_name e
 
-instance SymEntryCompatible Entry where
-    getSymID = entry_name
-
-entryToTAC :: Sem.Entry -> Entry
-entryToTAC e = Entry (Sem.entry_name e) (fromJust $ Sem.entry_type e) $ Just $ Sem.entry_scope e
+instance SymEntryCompatible Id where
+  getSymID t@Temp{} = entry_name t
+  getSymID x@Var{entry=e} = AST.entry_name e
