@@ -267,8 +267,13 @@ gen (AST.AssignInst leftExp rightExp) = do
 
         _ -> do
             (Just rValue, _, _)  <- genForExp rightExp
-            genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just rValue) Nothing]
-            return []
+            case AST.exp_type leftExp of
+                AST.Compound _ _ -> do-- Pointer or Array
+                    genRaw [TAC.ThreeAddressCode TAC.Set (Just lValue) (Just $ TAC.Constant ("0", AST.Simple "quarter")) (Just rValue)]
+                    return []
+                _ -> do
+                    genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just rValue) Nothing]
+                    return []
 
 gen AST.IfInst{AST.inst_exp=instExp, AST.inst_inst=instInst, AST.inst_else=instElse} = do
     (_, truelist, falselist) <- genForExp instExp

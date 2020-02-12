@@ -175,12 +175,12 @@ errorExp = AST.ErrorExp errorType
 -- | Category of each symbol with additional info
 data Category =
     Function         { function_block :: Maybe AST.Block, function_params :: [AST.VarDeclaration] }     |
-    Var              |
+    Var              { offset :: Maybe Int }|
     Const            |
-    Type             { type_fields :: Maybe [AST.VarDeclaration], type_adt :: Maybe ADT } |
+    Type             { type_fields :: Maybe [AST.VarDeclaration], type_adt :: Maybe ADT, type_size :: Int } |
     Constructor      | -- ^ Melody and Sample  
-    Field            | -- ^ Member of a struct/union
-    Param            { param_ref :: Bool }| -- ^ Param of a function
+    Field            { offset :: Maybe Int }| -- ^ Member of a struct/union
+    Param            { param_ref :: Bool, offset :: Maybe Int }| -- ^ Param of a function
     Literal          | -- ^ For True and False
     Prelude          [AST.ASTType]  -- ^ A prelude function with a list of params' types.
     deriving (Eq, Show)

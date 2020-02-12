@@ -12,6 +12,7 @@ import qualified Control.Monad.RWS.Lazy as RWS
 import Control.Monad.Trans
 import Semantic.Analyzers
 import Data.List
+import Control.Monad
 }
 
 %name parse
@@ -137,16 +138,22 @@ FunctionDeclaration     :: { () }                                           -- a
 FunctionDeclaration     : Signature Block PopScope                          {% do
                                                                                 PMonad.updateEntry (addBlock $2) $1
                                                                                 PMonad.clearReturnType }
-MainDeclaration         : main PushScope '(' ClosePar Block                 {% do
+MainDeclaration         : Main PushScope '(' ClosePar Block                 {% do
                                                                                 pushIfError $4 $3 $ matchingError "parentheses"
                                                                                 let idMain = AST.Id $1 in createFunctionEntry (AST.id_token idMain) Nothing idMain [] (Just $5) }
 
 Signature               :: { String }
-Signature               : track Id PushScope '(' ListaParam ClosePar MaybeType             {% do
-                                                                                                pushIfError $6 $4 $ matchingError "parentheses"
-                                                                                                let tk = AST.id_token $2
-                                                                                                PMonad.addReturnType $7
+Signature               : TrackId PushScope '(' ListaParam ClosePar MaybeType             {% do
+                                                                                                pushIfError $5 $3 $ matchingError "parentheses"
+                                                                                                let tk = AST.id_token $1
+                                                                                                PMonad.addReturnType $6
                                                                                                 return $ token tk }
+
+TrackId                 :: { AST.Id }
+TrackId                 : track Id                                  {% PMonad.resetOffset >> return $2 }
+
+Main                    :: { Token }
+Main                    : main                                      {% PMonad.resetOffset >> return $1 }
 
 ListaParam              :: { [AST.VarDeclaration] }
 ListaParam              : ParamDeclaration                          { [$1] }
@@ -154,7 +161,10 @@ ListaParam              : ParamDeclaration                          { [$1] }
                         | {- empty -}                               { [] }
 
 ParamDeclaration        :: { AST.VarDeclaration }
-ParamDeclaration        : Id ':' ParamRef Type                      { AST.VarDec $1 $4 }
+ParamDeclaration        : Id ':' ParamRef Type                      {%do 
+                                                                        let varDec = AST.VarDec $1 $4
+                                                                        updateOffset $1 $4
+                                                                        return varDec }
 ParamRef                :: { Bool }
 ParamRef                : '>'                                       { True }
                         | {- empty -}                               { False }
@@ -255,12 +265,15 @@ Statement               : VarDeclaration                        { AST.VarDecInst
 
 VarDeclaration          :: { AST.VarDeclaration }
 VarDeclaration          : Id ':' Type                           {% do
-                                                                    createVarEntry (AST.id_token $1) (Just $3)
-                                                                    return $ AST.VarDec $1 $3}
+                                                                    let varDec = AST.VarDec $1 $3
+                                                                    offset <- addOffset $1 $3
+                                                                    createVarEntry (AST.id_token $1) (Just $3) (Just offset)
+                                                                    return varDec }
 
 VarInit                 :: { AST.Instruction }
 VarInit                 : Id ':' Type '<->' Expression          {% do 
-                                                                    maybeEntry <- createVarEntry (AST.id_token $1) (Just $3)
+                                                                    offset <- addOffset $1 $3
+                                                                    maybeEntry <- createVarEntry (AST.id_token $1) (Just $3) (Just offset)
 
                                                                     let idExp = AST.IdExp $1 $3 maybeEntry
                                                                         expType = AST.exp_type $5
@@ -684,8 +697,14 @@ IdType                  : id_type                               {%do
                                                                         Just _ -> return $ AST.Simple (token $1) }
 
 NewType                 :: { String }
-NewType                 : chord IdType                         { AST.type_str $2 }
-                        | legato IdType                        { AST.type_str $2 }
+NewType                 : chord IdType                         {%do
+                                                                    let typeStr = AST.type_str $2
+                                                                    computeTypeSize $2
+                                                                    return typeStr }
+                        | legato IdType                        {%do
+                                                                    let typeStr = AST.type_str $2
+                                                                    computeTypeSize $2
+                                                                    return typeStr }
 
 ChordLegato             :: { () }
 ChordLegato             : NewType PushScope ChordLegatoFields PopScope  {% PMonad.updateEntry (addFields $3) $1 }
@@ -700,7 +719,8 @@ ListaField              : FieldDeclaration                      { [$1] }
 
 FieldDeclaration        :: { AST.VarDeclaration }
 FieldDeclaration        : Id ':' Type                           {% do
-                                                                    createFieldEntry (AST.id_token $1) $3
+                                                                    offset <- addOffset $1 $3
+                                                                    createFieldEntry (AST.id_token $1) $3 (Just offset)
                                                                     return $ AST.VarDec $1 $3 }
 
 PushScope               :: { () }
@@ -745,14 +765,14 @@ createFunctionEntry tk semType funcId params block = do
     else
         pushError tk "Function already declared:"
 
-createVarEntry :: Token -> Maybe AST.ASTType -> ParserMonad (Maybe AST.Entry)
-createVarEntry tk semType = do
+createVarEntry :: Token -> Maybe AST.ASTType -> Maybe Int -> ParserMonad (Maybe AST.Entry)
+createVarEntry tk semType maybeOffset = do
     curr <- PMonad.currScope
     result <- verifyVarEntry (token tk) curr
     if result then do 
         let entry = AST.Entry {
             AST.entry_name = token tk,
-            AST.entry_category = AST.Var,
+            AST.entry_category = AST.Var maybeOffset,
             AST.entry_scope = curr,
             AST.entry_type = semType,
             AST.entry_level = Nothing
@@ -789,7 +809,7 @@ createTypeEntry tk typeStr = do
 
         let entry = AST.Entry {
             AST.entry_name = typeStr,
-            AST.entry_category = (AST.Type Nothing (Just $ getAdt tk)),
+            AST.entry_category = (AST.Type Nothing (Just $ getAdt tk) (-1)),
             AST.entry_scope = curr,
             AST.entry_type = Nothing,
             AST.entry_level = Just (lvl+1)
@@ -802,8 +822,26 @@ createTypeEntry tk typeStr = do
             | token tk == "chord"= AST.Chord
             | token tk == "legato"= AST.Legato
 
-createFieldEntry :: Token -> AST.ASTType -> ParserMonad ()
-createFieldEntry tk semType = do
+computeTypeSize :: AST.ASTType -> ParserMonad Int
+computeTypeSize (AST.Simple typeStr) = do
+    Just (entry@AST.Entry{AST.entry_category=cat}) <- PMonad.lookup typeStr
+    case AST.type_size cat of
+        -1 -> do
+            -- Traverse types of fields and compute correspondant sizes.            
+            let fieldTypes = map AST.var_type $ fromJust $ AST.type_fields cat
+            size <- foldM (\sz t -> computeTypeSize t >>= (\w -> return $ sz+w)) 0 fieldTypes
+
+            -- Update entry with computed size
+            PMonad.updateEntry (\( e@AST.Entry{ AST.entry_category=c } : _) -> Just $ [ e{ AST.entry_category = c{ AST.type_size=size } } ]) typeStr
+            return size
+
+        size -> return size
+
+computeTypeSize (AST.Compound typeStr astType) = return 4
+
+
+createFieldEntry :: Token -> AST.ASTType -> Maybe Int -> ParserMonad ()
+createFieldEntry tk semType maybeOffset = do
     curr <- PMonad.currScope
     result <- verifyFieldEntry (token tk) curr
     entryMaybe <- PMonad.lookup (AST.type_str semType)
@@ -813,7 +851,7 @@ createFieldEntry tk semType = do
             Just _ -> do
                 let entry = AST.Entry {
                     AST.entry_name = token tk,
-                    AST.entry_category = AST.Field,
+                    AST.entry_category = AST.Field maybeOffset,
                     AST.entry_scope = curr,
                     AST.entry_type = Just semType,
                     AST.entry_level = Nothing
@@ -829,7 +867,7 @@ createParamEntry tk semType ref = do
     if result then do
         let entry = AST.Entry {
             AST.entry_name = token tk,
-            AST.entry_category = AST.Param ref,
+            AST.entry_category = AST.Param ref Nothing,
             AST.entry_scope = curr,
             AST.entry_type = semType,
             AST.entry_level = Nothing
@@ -857,7 +895,7 @@ verifyVarEntry name current_scope = do
     entry <- PMonad.lookup name
     case entry of
         Nothing -> return True
-        Just (AST.Entry _ AST.Var scope _ _) -> return $ scope /= current_scope
+        Just (AST.Entry _ AST.Var{} scope _ _) -> return $ scope /= current_scope
         Just (AST.Entry _ AST.Const scope _ _) -> return $ scope /= current_scope
         Just _ -> return True
 
@@ -866,7 +904,7 @@ verifyTypeEntry name = do
     entry <- PMonad.lookup name
     case entry of
         Nothing -> return True
-        Just (AST.Entry _ (AST.Type _ _) _ _ _) -> return False
+        Just (AST.Entry _ AST.Type{} _ _ _) -> return False
         Just _ -> return True
 
 verifyFieldEntry :: String -> Int -> ParserMonad (Bool)
@@ -874,7 +912,7 @@ verifyFieldEntry name current_scope = do
     entry <- PMonad.lookup name
     case entry of
         Nothing -> return True
-        Just (AST.Entry _ AST.Field scope _ _) -> return $ scope /= current_scope
+        Just (AST.Entry _ AST.Field{} scope _ _) -> return $ scope /= current_scope
         Just _ -> return True
 
 verifyParamsEntry :: String -> Int -> ParserMonad (Bool)
@@ -882,7 +920,7 @@ verifyParamsEntry name current_scope = do
     entry <- PMonad.lookup name
     case entry of
         Nothing -> return True
-        Just (AST.Entry _ (AST.Param _) scope _ _) -> return $ scope /= current_scope
+        Just (AST.Entry _ AST.Param{} scope _ _) -> return $ scope /= current_scope
         Just _ -> return True
 
 -- | Add block to a function
@@ -901,11 +939,33 @@ addFields listFields lst = Just $ map mapping lst
     where 
         condition entry = 
             case AST.entry_category entry of
-                AST.Type Nothing _-> True
+                AST.Type{AST.type_fields=Nothing}-> True
                 _ -> False
         mapping entry = if condition entry then entry { AST.entry_category = (AST.entry_category entry) { AST.type_fields = Just listFields } }
                 else entry
+--------------------------------------------
+----------- Offset Operations --------------
+--------------------------------------------
+addOffset :: AST.Id -> AST.ASTType -> ParserMonad Int
+addOffset varId varType = do
+    size <- computeTypeSize varType
+    PMonad.getAndIncOffset size
 
+updateOffset varId varType = do
+    offset <- addOffset varId varType
+    scope <- PMonad.currScope
+    PMonad.updateEntry (\lst -> Just $ map (updateVarDec varId varType scope offset) lst) (token $ AST.id_token varId)
+
+
+updateVarDec :: AST.Id -> AST.ASTType -> Int -> Int -> AST.Entry -> AST.Entry
+updateVarDec AST.Id{AST.id_token=idToken} varType scope offset entry@AST.Entry{AST.entry_name=entryName, AST.entry_scope=entryScope, AST.entry_type=Just entryType} =
+    if token idToken == entryName && varType == entryType && scope == entryScope
+        then case AST.entry_category entry of
+            AST.Var Nothing -> entry{AST.entry_category=AST.Var $ Just offset}
+            AST.Field Nothing -> entry{AST.entry_category=AST.Field $ Just offset}
+        else entry
+
+updateVarDec _ _ _ _ e = e
 
 --------------------------------------------
 ----------------- END ----------------------

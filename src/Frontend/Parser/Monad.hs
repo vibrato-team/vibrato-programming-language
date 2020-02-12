@@ -37,19 +37,19 @@ type ParserMonad = RWS.RWST String () ParserState IO
 initialState :: ParserState
 initialState = ParserState (AST.Scopes (Set.fromList [1, 0]) [1, 0]) initialMap 1 Nothing [] 0
     where 
-        wholeEntry          =    ("whole",      [AST.Entry "whole"      (AST.Type Nothing Nothing)    0 Nothing                       Nothing])
-        halfEntry           =    ("half",       [AST.Entry "half"       (AST.Type Nothing Nothing)    0 Nothing                       Nothing])
-        quarterEntry        =    ("quarter",    [AST.Entry "quarter"    (AST.Type Nothing Nothing)    0 Nothing                       Nothing])
-        eighthEntry         =    ("eighth",     [AST.Entry "eighth"     (AST.Type Nothing Nothing)    0 Nothing                       Nothing])
-        thirySecondEntry    =    ("32th",       [AST.Entry "32th"       (AST.Type Nothing Nothing)    0 Nothing                       Nothing])
-        sixtyFourthEntry    =    ("64th",       [AST.Entry "64th"       (AST.Type Nothing Nothing)    0 Nothing                       Nothing])
-        nullTypeEntry       =    ("null",       [AST.Entry "null"       (AST.Type Nothing Nothing)    0 Nothing                       Nothing])
-        emptyListEntry      =    ("empty_list", [AST.Entry "empty_list" (AST.Type Nothing Nothing)    0 Nothing                       Nothing])
-        melodyEntry         =    ("Melody",     [AST.Entry "Melody"     AST.Constructor     0 Nothing                       Nothing])
-        sampleEntry         =    ("Sample",     [AST.Entry "Sample"     AST.Constructor     0 Nothing                       Nothing])
-        trueEntry           =    ("maj",        [AST.Entry "maj"        AST.Literal         0 (Just $ AST.Simple "whole")   Nothing])
-        falseEntry          =    ("min",        [AST.Entry "min"        AST.Literal         0 (Just $ AST.Simple "whole")   Nothing])
-        nullEntry           =    ("TT",         [AST.Entry "TT"         AST.Literal         0 (Just $ AST.Simple "null")    Nothing])
+        wholeEntry          =    ("whole",      [AST.Entry "whole"      (AST.Type Nothing Nothing 1)      0   Nothing                       Nothing])
+        halfEntry           =    ("half",       [AST.Entry "half"       (AST.Type Nothing Nothing 1)      0   Nothing                       Nothing])
+        quarterEntry        =    ("quarter",    [AST.Entry "quarter"    (AST.Type Nothing Nothing 4)      0   Nothing                       Nothing])
+        eighthEntry         =    ("eighth",     [AST.Entry "eighth"     (AST.Type Nothing Nothing 8)      0   Nothing                       Nothing])
+        thirySecondEntry    =    ("32th",       [AST.Entry "32th"       (AST.Type Nothing Nothing 4)      0   Nothing                       Nothing])
+        sixtyFourthEntry    =    ("64th",       [AST.Entry "64th"       (AST.Type Nothing Nothing 8)      0   Nothing                       Nothing])
+        nullTypeEntry       =    ("null",       [AST.Entry "null"       (AST.Type Nothing Nothing 4)      0   Nothing                       Nothing])
+        emptyListEntry      =    ("empty_list", [AST.Entry "empty_list" (AST.Type Nothing Nothing 4)      0   Nothing                       Nothing])
+        melodyEntry         =    ("Melody",     [AST.Entry "Melody"     AST.Constructor                 0   Nothing                       Nothing])
+        sampleEntry         =    ("Sample",     [AST.Entry "Sample"     AST.Constructor                 0   Nothing                       Nothing])
+        trueEntry           =    ("maj",        [AST.Entry "maj"        AST.Literal                     0   (Just $ AST.Simple "whole")   Nothing])
+        falseEntry          =    ("min",        [AST.Entry "min"        AST.Literal                     0   (Just $ AST.Simple "whole")   Nothing])
+        nullEntry           =    ("TT",         [AST.Entry "TT"         AST.Literal                     0   (Just $ AST.Simple "null")    Nothing])
         initialMap          =    Map.fromList   [wholeEntry, halfEntry, quarterEntry, eighthEntry, thirySecondEntry, 
                                                 sixtyFourthEntry, nullTypeEntry, melodyEntry, sampleEntry, 
                                                 trueEntry, falseEntry, nullEntry]
@@ -153,11 +153,15 @@ pushError err = do
     let errs = state_errors state
     RWS.put $ state { state_errors = err : errs }
 
--- | Get list of Fields of Type
--- typeFields :: String -> ParserMonad [a]
--- typeFields tkString = do
---     entry <- lookup tkString
---     case entry of 
---         Nothing -> return []
---         Just (AST.Entry _ _ scope _ _) -> 
---         _ -> return []
+-- | Get current offset and increment it by given width
+getAndIncOffset :: Int -> ParserMonad Int
+getAndIncOffset width = do
+    state@ParserState{state_offset=offset} <- RWS.get
+    RWS.put state{ state_offset = offset + width }
+    return offset
+
+-- | Reset offset back to zero
+resetOffset :: ParserMonad ()
+resetOffset = do
+    state <- RWS.get
+    RWS.put state{ state_offset = 0 }
