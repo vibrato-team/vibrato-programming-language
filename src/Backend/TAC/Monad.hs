@@ -35,7 +35,11 @@ newLabel :: TACMonad TAC.Value
 newLabel = do
     state@TACState{label_count=labelCount} <- RWS.get
     RWS.put state{label_count=labelCount+1}
-    return $ TAC.Label labelCount
+
+    let label = TAC.Label labelCount
+    genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
+
+    return label
 
 newTemp :: AST.ASTType -> TACMonad TAC.Value
 newTemp astType = do
@@ -70,7 +74,6 @@ genForBinOp exp@(AST.OrExp expLeft expRight expType) op@TAC.Or = do
 
     inst <- nextInst
     label@(TAC.Label l) <- newLabel
-    genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
     
     (_, truelist2, falselist2) <- genForExp expRight
 
@@ -86,7 +89,6 @@ genForBinOp exp@(AST.AndExp expLeft expRight expType) op@TAC.And = do
 
     inst <- nextInst
     label@(TAC.Label l) <- newLabel
-    genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
 
     (_, truelist2, falselist2) <- genForExp expRight
 
@@ -104,21 +106,61 @@ genForBinOp exp op = do
     genRaw [TAC.ThreeAddressCode op (Just temp) maybeRValue1 maybeRValue2]
     return (Just temp, [], [])
 
--- | Generate three address code for comparators
-genForComp :: AST.Expression -> TAC.Operation -> TACMonad (Maybe TAC.Value, IdxList, IdxList)
-genForComp exp op = do
-    (Just rValue1, _, _) <- genForExp $ AST.exp_left exp
-    (Just rValue2, _, _) <- genForExp $ AST.exp_right exp
+genAndStoreLogicalComp :: AST.Expression -> TACMonad TAC.Value
+genAndStoreLogicalComp exp = do
+    ---------------------------------------------------------------------------
+    -- Store value of left expression inside `temp1`
+    (_, t1, f1) <- genForExp exp
 
-    inst1 <- nextInst
-    let truelist = makelist inst1
-    genRaw [TAC.ThreeAddressCode op (Just rValue1) (Just rValue2) Nothing]
-
-    inst2 <- nextInst
-    let falselist = makelist inst2
+    -- if expression is true
+    label@(TAC.Label l) <- newLabel
+    temp1               <- newTemp $ AST.Simple "whole"
+    genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp1) (Just tacTrue) Nothing]
+    bindLabel t1 l
+    i1 <- nextInst
     genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
 
-    return (Nothing, truelist, falselist)
+    -- if expression is false
+    label@(TAC.Label l) <- newLabel
+    genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp1) (Just tacFalse) Nothing]
+    bindLabel f1 l
+
+    -- jump if true
+    label@(TAC.Label l) <- newLabel
+    bindLabel [i1] l
+
+    return temp1
+
+-- | Generate three address code for comparators
+genForComp :: AST.Expression -> TAC.Operation -> TACMonad (Maybe TAC.Value, IdxList, IdxList)
+genForComp exp op
+    | AST.exp_type (AST.exp_left exp) == AST.Simple "whole" = do
+        temp1 <- genAndStoreLogicalComp $ AST.exp_left exp
+        temp2 <- genAndStoreLogicalComp $ AST.exp_right exp
+
+        inst1 <- nextInst
+        let truelist = makelist inst1
+        genRaw [TAC.ThreeAddressCode op (Just temp1) (Just temp2) Nothing]
+
+        inst2 <- nextInst
+        let falselist = makelist inst2
+        genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
+
+        return (Nothing, truelist, falselist)
+
+    | otherwise = do
+        (Just rValue1, _, _) <- genForExp $ AST.exp_left exp
+        (Just rValue2, _, _) <- genForExp $ AST.exp_right exp
+
+        inst1 <- nextInst
+        let truelist = makelist inst1
+        genRaw [TAC.ThreeAddressCode op (Just rValue1) (Just rValue2) Nothing]
+
+        inst2 <- nextInst
+        let falselist = makelist inst2
+        genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
+
+        return (Nothing, truelist, falselist)
 
 -- | Generate corersponding TAC for LValue
 genForLValue idExp@AST.IdExp{AST.exp_entry=Just entry} = return (Just $ TAC.Id $ TAC.Var entry, [], [])
@@ -134,14 +176,14 @@ genForExp idExp@(AST.IdExp (AST.Id (Tokens.MinToken "min" _ _)) _ _) = do
     nextinst <- nextInst
     let falselist = makelist nextinst
     genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
-    return (Nothing, [], falselist)
+    return (Just tacFalse, [], falselist)
 
 -- True
 genForExp idExp@(AST.IdExp (AST.Id (Tokens.MajToken "maj" _ _)) _ _) = do
     nextinst <- nextInst
     let truelist = makelist nextinst
     genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
-    return (Nothing, truelist, [])
+    return (Just tacTrue, truelist, [])
 
 -- Identifier
 genForExp idExp@AST.IdExp{AST.exp_type=AST.Simple "whole", AST.exp_entry=Just expEntry} = do
@@ -230,7 +272,6 @@ genForList stmts@(s:ss) = do
 
     nextinst <- nextInst
     label@(TAC.Label l) <- newLabel
-    genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
 
     bindLabel nextlist1 l
     genForList ss
@@ -247,7 +288,6 @@ gen (AST.AssignInst leftExp rightExp) = do
 
             nextinst <- nextInst
             label@(TAC.Label l) <- newLabel
-            genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
 
             bindLabel truelist l
             genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just tacTrue) Nothing]
@@ -258,7 +298,6 @@ gen (AST.AssignInst leftExp rightExp) = do
 
             nextinst <- nextInst
             label@(TAC.Label l) <- newLabel
-            genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
 
             bindLabel falselist l
             genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just tacFalse) Nothing ]
@@ -279,7 +318,6 @@ gen AST.IfInst{AST.inst_exp=instExp, AST.inst_inst=instInst, AST.inst_else=instE
     (_, truelist, falselist) <- genForExp instExp
     nextinst <- nextInst
     label@(TAC.Label l) <- newLabel
-    genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
 
     bindLabel truelist l
     nextlist1 <- gen instInst
@@ -292,7 +330,6 @@ gen AST.IfInst{AST.inst_exp=instExp, AST.inst_inst=instInst, AST.inst_else=instE
 
             nextinst2 <- nextInst
             label@(TAC.Label l) <- newLabel
-            genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
             bindLabel falselist l
 
             nextlist2 <- gen inst1
@@ -340,8 +377,6 @@ bindLabel lst idx = do
 ----------------------------------------------------------------------------
 ----------------------------- For executing monad -----------------------------
 ----------------------------------------------------------------------------
--- getTacForInstructions :: BackpatchMap -> [TAC.Instruction] -> TAC.Instruction
--- getTacForInstructions bpMap insts =
 
 -- | For each key, backpatch the instructions of its value
 backpatchAll :: BackpatchMap -> [TAC.Instruction] -> [TAC.Instruction]
