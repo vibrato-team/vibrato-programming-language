@@ -136,7 +136,7 @@ data Id =
 
 instance Show Id where
   show x@Temp{} = entry_name x
-  show x@Var{entry=e} = "base[" ++ show (fromJust $ AST.offset $ AST.entry_category e) ++ "]"
+  show x@Var{entry=e} = "_base[" ++ show (fromJust $ AST.offset $ AST.entry_category e) ++ "]"
 
 instance SymEntryCompatible Id where
   getSymID t@Temp{} = entry_name t

@@ -543,12 +543,13 @@ MelodyLiteral           : '[' ListExp CloseSquare               {%do
                                                                         [] -> return $ AST.MelodyLiteral [] (AST.Simple "empty_list")
                                                                         (e:es) -> do
                                                                             let expType = AST.exp_type e
+                                                                            -- TODO: Cast expressions if possible
                                                                             if all (equalType expType) $ map AST.exp_type $2
                                                                                 then                                                                           
                                                                                     return ()
                                                                                 else pushError $1 "Not homogeneous melodies are not allowed:" 
 
-                                                                            return $ AST.MelodyLiteral $2 (AST.Compound "Melody" expType)}
+                                                                            return $ AST.MelodyLiteral (reverse $2) (AST.Compound "Melody" expType)}
 
 Expression              :: { AST.Expression }
 Expression              : LValue %prec LVALUE                   { $1 }

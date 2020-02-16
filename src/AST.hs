@@ -62,7 +62,7 @@ data Expression =
     ChordLiteral        { exp_exps :: [Expression], exp_type :: ASTType }                          |
     LegatoLiteral       { exp_id :: Id, exp_exp :: Expression, exp_type :: ASTType }               |
     
-    MelodyLiteral   {   exp_values :: [Expression], exp_type :: ASTType }                          |
+    MelodyLiteral   {   exp_exps :: [Expression], exp_type :: ASTType }                          |
     MelodyLiteral'   {   exp_size :: Expression, exp_type :: ASTType }                              |
 
     -- | Identifier

@@ -43,7 +43,7 @@ main = do
                         let table = PMonad.state_table pstate
                             Just [moderatoEntry] = Map.lookup "moderato" table
                             Just (AST.Block stmts) = AST.function_block $ AST.entry_category moderatoEntry
-                        (state, tac) <- RWS.execRWST (TACMonad.genForList stmts) () TACMonad.initialState
+                        (state, tac) <- RWS.execRWST (TACMonad.genForList stmts) () $ TACMonad.initialState table
 
                         -- Backpatching
                         let bpMap = TACMonad.bp_map state

@@ -20,12 +20,13 @@ data TACState = TACState {
     label_count     :: Int,
     temp_count      :: Int,
     inst_count      :: Int,
-    bp_map   :: BackpatchMap
+    bp_map          :: BackpatchMap,
+    sym_table       :: AST.SymbolTable 
 } deriving (Eq, Show)
 
 type TACMonad = RWS.RWST () [TAC.Instruction] TACState IO
 
-initialState :: TACState
+initialState :: AST.SymbolTable -> TACState
 initialState = TACState 1 1 0 Map.empty
 
 tacTrue     = TAC.Constant ("true",  AST.Simple "whole")
@@ -76,8 +77,8 @@ genForBinOp exp op = do
     genRaw [TAC.ThreeAddressCode op (Just temp) maybeRValue1 maybeRValue2]
     return (Just temp, [], [])
 
-genAndStoreLogicalComp :: AST.Expression -> TACMonad TAC.Value
-genAndStoreLogicalComp exp = do
+genAndStoreLogicalExp :: AST.Expression -> TACMonad TAC.Value
+genAndStoreLogicalExp exp = do
     ---------------------------------------------------------------------------
     -- Store value of left expression inside `temp1`
     (_, t1, f1) <- genForExp exp
@@ -105,8 +106,8 @@ genAndStoreLogicalComp exp = do
 genForComp :: AST.Expression -> TAC.Operation -> TACMonad (Maybe TAC.Value, IdxList, IdxList)
 genForComp exp op
     | AST.exp_type (AST.exp_left exp) == AST.Simple "whole" = do
-        temp1 <- genAndStoreLogicalComp $ AST.exp_left exp
-        temp2 <- genAndStoreLogicalComp $ AST.exp_right exp
+        temp1 <- genAndStoreLogicalExp $ AST.exp_left exp
+        temp2 <- genAndStoreLogicalExp $ AST.exp_right exp
 
         inst1 <- nextInst
         let truelist = makelist inst1
@@ -154,6 +155,18 @@ genForExp exp@(AST.LiteralExp expToken expType)
         return (Just temp, [], [])
 
     | otherwise = return (Just $ TAC.Constant (Tokens.token expToken, expType), [], [])
+
+-- Melody literals
+genForExp exp@AST.MelodyLiteral{AST.exp_exps=expList, AST.exp_type=expType} = do
+    let size = length expList
+    temp <- newTemp expType
+    genRaw [TAC.ThreeAddressCode TAC.New (Just temp) (Just $ TAC.Constant (show size, AST.Simple "quarter")) Nothing]
+
+    tempList <- mapM genForArrayElement expList
+    typeSize <- getSize expType
+    foldM_ ( pushArrayElement temp typeSize ) 0 tempList
+
+    return (Just temp, [], [])
 
 -- False
 genForExp idExp@(AST.IdExp (AST.Id (Tokens.MinToken "min" _ _)) _ _) = do
@@ -244,7 +257,7 @@ genForExp exp@AST.GreaterEqualExp{} = genForComp exp TAC.Gte
 -- | Insert a list of raw instructions into final Three Address Code
 genRaw :: [TAC.Instruction] -> TACMonad ()
 genRaw lst = do
-    state@(TACState _ _ instCount _) <- RWS.get
+    state@TACState{inst_count=instCount} <- RWS.get
     RWS.tell lst
     RWS.put state{inst_count=instCount+1}
 
@@ -253,12 +266,19 @@ genForList :: [AST.Instruction] -> TACMonad IdxList
 genForList [] = return []
 genForList stmts@(s:ss) = do
     nextlist1 <- gen s
-
-    nextinst <- nextInst
     label@(TAC.Label l) <- newLabel
 
     bindLabel nextlist1 l
     genForList ss
+
+-- | Generate corresponding TAC for array elements
+genForArrayElement :: AST.Expression -> TACMonad TAC.Value
+genForArrayElement astExp =
+    case AST.exp_type astExp of
+        AST.Simple "whole" -> genAndStoreLogicalExp astExp
+        _ -> do
+            (Just temp, _, _) <- genForExp astExp
+            return temp
 
 -- | Generate corresponding TAC for Instruction
 gen :: AST.Instruction -> TACMonad IdxList
@@ -405,6 +425,20 @@ pushArrayElement :: TAC.Value -> Int -> Int -> TAC.Value -> TACMonad Int
 pushArrayElement addr w offset rValue = do
     genRaw [TAC.ThreeAddressCode TAC.Set (Just addr) (Just $ TAC.Constant (show offset, AST.Simple "quarter")) (Just rValue) ]
     return $ offset + w
+
+-- | Get chain from a symbol
+getChain :: String -> TACMonad (Maybe [AST.Entry])
+getChain symbol = do
+    TACState{sym_table=table} <- RWS.get
+    -- Get chain of matching entries
+    return $ Map.lookup symbol table
+
+-- | Get size of a type
+getSize :: AST.ASTType -> TACMonad Int
+getSize AST.Compound{} = return 4
+getSize AST.Simple{AST.type_str=typeStr} = do
+    (Just [ AST.Entry{ AST.entry_category = cat } ]) <- getChain typeStr
+    return $ AST.type_size cat
 
 ----------------------------------------------------------------------------
 ---------------------------------- Helpers ---------------------------------

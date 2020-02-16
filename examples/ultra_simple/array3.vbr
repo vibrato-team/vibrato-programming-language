@@ -1,0 +1,13 @@
+moderato() {
+    b0: whole <-> maj|
+    q0: quarter <-> 32|
+    q1: quarter <-> 42|
+    brr: Melody<whole> <-> [
+        q0 < q1, 
+        b0, 
+        b0 or maj, 
+        b0 and maj, 
+        b0 or min, 
+        b0 and min
+    ]|
+}
