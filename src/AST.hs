@@ -144,7 +144,7 @@ data Instruction =
     WhileInst       {   inst_exp :: Expression,
                         inst_block :: Block    }                              |
 
-    FreeInst        {   inst_id :: Id  }                                      |
+    FreeInst        {   inst_exp :: Expression  }                                      |
 
     IncrementInst   {   inst_exp :: Expression  }                             |
     DecrementInst   {   inst_exp :: Expression  }                             |

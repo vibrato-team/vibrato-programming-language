@@ -251,8 +251,8 @@ Statement               : VarDeclaration                        { AST.VarDecInst
                         | VarInit                               { $1 }
                         | Asignacion                            { $1 }
                         | IO                                    { $1 }
-                        | free Id                               {% do
-                                                                    checkVarIsDeclared $ AST.id_token $2
+                        | free LValue                           {% do
+                                                                    checkLValueIsAllocated $2 $1
                                                                     return (AST.FreeInst $2) }
                         | LValue '#'                            {% do 
                                                                     checkConstLvalue $1 

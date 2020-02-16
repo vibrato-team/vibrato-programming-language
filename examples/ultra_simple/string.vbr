@@ -1,0 +1,4 @@
+moderato() {
+    str: Melody<half> <-> "Hola"|
+    free str|
+}

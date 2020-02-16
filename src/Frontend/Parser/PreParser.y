@@ -217,7 +217,7 @@ Statement               : VarDeclaration                        { }
                         | VarInit                               { }
                         | Asignacion                            { }
                         | IO                                    { }
-                        | free Id                               { }
+                        | free LValue                               { }
                         | LValue '#'                            { }
                         | LValue '&'                            { }
                         | CallFuncion                           { }

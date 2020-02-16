@@ -31,39 +31,9 @@ initialState = TACState 1 1 0 Map.empty
 tacTrue     = TAC.Constant ("true",  AST.Simple "whole")
 tacFalse    = TAC.Constant ("false", AST.Simple "whole")
 
-newLabel :: TACMonad TAC.Value
-newLabel = do
-    state@TACState{label_count=labelCount} <- RWS.get
-    RWS.put state{label_count=labelCount+1}
-
-    let label = TAC.Label labelCount
-    genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
-
-    return label
-
-newTemp :: AST.ASTType -> TACMonad TAC.Value
-newTemp astType = do
-    state@TACState{temp_count=tempCount} <- RWS.get
-    RWS.put state{temp_count=tempCount+1}
-    return $ TAC.Id $ TAC.Temp ("_t" ++ show tempCount) astType
-
-nextInst :: TACMonad Int
-nextInst = do
-    state@TACState{inst_count=instCount} <- RWS.get
-    return instCount
-
--- | Get name from Id
-getStringFromId :: AST.Id -> String
-getStringFromId = Tokens.token . AST.id_token
-
--- | Get name from IdExp
-getStringFromExp :: AST.Expression -> String
-getStringFromExp AST.IdExp{AST.exp_id=expId} = getStringFromId expId
-getStringFromExp AST.LiteralExp{AST.exp_token=expToken} = Tokens.token expToken
-
--- | IdExp to TAC.Id
-expToEntry :: AST.Expression -> TAC.Id
-expToEntry (AST.IdExp _ _ (Just expEntry)) = TAC.Var expEntry
+----------------------------------------------------------------------------
+----------------------------- Generate TAC ---------------------------------
+----------------------------------------------------------------------------
 
 -- | Generate TAC for binary operation
 genForBinOp :: AST.Expression -> TAC.Operation -> TACMonad (Maybe TAC.Value, IdxList, IdxList)
@@ -169,7 +139,21 @@ genForLValue idExp@AST.IdExp{AST.exp_entry=Just entry} = return (Just $ TAC.Id $
 genForExp :: AST.Expression -> TACMonad (Maybe TAC.Value, IdxList, IdxList)
 
 -- Literal expression
-genForExp exp@(AST.LiteralExp expToken expType) = return (Just $ TAC.Constant (Tokens.token expToken, expType), [], [])
+genForExp exp@(AST.LiteralExp expToken expType)
+    -- if it's a string
+    | expType == AST.Compound "Melody" (AST.Simple "half") = do
+        let string = init $ tail $ getStringFromExp exp
+            size = length string
+
+        temp <- newTemp expType
+        genRaw [TAC.ThreeAddressCode TAC.New (Just temp) (Just $ TAC.Constant (show size, AST.Simple "quarter")) Nothing]
+        
+        let chars = map (\c -> TAC.Constant (show c, AST.Simple "half")) string
+        foldM_ ( pushArrayElement temp 1 ) 0 chars
+
+        return (Just temp, [], [])
+
+    | otherwise = return (Just $ TAC.Constant (Tokens.token expToken, expType), [], [])
 
 -- False
 genForExp idExp@(AST.IdExp (AST.Id (Tokens.MinToken "min" _ _)) _ _) = do
@@ -306,13 +290,8 @@ gen (AST.AssignInst leftExp rightExp) = do
 
         _ -> do
             (Just rValue, _, _)  <- genForExp rightExp
-            case AST.exp_type leftExp of
-                AST.Compound _ _ -> do-- Pointer or Array
-                    genRaw [TAC.ThreeAddressCode TAC.Set (Just lValue) (Just $ TAC.Constant ("0", AST.Simple "quarter")) (Just rValue)]
-                    return []
-                _ -> do
-                    genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just rValue) Nothing]
-                    return []
+            genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just rValue) Nothing]
+            return []
 
 gen AST.IfInst{AST.inst_exp=instExp, AST.inst_inst=instInst, AST.inst_else=instElse} = do
     (_, truelist, falselist) <- genForExp instExp
@@ -344,6 +323,11 @@ gen AST.SharpExp{AST.inst_exp=instExp} =
 
 gen AST.FlatExp{AST.inst_exp=instExp} =
     genForAbrev instExp TAC.Sub
+
+gen AST.FreeInst{AST.inst_exp=instExp} = do
+    (Just addr, _, _) <- genForExp instExp
+    genRaw [TAC.ThreeAddressCode TAC.Free Nothing (Just addr) Nothing]
+    return []
 
 -- | Generate TAC for increment or decrement instruction
 genForAbrev :: AST.Expression -> TAC.Operation -> TACMonad IdxList
@@ -391,3 +375,50 @@ backpatch _ [] insts _ = insts
 backpatch label l1@(idx:idxs) (inst:insts) i
     | idx /= i = inst : backpatch label l1 insts (i+1)
     | otherwise = inst{TAC.tacRvalue2=Just $ TAC.Label label} : backpatch label idxs insts (i+1)
+
+----------------------------------------------------------------------------
+--------------------------- Monadic helpers --------------------------------
+----------------------------------------------------------------------------
+
+newLabel :: TACMonad TAC.Value
+newLabel = do
+    state@TACState{label_count=labelCount} <- RWS.get
+    RWS.put state{label_count=labelCount+1}
+
+    let label = TAC.Label labelCount
+    genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
+
+    return label
+
+newTemp :: AST.ASTType -> TACMonad TAC.Value
+newTemp astType = do
+    state@TACState{temp_count=tempCount} <- RWS.get
+    RWS.put state{temp_count=tempCount+1}
+    return $ TAC.Id $ TAC.Temp ("_t" ++ show tempCount) astType
+
+nextInst :: TACMonad Int
+nextInst = do
+    state@TACState{inst_count=instCount} <- RWS.get
+    return instCount
+
+pushArrayElement :: TAC.Value -> Int -> Int -> TAC.Value -> TACMonad Int
+pushArrayElement addr w offset rValue = do
+    genRaw [TAC.ThreeAddressCode TAC.Set (Just addr) (Just $ TAC.Constant (show offset, AST.Simple "quarter")) (Just rValue) ]
+    return $ offset + w
+
+----------------------------------------------------------------------------
+---------------------------------- Helpers ---------------------------------
+----------------------------------------------------------------------------
+
+-- | Get name from Id
+getStringFromId :: AST.Id -> String
+getStringFromId = Tokens.token . AST.id_token
+
+-- | Get name from IdExp
+getStringFromExp :: AST.Expression -> String
+getStringFromExp AST.IdExp{AST.exp_id=expId} = getStringFromId expId
+getStringFromExp AST.LiteralExp{AST.exp_token=expToken} = Tokens.token expToken
+
+-- | IdExp to TAC.Id
+expToEntry :: AST.Expression -> TAC.Id
+expToEntry (AST.IdExp _ _ (Just expEntry)) = TAC.Var expEntry

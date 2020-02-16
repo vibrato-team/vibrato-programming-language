@@ -37,6 +37,8 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) w
   show (ThreeAddressCode Gte (Just x) (Just y) (Just label))      = "\t" ++  "if " ++ show x ++ " >= " ++ show y ++ " then goto " ++ show label
   show (ThreeAddressCode Set (Just x) (Just i) (Just y))          = "\t" ++ show x ++ "[" ++ show i ++ "] := " ++ show y
   show (ThreeAddressCode NewLabel Nothing (Just label) Nothing)   = show label ++ ":"
+  show (ThreeAddressCode New (Just x) (Just size) Nothing)        = "\t" ++ show x ++ " := malloc(" ++ show size ++ ")"
+  show (ThreeAddressCode Free Nothing (Just addr) Nothing)        = "\tfree(" ++ show addr ++ ")"
   show tac = show (tacLvalue tac) ++ " := " ++ show (tacRvalue1 tac) ++ show (tacOperand tac) ++ show (tacRvalue2 tac)
 
 type Instruction = ThreeAddressCode Id AST.ASTType
@@ -118,6 +120,10 @@ data Operation =
     Ref         |
     -- | x=*y
     Deref       |
+    -- | malloc(n, t)
+    New         |
+    -- | free(x)
+    Free        |
 
     Cast String String
     deriving (Eq, Show)
