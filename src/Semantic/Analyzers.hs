@@ -3,7 +3,6 @@ import Frontend.Tokens
 import qualified AST
 import Frontend.Parser.Monad (ParserMonad)
 import Frontend.Parser.Monad as PMonad
-import qualified Semantic.Data as Sem
 import Data.Maybe
 import qualified Control.Monad.RWS.Lazy as RWS
 import Control.Monad.Trans
@@ -27,7 +26,7 @@ throwIfNothing (Just _) _ _ = return ()
 -----------------------------------------------------------------------------------------------
 
 -- | Checks if variable is declared, throws an error if it is not
-checkVarIsDeclared :: Token -> ParserMonad (Maybe Sem.Entry)
+checkVarIsDeclared :: Token -> ParserMonad (Maybe AST.Entry)
 checkVarIsDeclared tk = do
     let tkString = token tk
     entryMaybe <- PMonad.lookup tkString
@@ -40,13 +39,13 @@ checkConstLvalue (AST.IdExp id _ _) = do
     let tkString = token $ AST.id_token id
     entryMaybe <- PMonad.lookup tkString
     case entryMaybe of
-        Just (Sem.Entry _ Sem.Const _ _ _) -> Semantic.Analyzers.pushError (AST.id_token id) "You cannot modify a Const:"
+        Just (AST.Entry _ AST.Const _ _ _) -> Semantic.Analyzers.pushError (AST.id_token id) "You cannot modify a Const:"
         Just _ -> return ()
         Nothing -> return ()
 checkConstLvalue _ = return ()
 
 -- | Analizes if field correspond to the type of the entry and throws an error if it is not
-analyzeField :: Token -> Int -> ParserMonad Sem.Entry
+analyzeField :: Token -> Int -> ParserMonad AST.Entry
 analyzeField tk level = do
     let tkString = token tk
     entryMaybe <- PMonad.lookupField tkString level
@@ -68,7 +67,7 @@ pushError = pushIfError False
 --------------------------------------------
 
 -- Chequea que ambos tipos sean compatibles
-equalType :: AST.Type -> AST.Type -> Bool
+equalType :: AST.ASTType -> AST.ASTType -> Bool
 equalType (AST.Compound ou inner) (AST.Compound ou' inner') =
     ou == ou' && equalType inner inner'
 
@@ -87,14 +86,14 @@ equalType (AST.Simple "null") (AST.Compound "Sample" _) = True
 equalType _ _ = False
 
 -- | Chequea que el tipo de la expresión sea compatible con alguno de los tipos pasados como argumento.
-checkExpType :: AST.Expression -> [AST.Type] -> Token -> ParserMonad AST.Type
+checkExpType :: AST.Expression -> [AST.ASTType] -> Token -> ParserMonad AST.ASTType
 checkExpType exp expected tk = do
     let expType = AST.exp_type exp
     Control.Monad.unless (any (equalType expType) expected) $ Semantic.Analyzers.pushError tk $ "Expression isn't of type " ++ showExpected expected ++ ":"
     return expType
 
 -- | Para imprimir bonito los tipos esperados
-showExpected :: [AST.Type] -> String
+showExpected :: [AST.ASTType] -> String
 showExpected [] = ""
 showExpected [t] = show t
 showExpected expected@(_:_:_) = let strs = map show expected in
@@ -105,7 +104,7 @@ checkAssignment :: AST.Expression -> AST.Expression -> Token -> ParserMonad ()
 checkAssignment = checkAssignment' . AST.exp_type
 
 -- | Chequea que el tipo de la expresión pueda ser asignado al tipo pasado por parámetro.
-checkAssignment' :: AST.Type -> AST.Expression -> Token -> ParserMonad ()
+checkAssignment' :: AST.ASTType -> AST.Expression -> Token -> ParserMonad ()
 checkAssignment' astType exp tk = do
     if astType `elem` AST.numberTypes
         then checkExpType exp (filter (<= astType) AST.numberTypes) tk
@@ -122,7 +121,7 @@ checkEquality lexp rexp tk = do
     return ()
 
 -- | Retorna la expresión si es del tipo escogido, si no, retorna la expresión casteada.
-castExp :: AST.Expression -> AST.Type -> AST.Expression
+castExp :: AST.Expression -> AST.ASTType -> AST.Expression
 castExp exp finalType =
     if AST.exp_type exp == finalType 
         then exp

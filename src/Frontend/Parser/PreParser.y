@@ -11,7 +11,6 @@ import Frontend.Parser.Monad (ParserMonad)
 import qualified Frontend.Parser.Monad as PMonad
 import qualified Control.Monad.RWS.Lazy as RWS
 import Control.Monad.Trans
-import qualified Semantic.Data as SemData 
 import Semantic.Analyzers
 }
 
@@ -189,7 +188,7 @@ Id                      : id                                    { AST.Id $1 }
                         -- Null expression
                         | TT                                    { AST.Id $1 }
 
-MaybeType               :: { Maybe AST.Type }
+MaybeType               :: { Maybe AST.ASTType }
 MaybeType               : {- empty -}                           { Nothing }
                         | ':' Type                              { Just $2 }
 
@@ -260,13 +259,13 @@ DotExpression           : Expression '.' Id                         { }
 
 Dereference             : Expression '!'                            { }
 
-Type                    :: { AST.Type }
+Type                    :: { AST.ASTType }
 Type                    : PrimitiveType                         { $1 }
                         | MelodyType                            { $1 }
                         | sample '<' Type CloseAngular          { AST.Compound (token $1) $3 }
                         | AlreadyDeclaredIdType                 { $1 }
 
-PrimitiveType           :: { AST.Type }
+PrimitiveType           :: { AST.ASTType }
 PrimitiveType           : whole                                 { AST.Simple (token $1) }
                         | half                                  { AST.Simple (token $1) }
                         | quarter                               { AST.Simple (token $1) }
@@ -274,7 +273,7 @@ PrimitiveType           : whole                                 { AST.Simple (to
                         | ThirtySecond                          { AST.Simple (token $1) }
                         | SixtyFourth                           { AST.Simple (token $1) }
 
-MelodyType              :: { AST.Type }
+MelodyType              :: { AST.ASTType }
 MelodyType              : melody '<' Type CloseAngular          { AST.Compound (token $1) $3 }
 
 Literal                 : int                                   { }
@@ -327,15 +326,15 @@ Expression              : LValue %prec LVALUE                   { }
 
                         | CallFuncion                           { }
 
-IdType                  :: { AST.Type }
+IdType                  :: { AST.ASTType }
 IdType                  : id_type                               { AST.Simple (token $1) }
 
-AlreadyDeclaredIdType   :: { AST.Type }
+AlreadyDeclaredIdType   :: { AST.ASTType }
 AlreadyDeclaredIdType   : id_type                               {%do
                                                                     entryMaybe <- PMonad.lookup (token $1)
                                                                     case entryMaybe of
                                                                         Nothing -> do
-                                                                            return SemData.errorType
+                                                                            return AST.errorType
                                                                         Just _ -> return $ AST.Simple (token $1) }
 
 NewType                 : chord IdType                         {% createTypeEntry $1 (AST.type_str $2) }
