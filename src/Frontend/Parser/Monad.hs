@@ -33,18 +33,23 @@ data ParserState = ParserState {
 -- | Monad of the parser
 type ParserMonad = RWS.RWST String () ParserState IO
 
+-- | Arquitecture word
+arqWord = 4
+doubleWord = 4*2
+arqByte = 1
+
 -- | Initial state with the level pervasive.
 initialState :: ParserState
 initialState = ParserState (AST.Scopes (Set.fromList [1, 0]) [1, 0]) initialMap 1 Nothing [] 0
     where 
-        wholeEntry          =    ("whole",      [AST.Entry "whole"      (AST.Type Nothing Nothing 1)      0   Nothing                       Nothing])
-        halfEntry           =    ("half",       [AST.Entry "half"       (AST.Type Nothing Nothing 1)      0   Nothing                       Nothing])
-        quarterEntry        =    ("quarter",    [AST.Entry "quarter"    (AST.Type Nothing Nothing 4)      0   Nothing                       Nothing])
-        eighthEntry         =    ("eighth",     [AST.Entry "eighth"     (AST.Type Nothing Nothing 8)      0   Nothing                       Nothing])
-        thirySecondEntry    =    ("32th",       [AST.Entry "32th"       (AST.Type Nothing Nothing 4)      0   Nothing                       Nothing])
-        sixtyFourthEntry    =    ("64th",       [AST.Entry "64th"       (AST.Type Nothing Nothing 8)      0   Nothing                       Nothing])
-        nullTypeEntry       =    ("null",       [AST.Entry "null"       (AST.Type Nothing Nothing 4)      0   Nothing                       Nothing])
-        emptyListEntry      =    ("empty_list", [AST.Entry "empty_list" (AST.Type Nothing Nothing 4)      0   Nothing                       Nothing])
+        wholeEntry          =    ("whole",      [AST.Entry "whole"      (AST.Type Nothing Nothing arqByte)      0   Nothing                       Nothing])
+        halfEntry           =    ("half",       [AST.Entry "half"       (AST.Type Nothing Nothing arqByte)      0   Nothing                       Nothing])
+        quarterEntry        =    ("quarter",    [AST.Entry "quarter"    (AST.Type Nothing Nothing arqWord)      0   Nothing                       Nothing])
+        eighthEntry         =    ("eighth",     [AST.Entry "eighth"     (AST.Type Nothing Nothing doubleWord)      0   Nothing                       Nothing])
+        thirySecondEntry    =    ("32th",       [AST.Entry "32th"       (AST.Type Nothing Nothing arqWord)      0   Nothing                       Nothing])
+        sixtyFourthEntry    =    ("64th",       [AST.Entry "64th"       (AST.Type Nothing Nothing doubleWord)      0   Nothing                       Nothing])
+        nullTypeEntry       =    ("null",       [AST.Entry "null"       (AST.Type Nothing Nothing arqWord)      0   Nothing                       Nothing])
+        emptyListEntry      =    ("empty_list", [AST.Entry "empty_list" (AST.Type Nothing Nothing arqWord)      0   Nothing                       Nothing])
         melodyEntry         =    ("Melody",     [AST.Entry "Melody"     AST.Constructor                 0   Nothing                       Nothing])
         sampleEntry         =    ("Sample",     [AST.Entry "Sample"     AST.Constructor                 0   Nothing                       Nothing])
         trueEntry           =    ("maj",        [AST.Entry "maj"        AST.Literal                     0   (Just $ AST.Simple "whole")   Nothing])
@@ -157,7 +162,7 @@ pushError err = do
 getAndIncOffset :: Int -> ParserMonad Int
 getAndIncOffset width = do
     state@ParserState{state_offset=offset} <- RWS.get
-    RWS.put state{ state_offset = offset + width }
+    RWS.put state{ state_offset = ((offset + width + (arqWord-1)) `div` arqWord) * arqWord }
     return offset
 
 -- | Reset offset back to zero

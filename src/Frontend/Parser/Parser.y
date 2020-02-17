@@ -163,7 +163,7 @@ ListaParam              : ParamDeclaration                          { [$1] }
 ParamDeclaration        :: { AST.VarDeclaration }
 ParamDeclaration        : Id ':' ParamRef Type                      {%do 
                                                                         let varDec = AST.VarDec $1 $4
-                                                                        updateOffset $1 $4
+                                                                        updateOffsetOfEntry $1 $4
                                                                         return varDec }
 ParamRef                :: { Bool }
 ParamRef                : '>'                                       { True }
@@ -951,7 +951,7 @@ addOffset varId varType = do
     size <- computeTypeSize varType
     PMonad.getAndIncOffset size
 
-updateOffset varId varType = do
+updateOffsetOfEntry varId varType = do
     offset <- addOffset varId varType
     scope <- PMonad.currScope
     PMonad.updateEntry (\lst -> Just $ map (updateVarDec varId varType scope offset) lst) (token $ AST.id_token varId)
