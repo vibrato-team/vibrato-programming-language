@@ -142,21 +142,23 @@ genForArray size expType = do
 
 -- | Generate TAC for LValues
 genForLValue :: AST.Expression -> TACMonad (TAC.Value -> TACMonad ())
-genForLValue exp@AST.IdExp{AST.exp_entry=Just entry} = do
-    let lValue = TAC.Id $ TAC.Var entry
-    return $ \rValue -> genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just rValue) Nothing]
+genForLValue exp@AST.IdExp{AST.exp_entry=Just entry} =
+    return $ \rValue -> do
+        let lValue = TAC.Id $ TAC.Var entry
+        genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just rValue) Nothing]
 
-genForLValue exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, AST.exp_type=expType} = do
-    (Just temp, _, _) <- genForExp expLeft
-    lValue <- newTemp $ AST.exp_type expLeft
-    genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just temp) Nothing]
+genForLValue exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, AST.exp_type=expType} =
+    return $ \rValue -> do
+        (Just temp, _, _) <- genForExp expLeft
+        lValue <- newTemp $ AST.exp_type expLeft
+        genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just temp) Nothing]
 
-    (Just temp, _, _) <- genForExp expRight
-    w <- getSize expType
-    index <- newTemp $ AST.Simple "quarter"
-    genRaw [TAC.ThreeAddressCode TAC.Mult (Just index) (Just $ TAC.Constant (show w, AST.Simple "quarter")) (Just temp) ]
+        (Just temp, _, _) <- genForExp expRight
+        w <- getSize expType
+        index <- newTemp $ AST.Simple "quarter"
+        genRaw [TAC.ThreeAddressCode TAC.Mult (Just index) (Just $ TAC.Constant (show w, AST.Simple "quarter")) (Just temp) ]
 
-    return $ \rValue -> genRaw [TAC.ThreeAddressCode TAC.Set (Just lValue) (Just index) (Just rValue)]
+        genRaw [TAC.ThreeAddressCode TAC.Set (Just lValue) (Just index) (Just rValue)]
 
 -- | Generate corresponding TAC to Expression
 genForExp :: AST.Expression -> TACMonad (Maybe TAC.Value, IdxList, IdxList)
