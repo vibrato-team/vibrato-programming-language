@@ -91,6 +91,8 @@ import Semantic.Analyzers
 
     '.'                 { DotToken _ _ _ }
 
+    length              { LengthToken _ _ _ }
+
     int                 { IntToken _ _ _ }
     float               { FloatToken _ _ _ }
     maj                 { MajToken _ _ _ }
@@ -217,7 +219,7 @@ Statement               : VarDeclaration                        { }
                         | VarInit                               { }
                         | Asignacion                            { }
                         | IO                                    { }
-                        | free LValue                               { }
+                        | free Expression                       { }
                         | LValue '#'                            { }
                         | LValue '&'                            { }
                         | CallFuncion                           { }
@@ -323,6 +325,8 @@ Expression              : LValue %prec LVALUE                   { }
 
                         | new Literal                           { }
                         | new IdType                            { }
+
+                        | length '(' Expression ClosePar        { }
 
                         | CallFuncion                           { }
 

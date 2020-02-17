@@ -92,6 +92,8 @@ import Control.Monad
 
     '.'                 { DotToken _ _ _ }
 
+    length              { LengthToken _ _ _ }
+
     int                 { IntToken _ _ _ }
     float               { FloatToken _ _ _ }
     maj                 { MajToken _ _ _ }
@@ -251,7 +253,7 @@ Statement               : VarDeclaration                        { AST.VarDecInst
                         | VarInit                               { $1 }
                         | Asignacion                            { $1 }
                         | IO                                    { $1 }
-                        | free LValue                           {% do
+                        | free Expression                       {% do
                                                                     checkLValueIsAllocated $2 $1
                                                                     return (AST.FreeInst $2) }
                         | LValue '#'                            {% do 
@@ -684,6 +686,16 @@ Expression              : LValue %prec LVALUE                   { $1 }
 
                         | new Literal                           { AST.NewExp (Just $2) (AST.Compound "Sample" (AST.exp_type $2)) }
                         | new IdType                            { AST.NewExp Nothing (AST.Compound "Sample" $2) }
+
+                        | length '(' Expression ClosePar        {%do
+                                                                    pushIfError $4 $2 $ matchingError "parentheses"
+                                                                    case AST.exp_type $3 of
+                                                                        AST.Simple "Error" -> return AST.errorExp
+                                                                        AST.Compound "Melody" _ ->
+                                                                            return $ AST.LengthExp $3 $ AST.Simple "quarter"
+                                                                        _ -> do
+                                                                            pushError $2 "Expression is not a melody:"
+                                                                            return AST.errorExp}
 
                         | CallFuncion                           { $1 }
 

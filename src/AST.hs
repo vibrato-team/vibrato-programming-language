@@ -81,6 +81,8 @@ data Expression =
     IndexingExp     {   exp_left :: Expression, exp_right :: Expression, 
                         exp_bracket :: Token, exp_type :: ASTType }                                |
 
+    LengthExp       { exp_exp :: Expression, exp_type :: ASTType }                                 |
+
     -- | Accessing a struct field
     DotExp          {   exp_left :: Expression, exp_id :: Id, exp_type :: ASTType }                |
 

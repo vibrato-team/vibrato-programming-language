@@ -91,6 +91,8 @@ data Token =
     
     DotToken { token :: String, line :: Int, col :: Int } |
 
+    LengthToken { token :: String, line :: Int, col :: Int} |
+
     -- Literales
     IntToken { token :: String, line :: Int, col :: Int } |
     FloatToken { token :: String, line :: Int, col :: Int } |

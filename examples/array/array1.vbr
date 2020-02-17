@@ -9,7 +9,7 @@ moderato() {
     arr[0] <-> 1|
     arr[1] <-> 3.1416|
     arr[2] <-> x0 * arr[0]|
-    arr[n-1] <-> 64th(0)|
+    arr[length(arr)-1] <-> 64th(0)|
 
     free arr|
 }

@@ -7,6 +7,7 @@ import qualified Frontend.Tokens as Tokens
 import qualified Control.Monad
 import qualified Data.Map.Lazy as Map
 import Control.Monad.RWS.Lazy
+import qualified Frontend.Parser.Monad as PMonad
 
 type Idx = Int
 type IdxList = [Idx]
@@ -29,8 +30,10 @@ type TACMonad = RWS.RWST () [TAC.Instruction] TACState IO
 initialState :: AST.SymbolTable -> TACState
 initialState = TACState 1 1 0 Map.empty
 
-tacTrue     = TAC.Constant ("true",  AST.Simple "whole")
-tacFalse    = TAC.Constant ("false", AST.Simple "whole")
+trueConstant    = TAC.Constant ("true",  AST.Simple "whole")
+falseConstant   = TAC.Constant ("false", AST.Simple "whole")
+arqWordConstant = TAC.Constant (show PMonad.arqWord, AST.Simple "quarter")
+zeroConstant    = TAC.Constant ("0", AST.Simple "quarter")
 
 ----------------------------------------------------------------------------
 ----------------------------- Generate TAC ---------------------------------
@@ -86,14 +89,14 @@ genAndStoreLogicalExp exp = do
     -- if expression is true
     label@(TAC.Label l) <- newLabel
     temp1               <- newTemp $ AST.Simple "whole"
-    genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp1) (Just tacTrue) Nothing]
+    genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp1) (Just trueConstant) Nothing]
     bindLabel t1 l
     i1 <- nextInst
     genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
 
     -- if expression is false
     label@(TAC.Label l) <- newLabel
-    genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp1) (Just tacFalse) Nothing]
+    genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp1) (Just falseConstant) Nothing]
     bindLabel f1 l
 
     -- jump if true
@@ -135,9 +138,24 @@ genForComp exp op
 
 -- | Generate TAC for new array
 genForArray :: TAC.Value -> AST.ASTType -> TACMonad TAC.Value
-genForArray size expType = do
+genForArray size expType@AST.Compound{AST.type_type=innerType} = do
+    let quarterType = AST.Simple "quarter"
+    -- Size * width
+    w <- getSize innerType
+    temp0 <- newTemp quarterType
+    genRaw [TAC.ThreeAddressCode TAC.Mult (Just temp0) (Just $ TAC.Constant (show w, AST.Simple "quarter")) (Just size)]
+
+    -- First element is an integer of a word with the size
+    temp1 <- newTemp quarterType
+    genRaw [TAC.ThreeAddressCode TAC.Add (Just temp1) (Just temp0) (Just arqWordConstant)]
+
+    -- Allocate memory
     temp <- newTemp expType
-    genRaw [TAC.ThreeAddressCode TAC.New (Just temp) (Just size) Nothing]
+    genRaw [TAC.ThreeAddressCode TAC.New (Just temp) (Just temp1) Nothing]
+
+    -- Assign first element to size
+    genRaw [TAC.ThreeAddressCode TAC.Set (Just temp) (Just zeroConstant) (Just size)]
+
     return temp
 
 -- | Generate TAC for LValues
@@ -153,12 +171,17 @@ genForLValue exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, A
         lValue <- newTemp $ AST.exp_type expLeft
         genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just temp) Nothing]
 
+        -- Calculate offset
         (Just temp, _, _) <- genForExp expRight
         w <- getSize expType
         index <- newTemp $ AST.Simple "quarter"
         genRaw [TAC.ThreeAddressCode TAC.Mult (Just index) (Just $ TAC.Constant (show w, AST.Simple "quarter")) (Just temp) ]
 
-        genRaw [TAC.ThreeAddressCode TAC.Set (Just lValue) (Just index) (Just rValue)]
+        -- Add one word, because first element is the size
+        index' <- newTemp $ AST.Simple "quarter"
+        genRaw [TAC.ThreeAddressCode TAC.Add (Just index') (Just arqWordConstant) (Just index)]
+
+        genRaw [TAC.ThreeAddressCode TAC.Set (Just lValue) (Just index') (Just rValue)]
 
 -- | Generate corresponding TAC to Expression
 genForExp :: AST.Expression -> TACMonad (Maybe TAC.Value, IdxList, IdxList)
@@ -167,14 +190,18 @@ genForExp :: AST.Expression -> TACMonad (Maybe TAC.Value, IdxList, IdxList)
 genForExp exp@(AST.LiteralExp expToken expType)
     -- if it's a string
     | expType == AST.Compound "Melody" (AST.Simple "half") = do
-        let string = init $ tail $ getStringFromExp exp
-            size = length string
+        let string = init (tail $ getStringFromExp exp) ++ "\0"
+            size = PMonad.arqWord + length string -- Allocate one int for size and one byte for NUL
+            sizeValue = TAC.Constant (show size, AST.Simple "quarter")
 
         temp <- newTemp expType
-        genRaw [TAC.ThreeAddressCode TAC.New (Just temp) (Just $ TAC.Constant (show size, AST.Simple "quarter")) Nothing]
+        genRaw [TAC.ThreeAddressCode TAC.New (Just temp) (Just sizeValue ) Nothing]
         
+        -- Store size
+        genRaw [TAC.ThreeAddressCode TAC.Set (Just temp) (Just zeroConstant) (Just sizeValue ) ]
+
         let chars = map (\c -> TAC.Constant (show c, AST.Simple "half")) string
-        foldM_ ( pushArrayElement temp 1 ) 0 chars
+        foldM_ ( pushArrayElement temp 1 ) PMonad.arqWord chars
 
         return (Just temp, [], [])
 
@@ -188,7 +215,7 @@ genForExp exp@AST.MelodyLiteral{AST.exp_exps=expList, AST.exp_type=expType} = do
 
     tempList <- mapM genForArrayElement expList
     typeSize <- getSize expType
-    foldM_ ( pushArrayElement temp typeSize ) 0 tempList
+    foldM_ ( pushArrayElement temp typeSize ) PMonad.arqWord tempList
 
     return (Just temp, [], [])
 
@@ -202,14 +229,14 @@ genForExp idExp@(AST.IdExp (AST.Id (Tokens.MinToken "min" _ _)) _ _) = do
     nextinst <- nextInst
     let falselist = makelist nextinst
     genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
-    return (Just tacFalse, [], falselist)
+    return (Just falseConstant, [], falselist)
 
 -- True
 genForExp idExp@(AST.IdExp (AST.Id (Tokens.MajToken "maj" _ _)) _ _) = do
     nextinst <- nextInst
     let truelist = makelist nextinst
     genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
-    return (Just tacTrue, truelist, [])
+    return (Just trueConstant, truelist, [])
 
 -- Identifier
 genForExp idExp@AST.IdExp{AST.exp_type=AST.Simple "whole", AST.exp_entry=Just expEntry} = do
@@ -230,18 +257,38 @@ genForExp idExp@AST.IdExp{AST.exp_entry=Just entry} = return (Just $ TAC.Id $ TA
 
 -- For array indexing
 genForExp exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, AST.exp_type=expType} = do
+    let quarterType = AST.Simple "quarter"
+
+    -- Get addr of left expression
     (Just temp1, _, _) <- genForExp expLeft
     temp1' <- newTemp $ AST.exp_type expLeft
     genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp1') (Just temp1) Nothing]
 
+    -- Get offset
     (Just temp2, _, _) <- genForExp expRight
     w <- getSize expType
-    temp2' <- newTemp $ AST.Simple "quarter"
+    temp2' <- newTemp quarterType
     genRaw [TAC.ThreeAddressCode TAC.Mult (Just temp2') (Just $ TAC.Constant (show w, AST.Simple "quarter")) (Just temp2)]
+
+    -- Increment by one word, because first element is an int with size information
+    temp2'' <- newTemp quarterType
+    genRaw [TAC.ThreeAddressCode TAC.Add (Just temp2'') (Just arqWordConstant) (Just temp2')]
 
 
     temp <- newTemp expType
-    genRaw [TAC.ThreeAddressCode TAC.Get (Just temp) (Just temp1') (Just temp2')]
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just temp) (Just temp1') (Just temp2'')]
+    return (Just temp, [], [])
+
+genForExp exp@AST.LengthExp{AST.exp_exp=expExp, AST.exp_type=expType} = do
+    -- Get addr of array
+    (Just arr, _, _) <- genForExp expExp
+    arr' <- newTemp $ AST.exp_type expExp
+    genRaw [TAC.ThreeAddressCode TAC.Assign (Just arr') (Just arr) Nothing]
+
+    -- Get first element, because it's the array's size
+    temp <- newTemp expType
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just temp) (Just arr') (Just zeroConstant) ]
+
     return (Just temp, [], [])
 
 -- Logical Not
@@ -339,7 +386,7 @@ gen inst@(AST.AssignInst leftExp rightExp) = do
             label@(TAC.Label l) <- newLabel
 
             bindLabel truelist l
-            genAssignment tacTrue
+            genAssignment trueConstant
 
             nextinst <- nextInst
             let nextlist = makelist nextinst
@@ -349,7 +396,7 @@ gen inst@(AST.AssignInst leftExp rightExp) = do
             label@(TAC.Label l) <- newLabel
 
             bindLabel falselist l
-            genAssignment tacFalse
+            genAssignment falseConstant
 
             return nextlist
 
