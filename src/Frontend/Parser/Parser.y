@@ -1,5 +1,5 @@
 {
-module Frontend.Parser.Parser(parse, createFunctionEntry, createParamEntry, createTypeEntry, parseError, PMonad.ParserMonad) where
+module Frontend.Parser.Parser(parse, voidType, createFunctionEntry, createParamEntry, createTypeEntry, parseError, PMonad.ParserMonad) where
 import Frontend.Lexer
 import Frontend.Tokens
 import qualified AST
@@ -268,13 +268,13 @@ Statement               : VarDeclaration                        { AST.VarDecInst
 VarDeclaration          :: { AST.VarDeclaration }
 VarDeclaration          : Id ':' Type                           {% do
                                                                     let varDec = AST.VarDec $1 $3
-                                                                    offset <- addOffset $1 $3
+                                                                    offset <- addOffset $3
                                                                     createVarEntry (AST.id_token $1) (Just $3) (Just offset)
                                                                     return varDec }
 
 VarInit                 :: { AST.Instruction }
 VarInit                 : Id ':' Type '<->' Expression          {% do 
-                                                                    offset <- addOffset $1 $3
+                                                                    offset <- addOffset $3
                                                                     maybeEntry <- createVarEntry (AST.id_token $1) (Just $3) (Just offset)
 
                                                                     let idExp = AST.IdExp $1 $3 maybeEntry
@@ -372,6 +372,8 @@ CallFuncion             : play Id With '(' ListExp ClosePar          {% do
                                                                         pushIfError $3 $1 "Missing \"with\" in play instruction:"
                                                                         pushIfError $6 $4 $ matchingError "parentheses"
 
+                                                                        offset <- addOffset $ AST.Simple "quarter"
+
                                                                         maybeEntry <- checkVarIsDeclared (AST.id_token $2)
                                                                         case maybeEntry of
                                                                             Nothing -> return AST.errorExp
@@ -381,13 +383,14 @@ CallFuncion             : play Id With '(' ListExp ClosePar          {% do
                                                                                     AST.Function _ params -> do
                                                                                         -- Verificacion of the list of expressions
                                                                                         casted_args <- checkParams $4 (reverse $5) params
-                                                                                        return $ AST.CallExp $2 casted_args (fromMaybe voidType $ AST.entry_type entry)
+                                                                                        return $ AST.CallExp $2 casted_args (fromMaybe voidType $ AST.entry_type entry) offset maybeEntry
 
                                                                                     _ -> do
                                                                                         pushError $1 "Calling a not track expression:"
-                                                                                        return $ AST.CallExp $2 (reverse $5) (fromMaybe voidType $ AST.entry_type entry) }
+                                                                                        return $ AST.CallExp $2 (reverse $5) (fromMaybe voidType $ AST.entry_type entry) offset maybeEntry }
 
                         | play Id                               {% do
+                                                                            offset <- addOffset $ AST.Simple "quarter"
                                                                             maybeEntry <- checkVarIsDeclared (AST.id_token $2)
                                                                             case maybeEntry of
                                                                                 Nothing -> return AST.errorExp
@@ -399,7 +402,7 @@ CallFuncion             : play Id With '(' ListExp ClosePar          {% do
                                                                                                 then return () 
                                                                                                 else pushError (AST.id_token $2) "Wrong number of arguments:"
                                                                                         _ -> pushError $1 "Calling a not track expression:"
-                                                                                    return $ AST.CallExp $2 [] (fromMaybe voidType $ AST.entry_type entry)}
+                                                                                    return $ AST.CallExp $2 [] (fromMaybe voidType $ AST.entry_type entry) offset maybeEntry }
 
 ListExp                 :: { [AST.Expression] }
 ListExp                 : Expression                            { [$1] }
@@ -731,7 +734,7 @@ ListaField              : FieldDeclaration                      { [$1] }
 
 FieldDeclaration        :: { AST.VarDeclaration }
 FieldDeclaration        : Id ':' Type                           {% do
-                                                                    offset <- addOffset $1 $3
+                                                                    offset <- addOffset $3
                                                                     createFieldEntry (AST.id_token $1) $3 (Just offset)
                                                                     return $ AST.VarDec $1 $3 }
 
@@ -958,13 +961,13 @@ addFields listFields lst = Just $ map mapping lst
 --------------------------------------------
 ----------- Offset Operations --------------
 --------------------------------------------
-addOffset :: AST.Id -> AST.ASTType -> ParserMonad Int
-addOffset varId varType = do
+addOffset :: AST.ASTType -> ParserMonad Int
+addOffset varType = do
     size <- computeTypeSize varType
     PMonad.getAndIncOffset size
 
 updateOffsetOfEntry varId varType = do
-    offset <- addOffset varId varType
+    offset <- addOffset varType
     scope <- PMonad.currScope
     PMonad.updateEntry (\lst -> Just $ map (updateVarDec varId varType scope offset) lst) (token $ AST.id_token varId)
 
@@ -975,6 +978,7 @@ updateVarDec AST.Id{AST.id_token=idToken} varType scope offset entry@AST.Entry{A
         then case AST.entry_category entry of
             AST.Var Nothing -> entry{AST.entry_category=AST.Var $ Just offset}
             AST.Field Nothing -> entry{AST.entry_category=AST.Field $ Just offset}
+            cat@AST.Param{AST.offset=Nothing} -> entry{ AST.entry_category = cat{ AST.offset = Just offset } }
         else entry
 
 updateVarDec _ _ _ _ e = e

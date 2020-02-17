@@ -12,6 +12,8 @@ import qualified Data.Set as Set
 import qualified Data.Map.Lazy as Map
 import qualified Backend.TAC.Monad as TACMonad
 import qualified Backend.TAC.TAC as TAC
+import Control.Monad
+import Data.Maybe
 
 import System.Environment
 import System.Exit
@@ -41,9 +43,11 @@ main = do
                     errs@(_:_) -> throwCompilerError srcFile $ reverse errs
                     [] -> do
                         let table = PMonad.state_table pstate
-                            Just [moderatoEntry] = Map.lookup "moderato" table
-                            Just (AST.Block stmts) = AST.function_block $ AST.entry_category moderatoEntry
-                        (state, tac) <- RWS.execRWST (TACMonad.genForList stmts) () $ TACMonad.initialState table
+                            functionNames = PMonad.state_functions prestate
+                            functionEntries = map (\name -> head $ fromJust $ Map.lookup name table) functionNames
+                            acc (state, tac) entry = RWS.execRWST (TACMonad.genForFunction entry) () state >>= \(state', tac') -> return (state', tac ++ tac') 
+
+                        (state, tac) <- foldM acc (TACMonad.initialState table, []) functionEntries
 
                         -- Backpatching
                         let bpMap = TACMonad.bp_map state

@@ -27,7 +27,8 @@ data ParserState = ParserState {
     state_lvl :: Int,
     state_ret_type :: Maybe AST.ASTType,
     state_errors :: [Error],
-    state_offset :: Int
+    state_offset :: Int,
+    state_functions :: [String]
 }
 
 -- | Monad of the parser
@@ -40,7 +41,7 @@ arqByte = 1
 
 -- | Initial state with the level pervasive.
 initialState :: ParserState
-initialState = ParserState (AST.Scopes (Set.fromList [1, 0]) [1, 0]) initialMap 1 Nothing [] 0
+initialState = ParserState (AST.Scopes (Set.fromList [1, 0]) [1, 0]) initialMap 1 Nothing [] 0 ["moderato"]
     where 
         wholeEntry          =    ("whole",      [AST.Entry "whole"      (AST.Type Nothing Nothing arqByte)      0   Nothing                       Nothing])
         halfEntry           =    ("half",       [AST.Entry "half"       (AST.Type Nothing Nothing arqByte)      0   Nothing                       Nothing])
@@ -170,3 +171,9 @@ resetOffset :: ParserMonad ()
 resetOffset = do
     state <- RWS.get
     RWS.put state{ state_offset = 0 }
+
+-- | Add function name to list of function names
+pushFunctionName :: String -> ParserMonad ()
+pushFunctionName name = do
+    state@ParserState{state_functions=lst} <- RWS.get
+    RWS.put state{ state_functions = name:lst }
