@@ -543,7 +543,6 @@ MelodyLiteral           : '[' ListExp CloseSquare               {%do
                                                                         [] -> return $ AST.MelodyLiteral [] (AST.Simple "empty_list")
                                                                         (e:es) -> do
                                                                             let expType = AST.exp_type e
-                                                                            -- TODO: Cast expressions if possible
                                                                             if all (equalType expType) $ map AST.exp_type $2
                                                                                 then                                                                           
                                                                                     return ()
