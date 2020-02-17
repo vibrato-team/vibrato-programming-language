@@ -126,6 +126,9 @@ tokens :-
     -- Acceso a Chords
     "."                                 { pushToken DotToken }
 
+    -- Longitud de arreglo
+    "length"                            { pushToken LengthToken }
+
     -- Literales
     $digits+                            { pushToken IntToken  }
     $digits+\.$digits+                  { pushToken FloatToken }

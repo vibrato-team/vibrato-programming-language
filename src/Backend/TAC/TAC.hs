@@ -35,8 +35,13 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) w
   show (ThreeAddressCode Gt (Just x) (Just y) (Just label))       = "\t" ++ "if " ++ show x ++ " > " ++ show y ++ " then goto " ++ show label
   show (ThreeAddressCode Lte (Just x) (Just y) (Just label))      = "\t" ++  "if " ++ show x ++ " <= " ++ show y ++ " then goto " ++ show label
   show (ThreeAddressCode Gte (Just x) (Just y) (Just label))      = "\t" ++  "if " ++ show x ++ " >= " ++ show y ++ " then goto " ++ show label
+  show (ThreeAddressCode Get (Just x) (Just y) (Just i))          = "\t" ++ show x ++ " := " ++ show y ++ "[" ++ show i ++ "]"
   show (ThreeAddressCode Set (Just x) (Just i) (Just y))          = "\t" ++ show x ++ "[" ++ show i ++ "] := " ++ show y
   show (ThreeAddressCode NewLabel Nothing (Just label) Nothing)   = show label ++ ":"
+  show (ThreeAddressCode New (Just x) (Just size) Nothing)        = "\t" ++ show x ++ " := malloc(" ++ show size ++ ")"
+  show (ThreeAddressCode Free Nothing (Just addr) Nothing)        = "\tfree(" ++ show addr ++ ")"
+  show (ThreeAddressCode Ref (Just x) (Just y) Nothing)           = "\t" ++ show x ++ " := &" ++ show y
+  
   show tac = show (tacLvalue tac) ++ " := " ++ show (tacRvalue1 tac) ++ show (tacOperand tac) ++ show (tacRvalue2 tac)
 
 type Instruction = ThreeAddressCode Id AST.ASTType
@@ -118,6 +123,10 @@ data Operation =
     Ref         |
     -- | x=*y
     Deref       |
+    -- | malloc(n, t)
+    New         |
+    -- | free(x)
+    Free        |
 
     Cast String String
     deriving (Eq, Show)
@@ -130,7 +139,7 @@ data Id =
 
 instance Show Id where
   show x@Temp{} = entry_name x
-  show x@Var{entry=e} = "base[" ++ show (fromJust $ AST.offset $ AST.entry_category e) ++ "]"
+  show x@Var{entry=e} = "_base[" ++ show (fromJust $ AST.offset $ AST.entry_category e) ++ "]"
 
 instance SymEntryCompatible Id where
   getSymID t@Temp{} = entry_name t

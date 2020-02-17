@@ -1,0 +1,15 @@
+moderato() {
+    x0: 64th <-> 0.32|
+    n: quarter <-> 4|
+
+    -- Esto es un comentario
+    -- arr: Melody<32th> <-> [1.0, 3.1416, q0, 0.0]|
+
+    arr: Melody<64th> <-> Melody<64th>(n)|
+    arr[0] <-> 1|
+    arr[1] <-> 3.1416|
+    arr[2] <-> x0 * arr[0]|
+    arr[length(arr)-1] <-> 64th(0)|
+
+    free arr|
+}

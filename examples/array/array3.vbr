@@ -1,0 +1,17 @@
+moderato() {
+    b0: whole <-> maj|
+    q0: eighth <-> 32|
+    b1: whole <-> min|
+    q1: quarter <-> 42|
+    brr: Melody<whole> <-> [
+        q0 <= q1, 
+        b0, 
+        b0 or maj, 
+        b1 and maj, 
+        b0 or min, 
+        b1 and min
+    ]|
+    q2: quarter <-> 0|
+
+    free brr|
+}

@@ -7,6 +7,7 @@ import qualified Frontend.Tokens as Tokens
 import qualified Control.Monad
 import qualified Data.Map.Lazy as Map
 import Control.Monad.RWS.Lazy
+import qualified Frontend.Parser.Monad as PMonad
 
 type Idx = Int
 type IdxList = [Idx]
@@ -20,50 +21,23 @@ data TACState = TACState {
     label_count     :: Int,
     temp_count      :: Int,
     inst_count      :: Int,
-    bp_map   :: BackpatchMap
+    bp_map          :: BackpatchMap,
+    sym_table       :: AST.SymbolTable 
 } deriving (Eq, Show)
 
 type TACMonad = RWS.RWST () [TAC.Instruction] TACState IO
 
-initialState :: TACState
+initialState :: AST.SymbolTable -> TACState
 initialState = TACState 1 1 0 Map.empty
 
-tacTrue     = TAC.Constant ("true",  AST.Simple "whole")
-tacFalse    = TAC.Constant ("false", AST.Simple "whole")
+trueConstant    = TAC.Constant ("true",  AST.Simple "whole")
+falseConstant   = TAC.Constant ("false", AST.Simple "whole")
+arqWordConstant = TAC.Constant (show PMonad.arqWord, AST.Simple "quarter")
+zeroConstant    = TAC.Constant ("0", AST.Simple "quarter")
 
-newLabel :: TACMonad TAC.Value
-newLabel = do
-    state@TACState{label_count=labelCount} <- RWS.get
-    RWS.put state{label_count=labelCount+1}
-
-    let label = TAC.Label labelCount
-    genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
-
-    return label
-
-newTemp :: AST.ASTType -> TACMonad TAC.Value
-newTemp astType = do
-    state@TACState{temp_count=tempCount} <- RWS.get
-    RWS.put state{temp_count=tempCount+1}
-    return $ TAC.Id $ TAC.Temp ("_t" ++ show tempCount) astType
-
-nextInst :: TACMonad Int
-nextInst = do
-    state@TACState{inst_count=instCount} <- RWS.get
-    return instCount
-
--- | Get name from Id
-getStringFromId :: AST.Id -> String
-getStringFromId = Tokens.token . AST.id_token
-
--- | Get name from IdExp
-getStringFromExp :: AST.Expression -> String
-getStringFromExp AST.IdExp{AST.exp_id=expId} = getStringFromId expId
-getStringFromExp AST.LiteralExp{AST.exp_token=expToken} = Tokens.token expToken
-
--- | IdExp to TAC.Id
-expToEntry :: AST.Expression -> TAC.Id
-expToEntry (AST.IdExp _ _ (Just expEntry)) = TAC.Var expEntry
+----------------------------------------------------------------------------
+----------------------------- Generate TAC ---------------------------------
+----------------------------------------------------------------------------
 
 -- | Generate TAC for binary operation
 genForBinOp :: AST.Expression -> TAC.Operation -> TACMonad (Maybe TAC.Value, IdxList, IdxList)
@@ -106,8 +80,8 @@ genForBinOp exp op = do
     genRaw [TAC.ThreeAddressCode op (Just temp) maybeRValue1 maybeRValue2]
     return (Just temp, [], [])
 
-genAndStoreLogicalComp :: AST.Expression -> TACMonad TAC.Value
-genAndStoreLogicalComp exp = do
+genAndStoreLogicalExp :: AST.Expression -> TACMonad TAC.Value
+genAndStoreLogicalExp exp = do
     ---------------------------------------------------------------------------
     -- Store value of left expression inside `temp1`
     (_, t1, f1) <- genForExp exp
@@ -115,14 +89,14 @@ genAndStoreLogicalComp exp = do
     -- if expression is true
     label@(TAC.Label l) <- newLabel
     temp1               <- newTemp $ AST.Simple "whole"
-    genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp1) (Just tacTrue) Nothing]
+    genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp1) (Just trueConstant) Nothing]
     bindLabel t1 l
     i1 <- nextInst
     genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
 
     -- if expression is false
     label@(TAC.Label l) <- newLabel
-    genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp1) (Just tacFalse) Nothing]
+    genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp1) (Just falseConstant) Nothing]
     bindLabel f1 l
 
     -- jump if true
@@ -135,8 +109,8 @@ genAndStoreLogicalComp exp = do
 genForComp :: AST.Expression -> TAC.Operation -> TACMonad (Maybe TAC.Value, IdxList, IdxList)
 genForComp exp op
     | AST.exp_type (AST.exp_left exp) == AST.Simple "whole" = do
-        temp1 <- genAndStoreLogicalComp $ AST.exp_left exp
-        temp2 <- genAndStoreLogicalComp $ AST.exp_right exp
+        temp1 <- genAndStoreLogicalExp $ AST.exp_left exp
+        temp2 <- genAndStoreLogicalExp $ AST.exp_right exp
 
         inst1 <- nextInst
         let truelist = makelist inst1
@@ -162,28 +136,107 @@ genForComp exp op
 
         return (Nothing, truelist, falselist)
 
--- | Generate corersponding TAC for LValue
-genForLValue idExp@AST.IdExp{AST.exp_entry=Just entry} = return (Just $ TAC.Id $ TAC.Var entry, [], [])
+-- | Generate TAC for new array
+genForArray :: TAC.Value -> AST.ASTType -> TACMonad TAC.Value
+genForArray size expType@AST.Compound{AST.type_type=innerType} = do
+    let quarterType = AST.Simple "quarter"
+    -- Size * width
+    w <- getSize innerType
+    temp0 <- newTemp quarterType
+    genRaw [TAC.ThreeAddressCode TAC.Mult (Just temp0) (Just $ TAC.Constant (show w, AST.Simple "quarter")) (Just size)]
+
+    -- First element is an integer of a word with the size
+    temp1 <- newTemp quarterType
+    genRaw [TAC.ThreeAddressCode TAC.Add (Just temp1) (Just temp0) (Just arqWordConstant)]
+
+    -- Allocate memory
+    temp <- newTemp expType
+    genRaw [TAC.ThreeAddressCode TAC.New (Just temp) (Just temp1) Nothing]
+
+    -- Assign first element to size
+    genRaw [TAC.ThreeAddressCode TAC.Set (Just temp) (Just zeroConstant) (Just size)]
+
+    return temp
+
+-- | Generate TAC for LValues
+genForLValue :: AST.Expression -> TACMonad (TAC.Value -> TACMonad ())
+genForLValue exp@AST.IdExp{AST.exp_entry=Just entry} =
+    return $ \rValue -> do
+        let lValue = TAC.Id $ TAC.Var entry
+        genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just rValue) Nothing]
+
+genForLValue exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, AST.exp_type=expType} =
+    return $ \rValue -> do
+        (Just temp, _, _) <- genForExp expLeft
+        lValue <- newTemp $ AST.exp_type expLeft
+        genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just temp) Nothing]
+
+        -- Calculate offset
+        (Just temp, _, _) <- genForExp expRight
+        w <- getSize expType
+        index <- newTemp $ AST.Simple "quarter"
+        genRaw [TAC.ThreeAddressCode TAC.Mult (Just index) (Just $ TAC.Constant (show w, AST.Simple "quarter")) (Just temp) ]
+
+        -- Add one word, because first element is the size
+        index' <- newTemp $ AST.Simple "quarter"
+        genRaw [TAC.ThreeAddressCode TAC.Add (Just index') (Just arqWordConstant) (Just index)]
+
+        genRaw [TAC.ThreeAddressCode TAC.Set (Just lValue) (Just index') (Just rValue)]
 
 -- | Generate corresponding TAC to Expression
 genForExp :: AST.Expression -> TACMonad (Maybe TAC.Value, IdxList, IdxList)
 
 -- Literal expression
-genForExp exp@(AST.LiteralExp expToken expType) = return (Just $ TAC.Constant (Tokens.token expToken, expType), [], [])
+genForExp exp@(AST.LiteralExp expToken expType)
+    -- if it's a string
+    | expType == AST.Compound "Melody" (AST.Simple "half") = do
+        let string = init (tail $ getStringFromExp exp) ++ "\0"
+            size = PMonad.arqWord + length string -- Allocate one int for size and one byte for NUL
+            sizeValue = TAC.Constant (show size, AST.Simple "quarter")
+
+        temp <- newTemp expType
+        genRaw [TAC.ThreeAddressCode TAC.New (Just temp) (Just sizeValue ) Nothing]
+        
+        -- Store size
+        genRaw [TAC.ThreeAddressCode TAC.Set (Just temp) (Just zeroConstant) (Just sizeValue ) ]
+
+        let chars = map (\c -> TAC.Constant (show c, AST.Simple "half")) string
+        foldM_ ( pushArrayElement temp 1 ) PMonad.arqWord chars
+
+        return (Just temp, [], [])
+
+    | otherwise = return (Just $ TAC.Constant (Tokens.token expToken, expType), [], [])
+
+-- Melody literals
+genForExp exp@AST.MelodyLiteral{AST.exp_exps=expList, AST.exp_type=expType} = do
+    let size = length expList
+        sizeValue = TAC.Constant (show size, AST.Simple "quarter")
+    temp <- genForArray sizeValue expType
+
+    tempList <- mapM genForArrayElement expList
+    typeSize <- getSize expType
+    foldM_ ( pushArrayElement temp typeSize ) PMonad.arqWord tempList
+
+    return (Just temp, [], [])
+
+genForExp exp@AST.MelodyLiteral'{AST.exp_size=sizeExp, AST.exp_type=expType} = do
+    (Just sizeValue, _, _) <- genForExp sizeExp
+    temp <- genForArray sizeValue expType
+    return (Just temp, [], [])
 
 -- False
 genForExp idExp@(AST.IdExp (AST.Id (Tokens.MinToken "min" _ _)) _ _) = do
     nextinst <- nextInst
     let falselist = makelist nextinst
     genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
-    return (Just tacFalse, [], falselist)
+    return (Just falseConstant, [], falselist)
 
 -- True
 genForExp idExp@(AST.IdExp (AST.Id (Tokens.MajToken "maj" _ _)) _ _) = do
     nextinst <- nextInst
     let truelist = makelist nextinst
     genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
-    return (Just tacTrue, truelist, [])
+    return (Just trueConstant, truelist, [])
 
 -- Identifier
 genForExp idExp@AST.IdExp{AST.exp_type=AST.Simple "whole", AST.exp_entry=Just expEntry} = do
@@ -200,7 +253,43 @@ genForExp idExp@AST.IdExp{AST.exp_type=AST.Simple "whole", AST.exp_entry=Just ex
 
     return (Nothing, truelist, falselist)
 
-genForExp idExp@AST.IdExp{} = genForLValue idExp
+genForExp idExp@AST.IdExp{AST.exp_entry=Just entry} = return (Just $ TAC.Id $ TAC.Var entry, [], [])
+
+-- For array indexing
+genForExp exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, AST.exp_type=expType} = do
+    let quarterType = AST.Simple "quarter"
+
+    -- Get addr of left expression
+    (Just temp1, _, _) <- genForExp expLeft
+    temp1' <- newTemp $ AST.exp_type expLeft
+    genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp1') (Just temp1) Nothing]
+
+    -- Get offset
+    (Just temp2, _, _) <- genForExp expRight
+    w <- getSize expType
+    temp2' <- newTemp quarterType
+    genRaw [TAC.ThreeAddressCode TAC.Mult (Just temp2') (Just $ TAC.Constant (show w, AST.Simple "quarter")) (Just temp2)]
+
+    -- Increment by one word, because first element is an int with size information
+    temp2'' <- newTemp quarterType
+    genRaw [TAC.ThreeAddressCode TAC.Add (Just temp2'') (Just arqWordConstant) (Just temp2')]
+
+
+    temp <- newTemp expType
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just temp) (Just temp1') (Just temp2'')]
+    return (Just temp, [], [])
+
+genForExp exp@AST.LengthExp{AST.exp_exp=expExp, AST.exp_type=expType} = do
+    -- Get addr of array
+    (Just arr, _, _) <- genForExp expExp
+    arr' <- newTemp $ AST.exp_type expExp
+    genRaw [TAC.ThreeAddressCode TAC.Assign (Just arr') (Just arr) Nothing]
+
+    -- Get first element, because it's the array's size
+    temp <- newTemp expType
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just temp) (Just arr') (Just zeroConstant) ]
+
+    return (Just temp, [], [])
 
 -- Logical Not
 genForExp (AST.NotExp exp expType) = do
@@ -260,7 +349,7 @@ genForExp exp@AST.GreaterEqualExp{} = genForComp exp TAC.Gte
 -- | Insert a list of raw instructions into final Three Address Code
 genRaw :: [TAC.Instruction] -> TACMonad ()
 genRaw lst = do
-    state@(TACState _ _ instCount _) <- RWS.get
+    state@TACState{inst_count=instCount} <- RWS.get
     RWS.tell lst
     RWS.put state{inst_count=instCount+1}
 
@@ -269,19 +358,26 @@ genForList :: [AST.Instruction] -> TACMonad IdxList
 genForList [] = return []
 genForList stmts@(s:ss) = do
     nextlist1 <- gen s
-
-    nextinst <- nextInst
     label@(TAC.Label l) <- newLabel
 
     bindLabel nextlist1 l
     genForList ss
 
+-- | Generate corresponding TAC for array elements
+genForArrayElement :: AST.Expression -> TACMonad TAC.Value
+genForArrayElement astExp =
+    case AST.exp_type astExp of
+        AST.Simple "whole" -> genAndStoreLogicalExp astExp
+        _ -> do
+            (Just temp, _, _) <- genForExp astExp
+            return temp
+
 -- | Generate corresponding TAC for Instruction
 gen :: AST.Instruction -> TACMonad IdxList
 gen (AST.VarDecInst _) = return []
 
-gen (AST.AssignInst leftExp rightExp) = do
-    (Just lValue, _, _) <- genForLValue leftExp
+gen inst@(AST.AssignInst leftExp rightExp) = do
+    genAssignment <- genForLValue leftExp
     case AST.exp_type rightExp of
         AST.Simple "whole" -> do
             (_, truelist, falselist)   <- genForExp rightExp
@@ -290,7 +386,7 @@ gen (AST.AssignInst leftExp rightExp) = do
             label@(TAC.Label l) <- newLabel
 
             bindLabel truelist l
-            genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just tacTrue) Nothing]
+            genAssignment trueConstant
 
             nextinst <- nextInst
             let nextlist = makelist nextinst
@@ -300,19 +396,14 @@ gen (AST.AssignInst leftExp rightExp) = do
             label@(TAC.Label l) <- newLabel
 
             bindLabel falselist l
-            genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just tacFalse) Nothing ]
+            genAssignment falseConstant
 
-            return nextlist 
+            return nextlist
 
         _ -> do
             (Just rValue, _, _)  <- genForExp rightExp
-            case AST.exp_type leftExp of
-                AST.Compound _ _ -> do-- Pointer or Array
-                    genRaw [TAC.ThreeAddressCode TAC.Set (Just lValue) (Just $ TAC.Constant ("0", AST.Simple "quarter")) (Just rValue)]
-                    return []
-                _ -> do
-                    genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just rValue) Nothing]
-                    return []
+            genAssignment rValue
+            return []
 
 gen AST.IfInst{AST.inst_exp=instExp, AST.inst_inst=instInst, AST.inst_else=instElse} = do
     (_, truelist, falselist) <- genForExp instExp
@@ -345,13 +436,24 @@ gen AST.SharpExp{AST.inst_exp=instExp} =
 gen AST.FlatExp{AST.inst_exp=instExp} =
     genForAbrev instExp TAC.Sub
 
+gen AST.FreeInst{AST.inst_exp=instExp} = do
+    (Just addr, _, _) <- genForExp instExp
+    genRaw [TAC.ThreeAddressCode TAC.Free Nothing (Just addr) Nothing]
+    return []
+
 -- | Generate TAC for increment or decrement instruction
 genForAbrev :: AST.Expression -> TAC.Operation -> TACMonad IdxList
 genForAbrev exp op = do
-    (Just lValue, _, _) <- genForExp exp
     let expType = AST.exp_type exp
-    temp <- newTemp expType
-    genRaw [TAC.ThreeAddressCode op (Just temp) (Just lValue) (Just $ TAC.Constant ("1", expType))]
+        one = TAC.Constant ("1", expType)
+
+    genAssignment <- genForLValue exp
+    (Just element, _, _) <- genForExp exp
+
+    rValue <- newTemp expType
+    genRaw [TAC.ThreeAddressCode TAC.Add (Just rValue) (Just one) (Just element)]
+
+    genAssignment rValue
     return []
 
 ----------------------------------------------------------------------------
@@ -391,3 +493,64 @@ backpatch _ [] insts _ = insts
 backpatch label l1@(idx:idxs) (inst:insts) i
     | idx /= i = inst : backpatch label l1 insts (i+1)
     | otherwise = inst{TAC.tacRvalue2=Just $ TAC.Label label} : backpatch label idxs insts (i+1)
+
+----------------------------------------------------------------------------
+--------------------------- Monadic helpers --------------------------------
+----------------------------------------------------------------------------
+
+newLabel :: TACMonad TAC.Value
+newLabel = do
+    state@TACState{label_count=labelCount} <- RWS.get
+    RWS.put state{label_count=labelCount+1}
+
+    let label = TAC.Label labelCount
+    genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
+
+    return label
+
+newTemp :: AST.ASTType -> TACMonad TAC.Value
+newTemp astType = do
+    state@TACState{temp_count=tempCount} <- RWS.get
+    RWS.put state{temp_count=tempCount+1}
+    return $ TAC.Id $ TAC.Temp ("_t" ++ show tempCount) astType
+
+nextInst :: TACMonad Int
+nextInst = do
+    state@TACState{inst_count=instCount} <- RWS.get
+    return instCount
+
+pushArrayElement :: TAC.Value -> Int -> Int -> TAC.Value -> TACMonad Int
+pushArrayElement addr w offset rValue = do
+    genRaw [TAC.ThreeAddressCode TAC.Set (Just addr) (Just $ TAC.Constant (show offset, AST.Simple "quarter")) (Just rValue) ]
+    return $ offset + w
+
+-- | Get chain from a symbol
+getChain :: String -> TACMonad (Maybe [AST.Entry])
+getChain symbol = do
+    TACState{sym_table=table} <- RWS.get
+    -- Get chain of matching entries
+    return $ Map.lookup symbol table
+
+-- | Get size of a type
+getSize :: AST.ASTType -> TACMonad Int
+getSize AST.Compound{} = return 4
+getSize AST.Simple{AST.type_str=typeStr} = do
+    (Just [ AST.Entry{ AST.entry_category = cat } ]) <- getChain typeStr
+    return $ AST.type_size cat
+
+----------------------------------------------------------------------------
+---------------------------------- Helpers ---------------------------------
+----------------------------------------------------------------------------
+
+-- | Get name from Id
+getStringFromId :: AST.Id -> String
+getStringFromId = Tokens.token . AST.id_token
+
+-- | Get name from IdExp
+getStringFromExp :: AST.Expression -> String
+getStringFromExp AST.IdExp{AST.exp_id=expId} = getStringFromId expId
+getStringFromExp AST.LiteralExp{AST.exp_token=expToken} = Tokens.token expToken
+
+-- | IdExp to TAC.Id
+expToEntry :: AST.Expression -> TAC.Id
+expToEntry (AST.IdExp _ _ (Just expEntry)) = TAC.Var expEntry

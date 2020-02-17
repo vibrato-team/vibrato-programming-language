@@ -62,7 +62,7 @@ data Expression =
     ChordLiteral        { exp_exps :: [Expression], exp_type :: ASTType }                          |
     LegatoLiteral       { exp_id :: Id, exp_exp :: Expression, exp_type :: ASTType }               |
     
-    MelodyLiteral   {   exp_values :: [Expression], exp_type :: ASTType }                          |
+    MelodyLiteral   {   exp_exps :: [Expression], exp_type :: ASTType }                          |
     MelodyLiteral'   {   exp_size :: Expression, exp_type :: ASTType }                              |
 
     -- | Identifier
@@ -80,6 +80,8 @@ data Expression =
     -- | Indexing an array
     IndexingExp     {   exp_left :: Expression, exp_right :: Expression, 
                         exp_bracket :: Token, exp_type :: ASTType }                                |
+
+    LengthExp       { exp_exp :: Expression, exp_type :: ASTType }                                 |
 
     -- | Accessing a struct field
     DotExp          {   exp_left :: Expression, exp_id :: Id, exp_type :: ASTType }                |
@@ -144,7 +146,7 @@ data Instruction =
     WhileInst       {   inst_exp :: Expression,
                         inst_block :: Block    }                              |
 
-    FreeInst        {   inst_id :: Id  }                                      |
+    FreeInst        {   inst_exp :: Expression  }                                      |
 
     IncrementInst   {   inst_exp :: Expression  }                             |
     DecrementInst   {   inst_exp :: Expression  }                             |

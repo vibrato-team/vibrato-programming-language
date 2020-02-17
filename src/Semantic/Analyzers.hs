@@ -92,6 +92,13 @@ checkExpType exp expected tk = do
     Control.Monad.unless (any (equalType expType) expected) $ Semantic.Analyzers.pushError tk $ "Expression isn't of type " ++ showExpected expected ++ ":"
     return expType
 
+checkLValueIsAllocated :: AST.Expression -> Token -> ParserMonad ()
+checkLValueIsAllocated exp tk = do
+    let expType = AST.exp_type exp
+    case expType of
+        AST.Compound _ _ -> return ()
+        _ -> Semantic.Analyzers.pushError tk "Expression isn't a Sample or a Melody:"
+
 -- | Para imprimir bonito los tipos esperados
 showExpected :: [AST.ASTType] -> String
 showExpected [] = ""
