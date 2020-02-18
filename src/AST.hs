@@ -69,7 +69,9 @@ data Expression =
     IdExp           {   exp_id :: Id, exp_type :: ASTType, exp_entry :: Maybe Entry }                      |
 
     -- | Call function
-    CallExp         {   exp_id :: Id, exp_params :: [Expression], exp_type :: ASTType }            |
+    CallExp         {   exp_id :: Id, exp_params :: [Expression],
+                        exp_type :: ASTType, exp_offset :: Int,
+                        exp_entry :: Maybe Entry }            |
 
     -- | Dereference an expression
     DereferenceExp  {   exp_exp :: Expression, exp_token :: Token, exp_type :: ASTType }                               |

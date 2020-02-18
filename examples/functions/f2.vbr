@@ -1,0 +1,12 @@
+track f (x: eighth, y: eighth, z: eighth): eighth {
+    1+x+y+z||
+}
+
+track g (y: eighth): eighth {
+    2*y||
+}
+
+moderato() {
+    x0: quarter <-> 4|
+    x1: eighth <-> play f with (2, x0/2, play g with (x0))|
+}

@@ -1,0 +1,10 @@
+track fact(numero: quarter): eighth {
+    if (numero = eighth(0)) 1||
+    else numero * play fact with (numero-1)|| -- castea numero en eighth
+}
+
+moderato() {
+    q0: quarter <-> 38|
+    q1: quarter <-> 2|
+    e0: eighth <-> play fact with (q0 + q1)|
+}

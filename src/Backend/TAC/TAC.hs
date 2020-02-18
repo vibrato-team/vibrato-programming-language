@@ -41,7 +41,12 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) w
   show (ThreeAddressCode New (Just x) (Just size) Nothing)        = "\t" ++ show x ++ " := malloc(" ++ show size ++ ")"
   show (ThreeAddressCode Free Nothing (Just addr) Nothing)        = "\tfree(" ++ show addr ++ ")"
   show (ThreeAddressCode Ref (Just x) (Just y) Nothing)           = "\t" ++ show x ++ " := &" ++ show y
-  
+  show (ThreeAddressCode Param Nothing (Just p) Nothing)          = "\tparam " ++ show p
+  show (ThreeAddressCode Call Nothing (Just l) (Just n))          = "\tcall " ++ show l ++ ", " ++ show n
+  show (ThreeAddressCode Call (Just t) (Just l) (Just n))         = "\t" ++ show t ++ " := call " ++ show l ++ ", " ++ show n
+  show (ThreeAddressCode Return Nothing Nothing Nothing)          = "\treturn" 
+  show (ThreeAddressCode Return Nothing (Just t) Nothing)          = "\treturn " ++ show t 
+
   show tac = show (tacLvalue tac) ++ " := " ++ show (tacRvalue1 tac) ++ show (tacOperand tac) ++ show (tacRvalue2 tac)
 
 type Instruction = ThreeAddressCode Id AST.ASTType
@@ -50,13 +55,13 @@ type Value = Operand Id AST.ASTType
 data (SymEntryCompatible a) => Operand a b = 
   Id a | 
   Constant (String, b) | 
-  Label Int
+  Label String
   deriving (Eq)
 
 instance (SymEntryCompatible a, Show a, Show b) => Show (Operand a b) where
   show (Id x) = show x
   show (Constant c) = fst c
-  show (Label l) = show l
+  show (Label l) = l
 
 data Operation =
     Assign        |
@@ -111,6 +116,8 @@ data Operation =
     Param       |
     -- | Call function
     Call        |
+    -- | Return from function
+    Return      |
 
     -- Array operators
     -- | x=y[i]

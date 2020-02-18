@@ -167,6 +167,7 @@ In                      : in        { True }
 
 Signature               : track Id PushScope '(' ListaParam ClosePar MaybeType             {% do
                                                                                             let tk = AST.id_token $2
+                                                                                            PMonad.pushFunctionName $ token tk
                                                                                             createFunctionEntry tk $7 $2 (reverse $5) Nothing }
 
 ListaParam              :: { [AST.VarDeclaration] }
@@ -360,7 +361,6 @@ PopScope                :: { () }
 PopScope                : {- empty -}                           {% PMonad.popScope }
 
 {
- 
 --------------------------------------------
 ----------------- END ----------------------
 --------------------------------------------
