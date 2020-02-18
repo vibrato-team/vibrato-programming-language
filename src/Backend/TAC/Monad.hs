@@ -353,8 +353,7 @@ genForExp exp@AST.GreaterEqualExp{} = genForComp exp TAC.Gte
 genForExp exp@AST.CallExp{AST.exp_id=expId, AST.exp_params=params, AST.exp_type=expType, AST.exp_offset=offset, AST.exp_entry=Just entry} = do
     -- Generate TAC to each param
     tempList <- mapM genAndBindExp params
-    -- Push params to stack
-    mapM_ (\t -> genRaw [TAC.ThreeAddressCode TAC.Param Nothing (Just t) Nothing]) tempList
+    
     -- Store current `base`
     genRaw [TAC.ThreeAddressCode TAC.Set (Just base) (Just $ toQuarterConstant offset) (Just base)]
     
@@ -363,6 +362,9 @@ genForExp exp@AST.CallExp{AST.exp_id=expId, AST.exp_params=params, AST.exp_type=
     genRaw [TAC.ThreeAddressCode TAC.Add (Just temp) (Just arqWordConstant) (Just $ toQuarterConstant offset)]
     genRaw [TAC.ThreeAddressCode TAC.Add (Just base) (Just base) (Just temp) ]
 
+    -- Push params to stack
+    mapM_ (\t -> genRaw [TAC.ThreeAddressCode TAC.Param Nothing (Just t) Nothing]) tempList
+    
     -- Call function
     let n = length params
         name = AST.entry_name entry
@@ -482,7 +484,7 @@ gen AST.ReturnInst{AST.inst_maybe_exp=maybeExp} = do
         Just exp -> do
             temp <- genAndBindExp exp
             genRaw [TAC.ThreeAddressCode TAC.Return Nothing (Just temp) Nothing]
-            
+
     return []
 
 -- | Generate TAC for function
