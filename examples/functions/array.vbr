@@ -1,0 +1,9 @@
+track f(x: quarter, v: Melody<quarter>): quarter {
+    v[0]*x||
+}
+
+moderato() {
+    v0: Melody<quarter> <-> [1, 2, 3, 4]|
+    x0: quarter <-> 12|
+    y: quarter <-> play f with (x0, v0)|
+}
