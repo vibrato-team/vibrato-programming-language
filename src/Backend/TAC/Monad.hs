@@ -188,6 +188,9 @@ genForLValue exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, A
 
         genRaw [TAC.ThreeAddressCode TAC.Set (Just lValue) (Just index') (Just rValue)]
 
+
+
+
 -- | Generate corresponding TAC to Expression
 genForExp :: AST.Expression -> TACMonad (Maybe TAC.Value, InstList, InstList)
 
@@ -484,6 +487,27 @@ gen AST.ReturnInst{AST.inst_maybe_exp=maybeExp} = do
         Just exp -> do
             temp <- genAndBindExp exp
             genRaw [TAC.ThreeAddressCode TAC.Return Nothing (Just temp) Nothing]
+
+    return []
+
+gen AST.WhileInst { AST.inst_exp = instExp, AST.inst_block = instInst } = do
+    -- LoopLabel
+    label@(TAC.Label loop) <- newLabel
+    -- TAC Bool 
+    (_, truelist, falselist) <- genForExp instExp
+    -- True Label
+    labeltrue@(TAC.Label ltrue) <- newLabel
+    bindLabel truelist ltrue
+    
+    -- TAC BlockInstr
+    nextlist1 <- gen (AST.BlockInst instInst)
+
+    -- Goto LoopLabel
+    genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing (Just label) ]
+
+    -- False Label
+    labelfalse@(TAC.Label lfalse) <- newLabel
+    bindLabel falselist lfalse
 
     return []
 
