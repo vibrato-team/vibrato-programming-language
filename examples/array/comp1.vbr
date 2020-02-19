@@ -1,0 +1,5 @@
+moderato () {
+    arr: Melody<quarter> <-> [1, 2, 3, 4]|
+    brr: Melody<quarter> <-> [1,2,3,4]|
+    b0: whole <-> arr = brr|
+}
