@@ -526,6 +526,7 @@ gen AST.ReturnInst{AST.inst_maybe_exp=maybeExp} = do
 
     return []
 
+<<<<<<< HEAD
 gen AST.WhileInst { AST.inst_exp = instExp, AST.inst_block = instInst } = do
     -- LoopLabel
     label@(TAC.Label loop) <- newLabel
@@ -604,6 +605,8 @@ getVarForLoop Nothing inst_id inst_entry= do
 getVarForLoop (Just type_id) inst_id inst_entry = do 
             (Just var, _, _) <- genForExp (AST.IdExp inst_id type_id (Just inst_entry))
             return var
+=======
+>>>>>>> origin/master
 -- | Generate TAC for assignments
 genForDeepCopy :: TAC.Value -> TACMonad TAC.Value
 genForDeepCopy value1
