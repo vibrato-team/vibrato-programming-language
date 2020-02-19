@@ -1,0 +1,9 @@
+moderato() {
+    arr: Melody< Melody<quarter> > <-> [
+        [ 9, 8, 7],
+        [ 1, 2, 3, 4],
+        [ 4, 6, 123, 34, 21]
+    ]|
+    brr: Melody<quarter> <-> [1, 2, 3, 4]|
+    b0: whole <-> arr[1] = brr|
+}
