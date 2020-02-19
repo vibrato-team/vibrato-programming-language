@@ -151,3 +151,8 @@ instance Show Id where
 instance SymEntryCompatible Id where
   getSymID t@Temp{} = entry_name t
   getSymID x@Var{entry=e} = AST.entry_name e
+
+getType :: Value -> AST.ASTType
+getType (Constant (_, t)) = t
+getType (Id Temp{entry_type=t}) = t
+getType (Id Var{entry=e}) = fromJust $ AST.entry_type e
