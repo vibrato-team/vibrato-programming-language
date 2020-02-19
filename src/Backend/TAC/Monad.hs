@@ -377,9 +377,9 @@ genForExp exp@AST.CallExp{AST.exp_id=expId, AST.exp_params=params, AST.exp_type=
     genRaw [TAC.ThreeAddressCode TAC.Set (Just base) (Just $ toQuarterConstant offset) (Just base)]
 
     -- Push params to stack
+    genForIncrementBase $ toQuarterConstant offset
     mapM_ (\t -> genRaw [TAC.ThreeAddressCode TAC.Param Nothing (Just t) Nothing]) tempList
     
-    genForIncrementBase $ toQuarterConstant offset
 
     -- Call function
     let n = length params
@@ -632,7 +632,13 @@ genForDeepCopy value1 offset
 
         return addr
 
-    | otherwise = return value1
+    | otherwise =
+        case value1 of
+            TAC.Id TAC.Temp{} -> return value1
+            _ -> do
+                temp <- newTemp $ TAC.getType value1
+                genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp) (Just value1) Nothing]
+                return temp
 
 -- | Generate TAC for comparing arrays
 genForArrayComp :: TAC.Value -> TAC.Value -> TACMonad (Maybe TAC.Value, InstList, InstList)
@@ -975,16 +981,20 @@ genForIncrementBase offset = do
     return temp
 
 genForCall :: String -> TAC.Value -> TAC.Value -> TACMonad TAC.Value
-genForCall name param offset = do
+genForCall name param' offset = do
+    param <- newTemp $ TAC.getType param'
+    genRaw [TAC.ThreeAddressCode TAC.Assign (Just param) (Just param') Nothing]
+
     -- Store current `base`
-    genRaw [TAC.ThreeAddressCode TAC.Set (Just base) (Just $ toQuarterConstant offset) (Just base),
-            TAC.ThreeAddressCode TAC.Param Nothing (Just param) Nothing]
+    genRaw [TAC.ThreeAddressCode TAC.Set (Just base) (Just $ toQuarterConstant offset) (Just base)]
 
     genForIncrementBase offset
+
+    genRaw [TAC.ThreeAddressCode TAC.Param Nothing (Just param) Nothing]
+
     ret <- newTemp $ AST.Simple "quarter"
     genRaw [TAC.ThreeAddressCode TAC.Call (Just ret) (Just $ TAC.Label name) (Just $ toQuarterConstant 1) ]
     return ret
-    
 
 newLabel :: TACMonad TAC.Value
 newLabel = do
