@@ -45,9 +45,13 @@ main = do
                         let table = PMonad.state_table pstate
                             functionNames = PMonad.state_functions prestate
                             functionEntries = map (\name -> head $ fromJust $ Map.lookup name table) functionNames
-                            acc (state, tac) entry = RWS.execRWST (TACMonad.genForFunction entry) () state >>= \(state', tac') -> return (state', tac ++ tac') 
+                            concatStates (state, tac) (state', tac') = return (state', tac ++ tac')
+                            acc p@(state, tac) entry = RWS.execRWST (TACMonad.genForFunction entry) () state >>= concatStates p
+                            acc' p@(state, tac) genForFunction = RWS.execRWST genForFunction () state >>= concatStates p
+                            functionGenerators = [TACMonad.genForMallocFunction, TACMonad.genForFreeFunction]
 
-                        (state, tac) <- foldM acc (TACMonad.initialState table, []) functionEntries
+                        (state, tac) <- foldM acc' (TACMonad.initialState table, []) functionGenerators
+                        (state, tac) <- foldM acc (state, tac) functionEntries
 
                         -- Backpatching
                         let bpMap = TACMonad.bp_map state
