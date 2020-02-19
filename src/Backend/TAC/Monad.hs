@@ -127,6 +127,11 @@ genForComp exp op
 
         return (Nothing, truelist, falselist)
 
+    | AST.type_str (AST.exp_type (AST.exp_left exp)) == "Melody" = do
+        (Just temp1, _, _) <- genForExp $ AST.exp_left exp
+        (Just temp2, _, _) <- genForExp $ AST.exp_right exp
+        genForArrayComp temp1 temp2
+
     | otherwise = do
         (Just rValue1, _, _) <- genForExp $ AST.exp_left exp
         (Just rValue2, _, _) <- genForExp $ AST.exp_right exp
@@ -514,7 +519,7 @@ genForDeepCopy :: TAC.Value -> TACMonad TAC.Value
 genForDeepCopy value1
     | AST.type_str (TAC.getType value1) == "Melody" = do
         let valueType@AST.Compound{AST.type_type=innerType} = TAC.getType value1
-        -- Get the length of second array, which is stored one word after the address
+        -- Get the length of array, which is stored one word after the address
         len <- newTemp $ AST.Simple "quarter"
         genRaw [TAC.ThreeAddressCode TAC.Get (Just len) (Just value1) (Just zeroConstant)]
 
@@ -547,6 +552,68 @@ genForDeepCopy value1
         return addr
 
     | otherwise = return value1
+
+-- | Generate TAC for comparing arrays
+genForArrayComp :: TAC.Value -> TAC.Value -> TACMonad (Maybe TAC.Value, InstList, InstList)
+genForArrayComp value1 value2
+    | AST.type_str (TAC.getType value1) == "Melody" = do
+        let valueType@AST.Compound{AST.type_type=innerType} = TAC.getType value1
+
+        arr1 <- newTemp $ TAC.getType value1
+        arr2 <- newTemp $ TAC.getType value2
+        genRaw [TAC.ThreeAddressCode TAC.Assign (Just arr1) (Just value1) Nothing,
+                TAC.ThreeAddressCode TAC.Assign (Just arr2) (Just value2) Nothing]
+
+        -- Get the length of array, which is stored one word after the address
+        len1 <- newTemp $ AST.Simple "quarter"
+        len2 <- newTemp $ AST.Simple "quarter"
+        genRaw [TAC.ThreeAddressCode TAC.Get (Just len1) (Just arr1) (Just zeroConstant),
+                TAC.ThreeAddressCode TAC.Get (Just len2) (Just arr2) (Just zeroConstant)]
+
+        -- Value to return
+        ret <- newTemp $ AST.Simple "whole"
+
+        -- If they are not of same size, break
+        compInst <- nextInst
+        genRaw [TAC.ThreeAddressCode TAC.Neq (Just len1) (Just len2) Nothing ]
+
+        size <- getSizeForArray len1 valueType
+
+        i <- newTemp $ AST.Simple "quarter"
+        w <- getSize innerType
+        genRaw [TAC.ThreeAddressCode TAC.Assign (Just i) (Just arqWordConstant) Nothing]
+
+        -- Iterate through array
+        whileLabel <- newLabel
+        guardInst <- nextInst
+        genRaw [ TAC.ThreeAddressCode TAC.Gte (Just i) (Just size) Nothing ]
+
+        -- Body
+        temp1 <- newTemp innerType
+        temp2 <- newTemp innerType
+        genRaw [TAC.ThreeAddressCode TAC.Get (Just temp1) (Just arr1) (Just i),
+                TAC.ThreeAddressCode TAC.Get (Just temp2) (Just arr2) (Just i)]
+
+        (_, truelist, falselist) <- genForArrayComp temp1 temp2
+        TAC.Label lName <- newLabel
+        bindLabel truelist lName
+        genRaw [TAC.ThreeAddressCode TAC.Add (Just i) (Just i) (Just $ TAC.Constant (show w, AST.Simple "quarter")),
+                TAC.ThreeAddressCode TAC.GoTo Nothing Nothing (Just whileLabel)]
+
+        return (Nothing, [guardInst], merge [compInst] falselist )
+
+    | otherwise = do
+        temp1 <- newTemp $ TAC.getType value1
+        temp2 <- newTemp $ TAC.getType value2
+
+        trueInst <- nextInst
+        genRaw [TAC.ThreeAddressCode TAC.Eq (Just temp1) (Just temp2) Nothing ]
+
+        falseInst <- nextInst
+        genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
+
+        return (Nothing, [trueInst], [falseInst])
+
 
 -- | Generate TAC for function
 genForFunction :: AST.Entry -> TACMonad ()
