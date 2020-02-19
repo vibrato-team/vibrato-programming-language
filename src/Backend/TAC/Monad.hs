@@ -35,6 +35,7 @@ trueConstant    = TAC.Constant ("true",  AST.Simple "whole")
 falseConstant   = TAC.Constant ("false", AST.Simple "whole")
 arqWordConstant = TAC.Constant (show PMonad.arqWord, AST.Simple "quarter")
 zeroConstant    = TAC.Constant ("0", AST.Simple "quarter")
+oneConstant    = TAC.Constant ("1", AST.Simple "quarter")
 base            = TAC.Id $ TAC.Temp "_base" $ AST.Simple "quarter"
 
 toQuarterConstant :: (Show a) => a -> TAC.Value 
@@ -385,7 +386,8 @@ genRaw :: [TAC.Instruction] -> TACMonad ()
 genRaw lst = do
     state@TACState{inst_count=instCount} <- RWS.get
     RWS.tell lst
-    RWS.put state{inst_count=instCount+1}
+    let n = length lst
+    RWS.put state{inst_count=instCount+n}
 
 -- | Gen corresponding TAC for blocks
 genForList :: [AST.Instruction] -> TACMonad InstList
@@ -510,6 +512,64 @@ gen AST.WhileInst { AST.inst_exp = instExp, AST.inst_block = instInst } = do
     bindLabel falselist lfalse
 
     return []
+
+gen (AST.ForInst inst_id inst_type inst_entry inst_block inst_start inst_end inst_step ) = do
+    -- Var declare and assign 
+    var <- getVarForLoop inst_type inst_id inst_entry
+        
+    -- Asignar exp_start a var
+    case inst_start of
+        Nothing -> genRaw [TAC.ThreeAddressCode TAC.Assign (Just var) (Just zeroConstant) Nothing ]
+        Just start -> do 
+            (Just temp, _, _) <- genForExp start
+            genRaw [TAC.ThreeAddressCode TAC.Assign (Just var) (Just temp) Nothing ]
+    
+    -- Generar codigo para Exp_End
+    (Just tempToCompare, _, _) <- genForExp inst_end
+
+    -- LoopLabel
+    label@(TAC.Label loop) <- newLabel
+
+    -- Create If
+    nextinstIf <- nextInst
+    genRaw [TAC.ThreeAddressCode TAC.Lt (Just var) (Just tempToCompare) Nothing]
+    nextinstfalse <- nextInst
+    genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing ]
+    
+    -- True Label
+    labeltrue@(TAC.Label ltrue) <- newLabel
+    bindLabel [nextinstIf] ltrue
+
+    -- TAC BlockInstr
+    nextlist1 <- gen (AST.BlockInst inst_block)
+
+    -- Incremento de variable de iteracion
+    case inst_step of
+        Nothing -> genRaw [TAC.ThreeAddressCode TAC.Add (Just var) (Just var) (Just oneConstant) ]
+        Just step -> do
+             -- Generar codigo para Exp_step
+            (Just tempToStep, _, _) <- genForExp step
+            genRaw [TAC.ThreeAddressCode TAC.Add (Just var) (Just var) (Just tempToStep)]
+
+    genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing (Just label)]
+
+    -- False Label
+    labelfalse@(TAC.Label lfalse) <- newLabel
+    bindLabel [nextinstfalse] lfalse
+    return []
+
+gen x = do 
+    liftIO $ print x
+    return []
+    
+-- | Auxiliar for get Iterate var of Loop
+getVarForLoop :: Maybe AST.ASTType -> AST.Id -> AST.Entry-> TACMonad TAC.Value
+getVarForLoop Nothing inst_id inst_entry= do 
+            (Just var, _, _) <- genForExp (AST.IdExp inst_id (AST.Simple "quarter") (Just inst_entry))
+            return var
+getVarForLoop (Just type_id) inst_id inst_entry = do 
+            (Just var, _, _) <- genForExp (AST.IdExp inst_id type_id (Just inst_entry))
+            return var
 
 -- | Generate TAC for function
 genForFunction :: AST.Entry -> TACMonad ()

@@ -39,7 +39,7 @@ checkConstLvalue (AST.IdExp id _ _) = do
     let tkString = token $ AST.id_token id
     entryMaybe <- PMonad.lookup tkString
     case entryMaybe of
-        Just (AST.Entry _ AST.Const _ _ _) -> Semantic.Analyzers.pushError (AST.id_token id) "You cannot modify a Const:"
+        Just (AST.Entry _ (AST.Const _) _ _ _) -> Semantic.Analyzers.pushError (AST.id_token id) "You cannot modify a Const:"
         Just _ -> return ()
         Nothing -> return ()
 checkConstLvalue _ = return ()

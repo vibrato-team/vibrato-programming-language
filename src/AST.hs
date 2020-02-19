@@ -140,6 +140,7 @@ data Instruction =
     
     ForInst         {   inst_id :: Id,
                         inst_type :: Maybe ASTType,
+                        inst_entry :: Entry,
                         inst_block :: Block,
                         inst_start :: Maybe Expression,
                         inst_end :: Expression,
@@ -180,7 +181,7 @@ errorExp = AST.ErrorExp errorType
 data Category =
     Function         { function_block :: Maybe AST.Block, function_params :: [AST.VarDeclaration] }     |
     Var              { offset :: Maybe Int }|
-    Const            |
+    Const            { offset :: Maybe Int }|
     Type             { type_fields :: Maybe [AST.VarDeclaration], type_adt :: Maybe ADT, type_size :: Int } |
     Constructor      | -- ^ Melody and Sample  
     Field            { offset :: Maybe Int }| -- ^ Member of a struct/union

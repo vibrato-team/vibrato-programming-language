@@ -338,7 +338,7 @@ Loop                    : loop PushScope IdConst Block PopScope In '(' Expressio
                                                                                                                                     pushIfError $9 $7 $ matchingError "parentheses"
 
                                                                                                                                     checkExpType $8 AST.numberTypes $7
-                                                                                                                                    return $ AST.ForInst (fst $3) (snd $3) $4 Nothing $8 Nothing }
+                                                                                                                                    return $ AST.ForInst (fst $3) (fst $ snd $3) (snd $ snd $3) $4 Nothing $8 Nothing }
                         | loop PushScope IdConst Block PopScope In '(' Expression ',' Expression ClosePar                        {%do
                                                                                                                                     -- Error recovery
                                                                                                                                     pushIfError $6 $1 "Missing \"in\" in loop instruction"
@@ -346,7 +346,7 @@ Loop                    : loop PushScope IdConst Block PopScope In '(' Expressio
 
                                                                                                                                     checkExpType $8 AST.numberTypes $7
                                                                                                                                     checkExpType $10 AST.numberTypes $9
-                                                                                                                                    return $ AST.ForInst (fst $3) (snd $3) $4 (Just $8) $10 Nothing }
+                                                                                                                                    return $ AST.ForInst (fst $3) (fst $ snd $3) (snd $ snd $3) $4 (Just $8) $10 Nothing }
                         | loop PushScope IdConst Block PopScope In '(' Expression ',' Expression ',' Expression ClosePar         {%do
                                                                                                                                     -- Error recovery
                                                                                                                                     pushIfError $6 $1 "Missing \"in\" in loop instruction"
@@ -355,15 +355,22 @@ Loop                    : loop PushScope IdConst Block PopScope In '(' Expressio
                                                                                                                                     checkExpType $8 AST.numberTypes $7
                                                                                                                                     checkExpType $10 AST.numberTypes $9
                                                                                                                                     checkExpType $12 AST.numberTypes $11
-                                                                                                                                    return $ AST.ForInst (fst $3) (snd $3) $4 (Just $8) $10 (Just $12) }
+                                                                                                                                    return $ AST.ForInst (fst $3) (fst $ snd $3) (snd $ snd $3) $4 (Just $8) $10 (Just $12) }
                         | loop '(' Expression ClosePar Block     {% do
                                                                     pushIfError $4 $2 $ matchingError "parentheses"
                                                                     checkExpType $3 [AST.Simple "whole"] $2
                                                                     return $ AST.WhileInst $3 $5 }
-IdConst                 :: { (AST.Id, Maybe AST.ASTType) }
+IdConst                 :: { (AST.Id, (Maybe AST.ASTType, AST.Entry)) }
 IdConst                 : id MaybeType                                   {% do 
-                                                                            createConstEntry $1 $2   
-                                                                            return $ (AST.Id $1, $2) }
+                                                                            case $2 of 
+                                                                                Nothing -> do 
+                                                                                    offset <- addOffset $ AST.Simple "quarter"
+                                                                                    createConstEntry $1 $2 (Just offset)
+                                                                                Just typex -> do 
+                                                                                    offset <- addOffset typex
+                                                                                    createConstEntry $1 $2 (Just offset)
+                                                                            Just entry <- PMonad.lookup (token $1) 
+                                                                            return $ (AST.Id $1, ($2, entry)) }
 
 
 CallFuncion             :: { AST.Expression }
@@ -798,15 +805,15 @@ createVarEntry tk semType maybeOffset = do
         pushError tk "Variable already declared in the same scope:"
         return Nothing
 
-createConstEntry :: Token -> Maybe AST.ASTType -> ParserMonad ()
-createConstEntry tk semType = do 
+createConstEntry :: Token -> Maybe AST.ASTType -> Maybe Int -> ParserMonad ()
+createConstEntry tk semType maybeOffset = do 
     curr <- PMonad.currScope
     result <- verifyVarEntry (token tk) curr
     let typeconst = fromMaybe (AST.Simple "quarter") semType  
     if result then do 
         let entry = AST.Entry {
             AST.entry_name = token tk,
-            AST.entry_category = AST.Const,
+            AST.entry_category = AST.Const maybeOffset,
             AST.entry_scope = curr,
             AST.entry_type = Just typeconst,
             AST.entry_level = Nothing
@@ -911,7 +918,7 @@ verifyVarEntry name current_scope = do
     case entry of
         Nothing -> return True
         Just (AST.Entry _ AST.Var{} scope _ _) -> return $ scope /= current_scope
-        Just (AST.Entry _ AST.Const scope _ _) -> return $ scope /= current_scope
+        Just (AST.Entry _ (AST.Const _) scope _ _) -> return $ scope /= current_scope
         Just _ -> return True
 
 verifyTypeEntry :: String -> ParserMonad (Bool)
