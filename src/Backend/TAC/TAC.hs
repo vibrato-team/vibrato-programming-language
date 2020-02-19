@@ -124,6 +124,10 @@ data Operation =
     Get         |
     -- | x[i]=y
     Set         |
+     -- | x:= 5:y
+    Anexo             |
+    -- | x:= y::z
+    Concat            |
 
     -- Pointer operations
     -- | x=&y

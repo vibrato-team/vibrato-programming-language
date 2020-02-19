@@ -32,82 +32,92 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) w
   show (ThreeAddressCode Gt (Just x) (Just y) (Just label))       = "\t" ++ "if " ++ show x ++ " > " ++ show y ++ " then goto " ++ show label
   show (ThreeAddressCode Lte (Just x) (Just y) (Just label))      = "\t" ++  "if " ++ show x ++ " <= " ++ show y ++ " then goto " ++ show label
   show (ThreeAddressCode Gte (Just x) (Just y) (Just label))      = "\t" ++  "if " ++ show x ++ " >= " ++ show y ++ " then goto " ++ show label
+  show (ThreeAddressCode Get (Just x) (Just y) (Just i))          = "\t" ++ show x ++ " := " ++ show y ++ "[" ++ show i ++ "]"
+  show (ThreeAddressCode Set (Just x) (Just i) (Just y))          = "\t" ++ show x ++ "[" ++ show i ++ "] := " ++ show y
   show (ThreeAddressCode NewLabel Nothing (Just label) Nothing)   = show label ++ ":"
-  show tac = show (tacLvalue tac) ++ " := " ++ show (tacRvalue1 tac) ++ " (?) " ++ show (tacRvalue2 tac)
+  show (ThreeAddressCode New (Just x) (Just size) Nothing)        = "\t" ++ show x ++ " := malloc(" ++ show size ++ ")"
+  show (ThreeAddressCode Free Nothing (Just addr) Nothing)        = "\tfree(" ++ show addr ++ ")"
+  show (ThreeAddressCode Ref (Just x) (Just y) Nothing)           = "\t" ++ show x ++ " := &" ++ show y
+  show (ThreeAddressCode Param Nothing (Just p) Nothing)          = "\tparam " ++ show p
+  show (ThreeAddressCode Call Nothing (Just l) (Just n))          = "\tcall " ++ show l ++ ", " ++ show n
+  show (ThreeAddressCode Call (Just t) (Just l) (Just n))         = "\t" ++ show t ++ " := call " ++ show l ++ ", " ++ show n
+  show (ThreeAddressCode Return Nothing Nothing Nothing)          = "\treturn" 
+  show (ThreeAddressCode Return Nothing (Just t) Nothing)          = "\treturn " ++ show t 
 
+  show tac = show (tacLvalue tac) ++ " := " ++ show (tacRvalue1 tac) ++ show (tacOperand tac) ++ show (tacRvalue2 tac)
 
 data (SymEntryCompatible a) => Operand a b = 
-  Variable a           | 
+  Id a | 
   Constant (String, b) | 
-  Label Int
+  Label String
   deriving (Eq)
 
-
 instance (SymEntryCompatible a, Show a, Show b) => Show (Operand a b) where
-  show (Variable x) = show x
+  show (Id x) = show x
   show (Constant c) = fst c
-  show (Label l)    = show l
-
+  show (Label l) = l
 
 data Operation =
-    Assign            |
+    Assign        |
     -- Arithmetic
     -- | Addition
-    Add               |
+    Add            |
     -- | Substraction
-    Sub               |
+    Sub           |
     -- | Unary minus
-    Minus             |
+    Minus           |
     -- | Multiplication
-    Mult              |
+    Mult          |
     -- | Division
-    Div               |
+    Div           |
     -- | Modulus
-    Mod               |
+    Mod          |
 
     -- Logical
     -- | Logical and
     And               |
     -- | Logical or
-    Or                |
+    Or               |
     -- | Logical not
-    Not               |
+    Not             |
 
     -- Comparators
     -- | Greater than
-    Gt                |
+    Gt           |
     -- | Greater than or equal
-    Gte               |
+    Gte        |
     -- | Less than
-    Lt                |
+    Lt           |
     -- | Less than or equal
-    Lte               |
+    Lte        |
     -- | Equal
-    Eq                |
+    Eq           |
     -- | Not equal
-    Neq               |
+    Neq         |
 
     -- Jumping
     -- | goto <label>
-    GoTo              |
+    GoTo        |
     -- | if <var> goto <label>
-    If                |
+    If          |
     -- | if ~<var> goto <label>
-    IfFalse           |
+    IfFalse     |
     -- | New label
-    NewLabel          |
+    NewLabel       |
 
     -- Calling functions
     -- | Define a parameter
-    Param             |
+    Param       |
     -- | Call function
-    Call              |
+    Call        |
+    -- | Return from function
+    Return      |
 
     -- Array operators
     -- | x=y[i]
-    Get               |
+    Get         |
     -- | x[i]=y
-    Set               |
+    Set         |
     -- | x:= 5:y
     Anexo             |
     -- | x:= y::z
@@ -115,10 +125,13 @@ data Operation =
 
     -- Pointer operations
     -- | x=&y
-    Ref               |
+    Ref         |
     -- | x=*y
-    Deref             |
+    Deref       |
+    -- | malloc(n, t)
+    New         |
+    -- | free(x)
+    Free        |
 
     Cast String String
-
     deriving (Eq, Show)
