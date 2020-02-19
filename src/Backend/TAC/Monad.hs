@@ -142,25 +142,33 @@ genForComp exp op
 
         return (Nothing, truelist, falselist)
 
--- | Generate TAC for new array
-genForArray :: TAC.Value -> AST.ASTType -> TACMonad TAC.Value
-genForArray size expType@AST.Compound{AST.type_type=innerType} = do
+-- | Get size to allocate
+getSizeForArray :: TAC.Value -> AST.ASTType -> TACMonad TAC.Value
+getSizeForArray len expType@AST.Compound{AST.type_type=innerType} = do
     let quarterType = AST.Simple "quarter"
     -- Size * width
     w <- getSize innerType
     temp0 <- newTemp quarterType
-    genRaw [TAC.ThreeAddressCode TAC.Mult (Just temp0) (Just $ TAC.Constant (show w, AST.Simple "quarter")) (Just size)]
+    genRaw [TAC.ThreeAddressCode TAC.Mult (Just temp0) (Just $ TAC.Constant (show w, AST.Simple "quarter")) (Just len)]
 
     -- First element is an integer of a word with the size
-    temp1 <- newTemp quarterType
-    genRaw [TAC.ThreeAddressCode TAC.Add (Just temp1) (Just temp0) (Just arqWordConstant)]
+    size <- newTemp quarterType
+    genRaw [TAC.ThreeAddressCode TAC.Add (Just size) (Just temp0) (Just arqWordConstant)]
 
+    return size
+
+getSizeForArray _ (AST.Simple "empty_list") = return zeroConstant
+
+-- | Generate TAC for new array
+genForArray :: TAC.Value -> AST.ASTType -> TACMonad TAC.Value
+genForArray len expType = do
+    size <- getSizeForArray len expType
     -- Allocate memory
     temp <- newTemp expType
-    genRaw [TAC.ThreeAddressCode TAC.New (Just temp) (Just temp1) Nothing]
+    genRaw [TAC.ThreeAddressCode TAC.New (Just temp) (Just size) Nothing]
 
-    -- Assign first element to size
-    genRaw [TAC.ThreeAddressCode TAC.Set (Just temp) (Just zeroConstant) (Just size)]
+    -- Assign first element to len
+    genRaw [TAC.ThreeAddressCode TAC.Set (Just temp) (Just zeroConstant) (Just len)]
 
     return temp
 
@@ -199,15 +207,17 @@ genForExp :: AST.Expression -> TACMonad (Maybe TAC.Value, InstList, InstList)
 genForExp exp@(AST.LiteralExp expToken expType)
     -- if it's a string
     | expType == AST.Compound "Melody" (AST.Simple "half") = do
-        let string = init (tail $ getStringFromExp exp) ++ "\0"
-            size = PMonad.arqWord + length string -- Allocate one int for size and one byte for NUL
+        let string = init (tail $ getStringFromExp exp) ++ ['\0']
+            len = length string
+            lenValue = TAC.Constant (show len, AST.Simple "quarter")
+            size = PMonad.arqWord + len -- Allocate one int for size and one byte for NUL
             sizeValue = TAC.Constant (show size, AST.Simple "quarter")
 
         temp <- newTemp expType
         genRaw [TAC.ThreeAddressCode TAC.New (Just temp) (Just sizeValue ) Nothing]
         
         -- Store size
-        genRaw [TAC.ThreeAddressCode TAC.Set (Just temp) (Just zeroConstant) (Just sizeValue ) ]
+        genRaw [TAC.ThreeAddressCode TAC.Set (Just temp) (Just zeroConstant) (Just lenValue ) ]
 
         let chars = map (\c -> TAC.Constant (show c, AST.Simple "half")) string
         foldM_ ( pushArrayElement temp 1 ) PMonad.arqWord chars
@@ -413,8 +423,9 @@ gen :: AST.Instruction -> TACMonad InstList
 gen (AST.VarDecInst _) = return []
 
 gen inst@(AST.AssignInst leftExp rightExp) = do
+    let expType = AST.exp_type rightExp
     genAssignment <- genForLValue leftExp
-    case AST.exp_type rightExp of
+    case expType of
         AST.Simple "whole" -> do
             (_, truelist, falselist)   <- genForExp rightExp
 
@@ -435,6 +446,16 @@ gen inst@(AST.AssignInst leftExp rightExp) = do
             genAssignment falseConstant
 
             return nextlist
+
+        AST.Compound "Melody" _ -> do
+            (Just rValue, _, _)  <- genForExp rightExp
+            case rightExp of
+                AST.LiteralExp{AST.exp_type=AST.Compound{AST.type_str="Melody"}} ->
+                    genAssignment rValue
+                _ -> do
+                    copy <- genForDeepCopy rValue
+                    genAssignment copy
+            return []
 
         _ -> do
             (Just rValue, _, _)  <- genForExp rightExp
@@ -481,8 +502,8 @@ gen AST.ReturnInst{AST.inst_maybe_exp=maybeExp} = do
     let offsetConstant = toQuarterConstant $ -4
     fp <- newTemp $ AST.Simple "quarter"
 
-    genRaw [TAC.ThreeAddressCode TAC.Get (Just fp) (Just base) (Just offsetConstant)]
-    genRaw [TAC.ThreeAddressCode TAC.Assign (Just base) (Just fp) Nothing ]
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just fp) (Just base) (Just offsetConstant),
+            TAC.ThreeAddressCode TAC.Assign (Just base) (Just fp) Nothing ]
 
     case maybeExp of
         Nothing -> genRaw [TAC.ThreeAddressCode TAC.Return Nothing Nothing Nothing]
@@ -570,6 +591,44 @@ getVarForLoop Nothing inst_id inst_entry= do
 getVarForLoop (Just type_id) inst_id inst_entry = do 
             (Just var, _, _) <- genForExp (AST.IdExp inst_id type_id (Just inst_entry))
             return var
+-- | Generate TAC for assignments
+genForDeepCopy :: TAC.Value -> TACMonad TAC.Value
+genForDeepCopy value1
+    | AST.type_str (TAC.getType value1) == "Melody" = do
+        let valueType@AST.Compound{AST.type_type=innerType} = TAC.getType value1
+        -- Get the length of second array, which is stored one word after the address
+        len <- newTemp $ AST.Simple "quarter"
+        genRaw [TAC.ThreeAddressCode TAC.Get (Just len) (Just value1) (Just zeroConstant)]
+
+        -- Allocate memory
+        addr <- genForArray len valueType
+        size <- getSizeForArray len valueType
+
+        i <- newTemp $ AST.Simple "quarter"
+        w <- getSize innerType
+        genRaw [TAC.ThreeAddressCode TAC.Assign (Just i) (Just arqWordConstant) Nothing]
+
+        -- Iterate through array
+        whileLabel <- newLabel
+        guardInst <- nextInst
+        genRaw [ TAC.ThreeAddressCode TAC.Gte (Just i) (Just size) Nothing ]
+
+        -- Body
+        temp1 <- newTemp innerType
+        genRaw [TAC.ThreeAddressCode TAC.Get (Just temp1) (Just value1) (Just i)]
+
+        copy <- genForDeepCopy temp1
+        genRaw [TAC.ThreeAddressCode TAC.Set (Just addr) (Just i) (Just copy),
+                TAC.ThreeAddressCode TAC.Add (Just i) (Just i) (Just $ TAC.Constant (show w, AST.Simple "quarter")),
+                TAC.ThreeAddressCode TAC.GoTo Nothing Nothing (Just whileLabel)]
+
+        -- Final
+        label@(TAC.Label l) <- newLabel
+        bindLabel [guardInst] l
+
+        return addr
+
+    | otherwise = return value1
 
 -- | Generate TAC for function
 genForFunction :: AST.Entry -> TACMonad ()
