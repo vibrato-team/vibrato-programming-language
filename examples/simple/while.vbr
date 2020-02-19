@@ -1,0 +1,11 @@
+moderato(){
+    p: quarter <-> 1 |
+    loop (p = 10) {
+        if (p <= 5){
+            loop ( p = 4){
+                p <-> p + 1 |       
+            }
+        }
+        p <-> p + 1 |
+    }
+}

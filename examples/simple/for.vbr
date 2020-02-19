@@ -1,0 +1,11 @@
+moderato(){
+    y: quarter <-> 0 |
+    loop x {
+        y <-> y + 1 |
+        if( y = 3 ){
+            loop j {
+                y <-> y + 1 |
+            } in (2)
+        }
+    } in (5)
+}git

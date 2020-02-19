@@ -1,0 +1,14 @@
+track max(v: Melody<quarter>): quarter {
+    m: quarter <-> v[0]|
+    loop i {
+        if (m < v[i]) {
+            m <-> v[i]|
+        }
+    } in (1, length(v))
+    m||
+}
+
+moderato() {
+    arr: Melody<quarter> <-> [1, 2, -10, 4]|
+    m: quarter <-> play max with (arr)|
+}
