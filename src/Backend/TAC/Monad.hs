@@ -166,6 +166,11 @@ getSizeForArray len expType@AST.Compound{AST.type_type=innerType} = do
 
 getSizeForArray _ (AST.Simple "empty_list") = return zeroConstant
 
+genForNew :: TAC.Value -> AST.ASTType -> TACMonad TAC.Value
+genForNew offset astType = do
+    size <- getSize astType
+    genForCall "malloc" (toQuarterConstant size) offset
+
 -- | Generate TAC for new array
 genForArray :: TAC.Value -> AST.ASTType -> TAC.Value -> TACMonad TAC.Value
 genForArray len expType offset = do
@@ -184,6 +189,14 @@ genForLValue exp@AST.IdExp{AST.exp_entry=Just entry} =
     return $ \rValue -> do
         let lValue = TAC.Id $ TAC.Var entry
         genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just rValue) Nothing]
+
+genForLValue exp@AST.DereferenceExp{AST.exp_exp=expExp} =
+    return $ \rValue -> do
+        (Just lexp', _, _) <- genForExp expExp
+        lexp <- newTemp $ AST.exp_type expExp
+        genRaw [TAC.ThreeAddressCode TAC.Assign (Just lexp) (Just lexp') Nothing]
+
+        genRaw [TAC.ThreeAddressCode TAC.Set (Just lexp) (Just zeroConstant) (Just rValue)]
 
 genForLValue exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, AST.exp_type=expType} =
     return $ \rValue -> do
@@ -313,6 +326,27 @@ genForExp exp@AST.LengthExp{AST.exp_exp=expExp, AST.exp_type=expType} = do
     temp <- newTemp expType
     genRaw [TAC.ThreeAddressCode TAC.Get (Just temp) (Just arr') (Just zeroConstant) ]
 
+    return (Just temp, [], [])
+
+-- New
+genForExp exp@AST.NewExp{AST.exp_init=initMaybe, AST.exp_type=AST.Compound{AST.type_type=innerType}, AST.exp_offset=expOffset} = do
+    let offset = TAC.Constant (show expOffset, AST.Simple "quarter")
+    ptr <- genForNew offset innerType
+
+    case initMaybe of
+        Nothing -> return (Just ptr, [], [])
+        Just exp' -> do
+            temp <- genAndBindExp exp'
+            genRaw [TAC.ThreeAddressCode TAC.Set (Just ptr) (Just zeroConstant) (Just temp)]
+            return (Just ptr, [], [])
+
+genForExp exp@AST.DereferenceExp{AST.exp_exp=expExp, AST.exp_type=expType, AST.exp_offset=expOffset} = do
+    (Just lexp', _, _) <- genForExp expExp
+    lexp <- newTemp $ AST.exp_type expExp
+    genRaw [TAC.ThreeAddressCode TAC.Assign (Just lexp) (Just lexp') Nothing]
+
+    temp <- newTemp expType
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just temp) (Just lexp) (Just zeroConstant)]
     return (Just temp, [], [])
 
 -- Logical Not
