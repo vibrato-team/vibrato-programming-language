@@ -166,6 +166,11 @@ getAndIncOffset width = do
     RWS.put state{ state_offset = ((offset + width + (arqWord-1)) `div` arqWord) * arqWord }
     return offset
 
+getOffset :: ParserMonad Int
+getOffset = do
+    state@ParserState{state_offset=offset} <- RWS.get
+    return offset
+
 -- | Reset offset back to zero
 resetOffset :: ParserMonad ()
 resetOffset = do

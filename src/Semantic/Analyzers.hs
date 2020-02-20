@@ -35,7 +35,7 @@ checkVarIsDeclared tk = do
 
 -- Chequea que un lvalue no sea const
 checkConstLvalue :: AST.Expression -> ParserMonad ()
-checkConstLvalue (AST.IdExp id _ _) = do
+checkConstLvalue (AST.IdExp id _ _ _) = do
     let tkString = token $ AST.id_token id
     entryMaybe <- PMonad.lookup tkString
     case entryMaybe of
@@ -132,7 +132,7 @@ castExp :: AST.Expression -> AST.ASTType -> AST.Expression
 castExp exp finalType =
     if AST.exp_type exp == finalType 
         then exp
-        else AST.CastExp exp (AST.exp_type exp) finalType 
+        else AST.CastExp exp (AST.exp_type exp) finalType (AST.exp_offset exp)
 
 -- | Chequear que los parametros tengan tipos compatibles con los argumentos y retorna una lista
 -- de de los parametros casteados si no hubo un error.

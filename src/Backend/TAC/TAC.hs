@@ -45,7 +45,8 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) w
   show (ThreeAddressCode Call Nothing (Just l) (Just n))          = "\tcall " ++ show l ++ ", " ++ show n
   show (ThreeAddressCode Call (Just t) (Just l) (Just n))         = "\t" ++ show t ++ " := call " ++ show l ++ ", " ++ show n
   show (ThreeAddressCode Return Nothing Nothing Nothing)          = "\treturn" 
-  show (ThreeAddressCode Return Nothing (Just t) Nothing)          = "\treturn " ++ show t 
+  show (ThreeAddressCode Return Nothing (Just t) Nothing)         = "\treturn " ++ show t 
+  show (ThreeAddressCode Sbrk (Just t) (Just sz) Nothing)         = "\t" ++ show t ++ " := sbrk(" ++ show sz ++ ")"  
 
   show tac = show (tacLvalue tac) ++ " := " ++ show (tacRvalue1 tac) ++ show (tacOperand tac) ++ show (tacRvalue2 tac)
 
@@ -134,6 +135,8 @@ data Operation =
     Ref         |
     -- | x=*y
     Deref       |
+    -- sbrk(bytes)
+    Sbrk        |
     -- | malloc(n, t)
     New         |
     -- | free(x)
@@ -150,7 +153,7 @@ data Id =
 
 instance Show Id where
   show x@Temp{} = entry_name x
-  show x@Var{entry=e} = "_base[" ++ show (fromJust $ AST.offset $ AST.entry_category e) ++ "]"
+  show x@Var{entry=e} = "$base[" ++ show (fromJust $ AST.offset $ AST.entry_category e) ++ "]"
 
 instance SymEntryCompatible Id where
   getSymID t@Temp{} = entry_name t
