@@ -1,0 +1,28 @@
+*/
+    Calculo de la raiz cuadrada por metodo de Heron
+/*
+track abs(n:32th): 32th {
+    if( n < 0 ) n * -1 ||
+    n ||
+}
+
+track heron(n: 32th, error: 32th): 32th {
+    prev: 32th <-> 1.0 |
+    new_: 32th <-> 0.5 * (1.0 + n) |
+
+    loop (play abs with (new_ - prev) > error ){
+        prev <-> new_ |
+        new_ <-> 0.5 * (new_ + n/new_) |
+    }
+    new_ ||
+}
+
+moderato(){
+    n: 32th |
+    error: 32th |
+    |> ("Ingrese un flotante o \"32th\":")|
+    @ (n)|
+    |> ("Ingrese un flotante o \"32th\":")|
+    @ (error)|
+    |> ("Raiz cuadrada de", n, "es", play heron with (n, error)) |
+}

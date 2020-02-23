@@ -1,0 +1,19 @@
+**/
+Factorial iterativo.
+/**
+track fact(numero: quarter): eighth {
+    i:quarter <-> numero |
+    result: eighth <-> 1 |
+    loop( i /= 0 ){
+        result <-> result * i |
+        i <-> i - 1 |
+    }
+    result || 
+}
+
+moderato() {
+    n: quarter|
+    |> ("Ingrese un entero o \"quarter\":")|
+    @ (n)|
+    |> ("Factorial de", n, "es", play fact with (n))|
+}
