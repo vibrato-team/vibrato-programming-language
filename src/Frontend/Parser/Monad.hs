@@ -163,7 +163,8 @@ pushError err = do
 getAndIncOffset :: Int -> ParserMonad Int
 getAndIncOffset width = do
     state@ParserState{state_offset=offset} <- RWS.get
-    RWS.put state{ state_offset = ((offset + width + (arqWord-1)) `div` arqWord) * arqWord }
+    let newOffset = ((offset + width + (arqWord-1)) `div` arqWord) * arqWord
+    RWS.put state{ state_offset = newOffset }
     return offset
 
 getOffset :: ParserMonad Int

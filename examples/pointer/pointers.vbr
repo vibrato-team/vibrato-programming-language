@@ -1,5 +1,5 @@
 moderato() {
-    qpointer1: Sample<quarter> <-> new 4|
+    qpointer1: Sample<quarter> <-> new 17|
     qpointer2: Sample<quarter> <-> new quarter(5)|
 
     epointer1: Sample<eighth> <-> new eighth(8)|
@@ -7,7 +7,10 @@ moderato() {
     epointer2: Sample<eighth> <-> new eighth(9)|
 
     x: eighth <-> qpointer2!|
+
     qpointer1! <-> quarter(epointer2!)|
-    |>(qpointer2! * epointer2! + x / qpointer1!)|
+    y: eighth <-> x / qpointer1!|
+
+    |>(qpointer2! * epointer2! + y)|
 
 }

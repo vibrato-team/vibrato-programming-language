@@ -147,19 +147,27 @@ data Operation =
 
 
 data Id = 
-  Temp  { entry_name  :: String, entry_type  :: AST.ASTType } |
+  Temp  { temp_name  :: String, temp_type  :: AST.ASTType, temp_offset :: Maybe Int } |
   Var   { entry :: AST.Entry }
   deriving (Eq)
 
 instance Show Id where
-  show x@Temp{} = entry_name x
-  show x@Var{entry=e} = "$base[" ++ show (fromJust $ AST.offset $ AST.entry_category e) ++ "]"
+  -- show x@Temp{temp_offset=Just offset} = temp_name x ++ "_" ++ show offset
+  show x@Temp{} = temp_name x
+  show x = getSymID x ++ "_" ++ show (idOffset x)
+
+idOffset :: Id -> Int
+idOffset Temp{temp_offset=Just offset} = offset
+idOffset Var{entry=e} = fromJust $ AST.offset $ AST.entry_category e
+
+operandOffset :: Operand Id b -> Int
+operandOffset (Id x) = idOffset x
 
 instance SymEntryCompatible Id where
-  getSymID t@Temp{} = entry_name t
+  getSymID t@Temp{} = temp_name t
   getSymID x@Var{entry=e} = AST.entry_name e
 
 getType :: Value -> AST.ASTType
 getType (Constant (_, t)) = t
-getType (Id Temp{entry_type=t}) = t
+getType (Id Temp{temp_type=t}) = t
 getType (Id Var{entry=e}) = fromJust $ AST.entry_type e

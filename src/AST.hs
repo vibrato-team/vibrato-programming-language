@@ -56,66 +56,66 @@ data Expression =
     ErrorExp        {   exp_type :: ASTType }                                                      |
 
     -- | Literal expression
-    LiteralExp         {   exp_token :: Token, exp_type :: ASTType, exp_offset :: Int }                                  |
+    LiteralExp         {   exp_token :: Token, exp_type :: ASTType  }                                  |
 
     -- | ASTType constructor for unions and records
-    ChordLiteral        { exp_exps :: [Expression], exp_type :: ASTType, exp_offset :: Int }                          |
-    LegatoLiteral       { exp_id :: Id, exp_exp :: Expression, exp_type :: ASTType, exp_offset :: Int }               |
+    ChordLiteral        { exp_exps :: [Expression], exp_type :: ASTType  }                          |
+    LegatoLiteral       { exp_id :: Id, exp_exp :: Expression, exp_type :: ASTType  }               |
     
-    MelodyLiteral   {   exp_exps :: [Expression], exp_type :: ASTType, exp_offset :: Int }                          |
-    MelodyLiteral'   {   exp_size :: Expression, exp_type :: ASTType, exp_offset :: Int }                              |
+    MelodyLiteral   {   exp_exps :: [Expression], exp_type :: ASTType  }                          |
+    MelodyLiteral'   {   exp_size :: Expression, exp_type :: ASTType  }                              |
 
     -- | Identifier
-    IdExp           {   exp_id :: Id, exp_type :: ASTType, exp_entry :: Maybe Entry, exp_offset :: Int }                      |
+    IdExp           {   exp_id :: Id, exp_type :: ASTType, exp_entry :: Maybe Entry  }                      |
 
     -- | Call function
     CallExp         {   exp_id :: Id, exp_params :: [Expression],
-                        exp_type :: ASTType, exp_offset :: Int,
+                        exp_type :: ASTType ,
                         exp_entry :: Maybe Entry }            |
 
     -- | Dereference an expression
-    DereferenceExp  {   exp_exp :: Expression, exp_token :: Token, exp_type :: ASTType, exp_offset :: Int }                               |
+    DereferenceExp  {   exp_exp :: Expression, exp_token :: Token, exp_type :: ASTType  }                               |
     
     -- | Allocate memory
-    NewExp          {   exp_init :: Maybe Expression, exp_type :: ASTType, exp_offset :: Int }                              |
+    NewExp          {   exp_init :: Maybe Expression, exp_type :: ASTType  }                              |
 
     -- | Indexing an array
     IndexingExp     {   exp_left :: Expression, exp_right :: Expression, 
-                        exp_bracket :: Token, exp_type :: ASTType, exp_offset :: Int }                                |
+                        exp_bracket :: Token, exp_type :: ASTType  }                                |
 
-    LengthExp       { exp_exp :: Expression, exp_type :: ASTType, exp_offset :: Int }                                 |
+    LengthExp       { exp_exp :: Expression, exp_type :: ASTType  }                                 |
 
     -- | Accessing a struct field
-    DotExp          {   exp_left :: Expression, exp_id :: Id, exp_type :: ASTType, exp_offset :: Int }                |
+    DotExp          {   exp_left :: Expression, exp_id :: Id, exp_type :: ASTType  }                |
 
     -- | Negation
-    NotExp          {   exp_exp :: Expression, exp_type :: ASTType, exp_offset :: Int }                               |
+    NotExp          {   exp_exp :: Expression, exp_type :: ASTType  }                               |
     
     -- | Conjunction
-    AndExp          {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType, exp_offset :: Int }     |
+    AndExp          {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType  }     |
     
     -- | Disjunction
-    OrExp           {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType, exp_offset :: Int }     |
+    OrExp           {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType  }     |
 
     -- Arithmetic expressions
-    NegativeExp     {   exp_exp :: Expression, exp_type :: ASTType, exp_offset :: Int }                               |
-    SubstractionExp {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType, exp_offset :: Int }     |
-    AdditionExp     {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType, exp_offset :: Int }     |
-    ModExp          {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType, exp_offset :: Int }     |
-    MultExp         {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType, exp_offset :: Int }     |
-    DivExp          {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType, exp_offset :: Int }     |
-    PowExp          {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType, exp_offset :: Int }     |
+    NegativeExp     {   exp_exp :: Expression, exp_type :: ASTType  }                               |
+    SubstractionExp {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType  }     |
+    AdditionExp     {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType  }     |
+    ModExp          {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType  }     |
+    MultExp         {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType  }     |
+    DivExp          {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType  }     |
+    PowExp          {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType  }     |
 
     -- Relational
-    EqualExp        {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType, exp_offset :: Int }     |
-    NotEqualExp     {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType, exp_offset :: Int }     |
-    LessExp         {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType, exp_offset :: Int }     |
-    GreaterExp      {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType, exp_offset :: Int }     |
-    LessEqualExp    {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType, exp_offset :: Int }     |
-    GreaterEqualExp {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType, exp_offset :: Int }     |          
+    EqualExp        {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType  }     |
+    NotEqualExp     {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType  }     |
+    LessExp         {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType  }     |
+    GreaterExp      {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType  }     |
+    LessEqualExp    {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType  }     |
+    GreaterEqualExp {   exp_left :: Expression, exp_right :: Expression, exp_type :: ASTType  }     |          
 
     -- Cast expression
-    CastExp         {   exp_exp :: Expression, exp_from :: ASTType, exp_type :: ASTType, exp_offset :: Int }
+    CastExp         {   exp_exp :: Expression, exp_from :: ASTType, exp_type :: ASTType  }
     deriving (Eq, Show)
 
 -- instance Show Expression where
@@ -179,7 +179,7 @@ errorType = AST.Simple "Error"
 errorExp = AST.ErrorExp errorType
 -- | Category of each symbol with additional info
 data Category =
-    Function         { function_block :: Maybe AST.Block, function_params :: [AST.VarDeclaration] }     |
+    Function         { function_block :: Maybe AST.Block, function_params :: [AST.VarDeclaration], max_offset :: Maybe Int }     |
     Var              { offset :: Maybe Int }|
     Const            { offset :: Maybe Int }|
     Type             { type_fields :: Maybe [AST.VarDeclaration], type_adt :: Maybe ADT, type_size :: Int } |
