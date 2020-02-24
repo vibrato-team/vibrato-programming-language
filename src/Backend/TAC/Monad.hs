@@ -258,7 +258,7 @@ genForExp exp@AST.MelodyLiteral{AST.exp_exps=expList, AST.exp_type=expType } = d
         sizeValue = TAC.Constant (show size, AST.Simple "quarter")
 
     temp <- genForArray sizeValue expType
-    tempList <- mapM genAndBindExp expList
+    tempList <- mapM genForArrayElement expList
     typeSize <- getSize expType
     foldM_ ( pushArrayElement temp typeSize ) arqWord tempList
 
@@ -456,6 +456,11 @@ genAndBindExp astExp =
         _ -> do
             (Just temp, _, _) <- genForExp astExp
             return temp
+
+genForArrayElement :: AST.Expression -> TACMonad TAC.Value
+genForArrayElement astExp = do
+    temp <- genAndBindExp astExp
+    genForDeepCopy temp
 
 -- | Generate corresponding TAC for Instruction
 gen :: AST.Instruction -> TACMonad InstList
