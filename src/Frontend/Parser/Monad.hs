@@ -19,6 +19,7 @@ import Control.Monad.Trans
 import Frontend.Tokens
 import qualified AST
 import Util.Error
+import Util.Arquitecture
 
 -- | State of the parser
 data ParserState = ParserState {
@@ -34,14 +35,9 @@ data ParserState = ParserState {
 -- | Monad of the parser
 type ParserMonad = RWS.RWST String () ParserState IO
 
--- | Arquitecture word
-arqWord = 4
-doubleWord = 4*2
-arqByte = 1
-
 -- | Initial state with the level pervasive.
 initialState :: ParserState
-initialState = ParserState (AST.Scopes (Set.fromList [1, 0]) [1, 0]) initialMap 1 Nothing [] 0 ["moderato"]
+initialState = ParserState (AST.Scopes (Set.fromList [1, 0]) [1, 0]) initialMap 1 Nothing [] arqWord ["moderato"]
     where 
         wholeEntry          =    ("whole",      [AST.Entry "whole"      (AST.Type Nothing Nothing arqByte)      0   Nothing                       Nothing])
         halfEntry           =    ("half",       [AST.Entry "half"       (AST.Type Nothing Nothing arqByte)      0   Nothing                       Nothing])
@@ -163,7 +159,7 @@ pushError err = do
 getAndIncOffset :: Int -> ParserMonad Int
 getAndIncOffset width = do
     state@ParserState{state_offset=offset} <- RWS.get
-    let newOffset = ((offset + width + (arqWord-1)) `div` arqWord) * arqWord
+    let newOffset = nextWord offset width
     RWS.put state{ state_offset = newOffset }
     return offset
 
@@ -176,7 +172,7 @@ getOffset = do
 resetOffset :: ParserMonad ()
 resetOffset = do
     state <- RWS.get
-    RWS.put state{ state_offset = 0 }
+    RWS.put state{ state_offset = arqWord }
 
 -- | Add function name to list of function names
 pushFunctionName :: String -> ParserMonad ()

@@ -10,6 +10,7 @@ import Control.Monad.RWS.Lazy
 import qualified Frontend.Parser.Monad as PMonad
 import qualified Frontend.Parser.Parser as Parser
 import Data.Maybe
+import Util.Arquitecture
 
 type Label = String
 type InstList = [Int]
@@ -35,8 +36,8 @@ initialState = TACState 1 1 0 Map.empty 0
 
 trueConstant    = TAC.Constant ("true",  AST.Simple "whole")
 falseConstant   = TAC.Constant ("false", AST.Simple "whole")
-arqWordConstant = TAC.Constant (show PMonad.arqWord, AST.Simple "quarter")
-doubleWordConstant = TAC.Constant (show PMonad.doubleWord, AST.Simple "quarter")
+arqWordConstant = TAC.Constant (show arqWord, AST.Simple "quarter")
+doubleWordConstant = TAC.Constant (show doubleWord, AST.Simple "quarter")
 zeroConstant    = TAC.Constant ("0", AST.Simple "quarter")
 oneConstant     = TAC.Constant ("1", AST.Simple "quarter")
 base            = TAC.Id $ TAC.Temp "$base" (AST.Simple "quarter") Nothing -- Inicializada en null
@@ -232,7 +233,7 @@ genForExp exp@(AST.LiteralExp expToken expType)
         let string = init (tail $ getStringFromExp exp) ++ ['\0']
             len = length string
             lenValue = TAC.Constant (show len, AST.Simple "quarter")
-            size = PMonad.arqWord + len -- Allocate one int for size and one byte for NUL
+            size = arqWord + len -- Allocate one int for size and one byte for NUL
             sizeValue = TAC.Constant (show size, AST.Simple "quarter")
 
         Just temp <- genForCall "malloc" sizeValue
@@ -241,7 +242,7 @@ genForExp exp@(AST.LiteralExp expToken expType)
         genRaw [TAC.ThreeAddressCode TAC.Set (Just temp) (Just zeroConstant) (Just lenValue ) ]
 
         let chars = map (\c -> TAC.Constant (show c, AST.Simple "half")) string
-        foldM_ ( pushArrayElement temp 1 ) PMonad.arqWord chars
+        foldM_ ( pushArrayElement temp 1 ) arqWord chars
 
         return (Just temp, [], [])
 
@@ -255,7 +256,7 @@ genForExp exp@AST.MelodyLiteral{AST.exp_exps=expList, AST.exp_type=expType } = d
     temp <- genForArray sizeValue expType
     tempList <- mapM genAndBindExp expList
     typeSize <- getSize expType
-    foldM_ ( pushArrayElement temp typeSize ) PMonad.arqWord tempList
+    foldM_ ( pushArrayElement temp typeSize ) arqWord tempList
 
     return (Just temp, [], [])
 
@@ -802,7 +803,7 @@ genForMallocFunction = do
     -- Split block and return
     nextBlock <- newTemp $ AST.Simple "quarter"
     nextSize <- newTemp $ AST.Simple "quarter"
-    genRaw [TAC.ThreeAddressCode TAC.Add (Just nextBlock)   (Just iter)                 (Just tempSize),
+    genRaw [TAC.ThreeAddressCode TAC.Add (Just nextBlock)   (Just iter)                 (Just size),
             TAC.ThreeAddressCode TAC.Sub (Just nextSize)    (Just tempSize)             (Just size)]
 
     -- Generate blocks
@@ -1010,7 +1011,7 @@ genForIncrementBase :: TACMonad TAC.Value
 genForIncrementBase = do
     -- Increment `base` and Store current `base`
     temp <- newTemp $ AST.Simple "quarter"
-    currOffset <- getAndIncrementOffsetBy PMonad.arqWord
+    currOffset <- getAndIncrementOffsetBy arqWord
 
     genRaw [TAC.ThreeAddressCode TAC.Add (Just temp) (Just arqWordConstant) (Just $ toQuarterConstant currOffset),
             TAC.ThreeAddressCode TAC.Set (Just base) (Just $ toQuarterConstant currOffset) (Just base),
@@ -1073,7 +1074,7 @@ getOffset = do
 getAndIncrementOffsetBy :: Int -> TACMonad Int
 getAndIncrementOffsetBy add = do
     currOffset <- getOffset
-    setOffset $ ((currOffset + add + (PMonad.arqWord-1)) `div` PMonad.arqWord) * PMonad.arqWord
+    setOffset $ nextWord currOffset add
     return currOffset
 
 pushArrayElement :: TAC.Value -> Int -> Int -> TAC.Value -> TACMonad Int
