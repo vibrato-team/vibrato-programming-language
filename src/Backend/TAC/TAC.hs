@@ -153,7 +153,7 @@ data Id =
   deriving (Eq)
 
 instance Show Id where
-  -- show x@Temp{temp_offset=Just offset} = temp_name x ++ "_" ++ show offset
+  show x@Temp{temp_offset=Just offset} = temp_name x ++ "_" ++ show offset
   show x@Temp{} = temp_name x
   show x = getSymID x ++ "_" ++ show (idOffset x)
 
