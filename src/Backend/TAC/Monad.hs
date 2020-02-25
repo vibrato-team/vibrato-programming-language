@@ -26,13 +26,14 @@ data TACState = TACState {
     inst_count      :: Int,
     bp_map          :: BackpatchMap,
     curr_offset     :: Int,
+    loop_stack       :: [(InstList, InstList)], -- continue and break instructions
     sym_table       :: AST.SymbolTable
 } deriving (Eq, Show)
 
 type TACMonad = RWS.RWST () [TAC.Instruction] TACState IO
 
 initialState :: AST.SymbolTable -> TACState
-initialState = TACState 1 1 0 Map.empty 0
+initialState = TACState 1 1 0 Map.empty 0 []
 
 trueConstant    = TAC.Constant ("true",  AST.Simple "whole")
 falseConstant   = TAC.Constant ("false", AST.Simple "whole")
@@ -556,6 +557,8 @@ gen AST.ReturnInst{AST.inst_maybe_exp=maybeExp} = do
     return []
 
 gen AST.WhileInst { AST.inst_exp = instExp, AST.inst_block = instInst } = do
+    pushLoopScope
+
     -- LoopLabel
     label@(TAC.Label loop) <- newLabel
     -- TAC Bool 
@@ -567,16 +570,23 @@ gen AST.WhileInst { AST.inst_exp = instExp, AST.inst_block = instInst } = do
     -- TAC BlockInstr
     nextlist1 <- gen (AST.BlockInst instInst)
 
+    -- All continues go to beginning
+    bindContinue label
+
     -- Goto LoopLabel
     genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing (Just label) ]
 
     -- False Label
     labelfalse@(TAC.Label lfalse) <- newLabel
     bindLabel falselist lfalse
+    bindBreak labelfalse
 
+    popLoopScope
     return []
 
 gen (AST.ForInst inst_id inst_type inst_entry inst_block inst_start inst_end inst_step ) = do
+    pushLoopScope
+
     -- Var declare and assign 
     var <- getVarForLoop inst_type inst_id inst_entry
         
@@ -607,6 +617,9 @@ gen (AST.ForInst inst_id inst_type inst_entry inst_block inst_start inst_end ins
     nextlist1 <- gen (AST.BlockInst inst_block)
 
     -- Incremento de variable de iteracion
+    labelContinue <- newLabel
+    bindContinue labelContinue
+
     case inst_step of
         Nothing -> genRaw [TAC.ThreeAddressCode TAC.Add (Just var) (Just var) (Just oneConstant) ]
         Just step -> do
@@ -619,6 +632,21 @@ gen (AST.ForInst inst_id inst_type inst_entry inst_block inst_start inst_end ins
     -- False Label
     labelfalse@(TAC.Label lfalse) <- newLabel
     bindLabel [nextinstfalse] lfalse
+    bindBreak labelfalse
+
+    popLoopScope
+    return []
+
+gen AST.NextInst = do
+    inst <- nextInst
+    addContinueInst inst
+    genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
+    return []
+
+gen AST.StopInst = do
+    inst <- nextInst
+    addBreakInst inst
+    genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
     return []
 
 gen x = return []
@@ -1223,6 +1251,41 @@ getSize AST.Compound{} = return 4
 getSize AST.Simple{AST.type_str=typeStr} = do
     (Just [ AST.Entry{ AST.entry_category = cat } ]) <- getChain typeStr
     return $ AST.type_size cat
+
+pushLoopScope :: TACMonad ()
+pushLoopScope = do
+    state@TACState{ loop_stack = currLoops } <- RWS.get
+    RWS.put $ state{ loop_stack = ([], []):currLoops }
+
+popLoopScope :: TACMonad ()
+popLoopScope = do
+    state@TACState{ loop_stack = _:currLoops } <- RWS.get
+    RWS.put $ state{ loop_stack = currLoops }
+
+addContinueInst :: Int -> TACMonad ()
+addContinueInst inst = do
+    state@TACState{ loop_stack = (cs, bs):lst } <- RWS.get
+    RWS.put $ state{ loop_stack = (inst:cs, bs):lst }
+
+addBreakInst :: Int -> TACMonad ()
+addBreakInst inst = do
+    state@TACState{ loop_stack = (cs, bs):lst } <- RWS.get
+    RWS.put $ state{ loop_stack = (cs, inst:bs):lst }
+
+getCurrLoop :: TACMonad (InstList, InstList)
+getCurrLoop = do
+    state@TACState{ loop_stack = curr:_ } <- RWS.get
+    return curr
+
+bindContinue :: TAC.Value -> TACMonad ()
+bindContinue label@(TAC.Label labelStr) = do
+    (cs, _) <- getCurrLoop
+    bindLabel cs labelStr
+
+bindBreak :: TAC.Value -> TACMonad ()
+bindBreak label@(TAC.Label labelStr) = do
+    (_, bs) <- getCurrLoop
+    bindLabel bs labelStr
 
 ----------------------------------------------------------------------------
 ---------------------------------- Helpers ---------------------------------
