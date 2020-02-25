@@ -649,6 +649,16 @@ gen AST.StopInst = do
     genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
     return []
 
+gen AST.RecordInst{ AST.inst_exps = exps } = do
+    tempList <- mapM genAndBindExp exps
+    mapM_ (\t -> genRaw [TAC.ThreeAddressCode TAC.Read Nothing (Just t) Nothing]) tempList
+    return []
+
+gen AST.PlayInst{ AST.inst_exps = exps } = do
+    tempList <- mapM genAndBindExp exps
+    mapM_ (\t -> genRaw [TAC.ThreeAddressCode TAC.Print Nothing (Just t) Nothing]) tempList
+    return []
+
 gen x = return []
     
 -- | Auxiliar for get Iterate var of Loop
