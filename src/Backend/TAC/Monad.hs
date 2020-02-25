@@ -10,6 +10,7 @@ import Control.Monad.RWS.Lazy
 import qualified Frontend.Parser.Monad as PMonad
 import qualified Frontend.Parser.Parser as Parser
 import Data.Maybe
+import Util.Arquitecture
 
 type Label = String
 type InstList = [Int]
@@ -35,15 +36,19 @@ initialState = TACState 1 1 0 Map.empty 0
 
 trueConstant    = TAC.Constant ("true",  AST.Simple "whole")
 falseConstant   = TAC.Constant ("false", AST.Simple "whole")
-arqWordConstant = TAC.Constant (show PMonad.arqWord, AST.Simple "quarter")
-doubleWordConstant = TAC.Constant (show PMonad.doubleWord, AST.Simple "quarter")
+arqWordConstant = TAC.Constant (show arqWord, AST.Simple "quarter")
+doubleWordConstant = TAC.Constant (show doubleWord, AST.Simple "quarter")
 zeroConstant    = TAC.Constant ("0", AST.Simple "quarter")
 oneConstant     = TAC.Constant ("1", AST.Simple "quarter")
+nullConstant    = zeroConstant
 base            = TAC.Id $ TAC.Temp "$base" (AST.Simple "quarter") Nothing -- Inicializada en null
 memoryHead      = TAC.Id $ TAC.Temp "$head" (AST.Simple "quarter") Nothing
 
-toQuarterConstant :: (Show a) => a -> TAC.Value 
+toQuarterConstant :: Int -> TAC.Value 
 toQuarterConstant x = TAC.Constant (show x, AST.Simple "quarter")
+
+toWholeConstant :: Bool -> TAC.Value
+toWholeConstant b = TAC.Constant (show b, AST.Simple "whole")
 
 ----------------------------------------------------------------------------
 ----------------------------- Generate TAC ---------------------------------
@@ -171,7 +176,7 @@ getSizeForArray _ (AST.Simple "empty_list") = return zeroConstant
 genForNew :: AST.ASTType -> TACMonad TAC.Value
 genForNew astType = do
     size <- getSize astType
-    Just temp <- genForCall "malloc" (toQuarterConstant size)
+    Just temp <- genForCallWithGC "malloc" (toQuarterConstant size)
     return temp
 
 -- | Generate TAC for new array
@@ -179,7 +184,7 @@ genForArray :: TAC.Value -> AST.ASTType -> TACMonad TAC.Value
 genForArray len expType = do
     size <- getSizeForArray len expType
     -- Allocate memory
-    Just temp <- genForCall "malloc" size
+    Just temp <- genForCallWithGC "malloc" size
 
     -- Assign first element to len
     genRaw [TAC.ThreeAddressCode TAC.Set (Just temp) (Just zeroConstant) (Just len)]
@@ -232,16 +237,16 @@ genForExp exp@(AST.LiteralExp expToken expType)
         let string = init (tail $ getStringFromExp exp) ++ ['\0']
             len = length string
             lenValue = TAC.Constant (show len, AST.Simple "quarter")
-            size = PMonad.arqWord + len -- Allocate one int for size and one byte for NUL
+            size = arqWord + len -- Allocate one int for size and one byte for NUL
             sizeValue = TAC.Constant (show size, AST.Simple "quarter")
 
-        Just temp <- genForCall "malloc" sizeValue
+        Just temp <- genForCallWithGC "malloc" sizeValue
         
         -- Store size
         genRaw [TAC.ThreeAddressCode TAC.Set (Just temp) (Just zeroConstant) (Just lenValue ) ]
 
         let chars = map (\c -> TAC.Constant (show c, AST.Simple "half")) string
-        foldM_ ( pushArrayElement temp 1 ) PMonad.arqWord chars
+        foldM_ ( pushArrayElement temp 1 ) arqWord chars
 
         return (Just temp, [], [])
 
@@ -253,9 +258,9 @@ genForExp exp@AST.MelodyLiteral{AST.exp_exps=expList, AST.exp_type=expType } = d
         sizeValue = TAC.Constant (show size, AST.Simple "quarter")
 
     temp <- genForArray sizeValue expType
-    tempList <- mapM genAndBindExp expList
+    tempList <- mapM genForArrayElement expList
     typeSize <- getSize expType
-    foldM_ ( pushArrayElement temp typeSize ) PMonad.arqWord tempList
+    foldM_ ( pushArrayElement temp typeSize ) arqWord tempList
 
     return (Just temp, [], [])
 
@@ -411,8 +416,7 @@ genForExp exp@AST.CallExp{AST.exp_id=expId, AST.exp_params=params, AST.exp_type=
 
     genForIncrementBase
     -- Push params to stack
-    mapM_ (\t -> genRaw [TAC.ThreeAddressCode TAC.Param Nothing (Just t) Nothing]) tempList
-    
+    mapM_ genForParamInst tempList
 
     -- Call function
     let n = length params
@@ -451,7 +455,12 @@ genAndBindExp astExp =
         AST.Simple "whole" -> genAndBindLogicalExp astExp
         _ -> do
             (Just temp, _, _) <- genForExp astExp
-            genForDeepCopy temp
+            return temp
+
+genForArrayElement :: AST.Expression -> TACMonad TAC.Value
+genForArrayElement astExp = do
+    temp <- genAndBindExp astExp
+    genForDeepCopy temp
 
 -- | Generate corresponding TAC for Instruction
 gen :: AST.Instruction -> TACMonad InstList
@@ -530,7 +539,7 @@ gen AST.FlatExp{AST.inst_exp=instExp} =
 
 gen AST.FreeInst{AST.inst_exp=instExp} = do
     (Just addr, _, _) <- genForExp instExp
-    genForCall "free" addr
+    genForCallWithGC "free" addr
     return []
 
 gen AST.ReturnInst{AST.inst_maybe_exp=maybeExp} = do
@@ -733,9 +742,9 @@ genForArrayComp value1 value2
         return (Nothing, [trueInst], [falseInst])
 
 -- | Generate TAC for return instruction
-genForReturn :: Maybe TAC.Value -> TACMonad ()
-genForReturn maybeValue = do
-    let offsetConstant = toQuarterConstant $ -4
+genForReturn' :: Maybe TAC.Value -> TACMonad ()
+genForReturn' maybeValue = do
+    let offsetConstant = toQuarterConstant $ -arqWord
     fp <- newTemp $ AST.Simple "quarter"
 
     genRaw [TAC.ThreeAddressCode TAC.Get (Just fp) (Just base) (Just offsetConstant),
@@ -743,26 +752,100 @@ genForReturn maybeValue = do
     
     genRaw [TAC.ThreeAddressCode TAC.Return Nothing maybeValue Nothing]
 
+genForReturn :: Maybe TAC.Value -> TACMonad ()
+genForReturn maybeValue = do
+    collectGarbage
+    genForReturn' maybeValue
+
 -- | Generate TAC for function
 genForFunction :: AST.Entry -> TACMonad ()
 genForFunction entry = do
     let cat = AST.entry_category entry
         Just (AST.Block stmts) = AST.function_block cat
-        maxOffset   = fromJust $ AST.max_offset cat 
-        name        = AST.entry_name entry
+        maxOffset       = fromJust $ AST.max_offset cat 
+        name            = AST.entry_name entry
+        params          = AST.function_params cat
+        paramStrings    = map (Tokens.token . AST.id_token . AST.var_id) params
+        scope           = AST.entry_scope entry
 
     setOffset maxOffset
-    genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just $ TAC.Label name) Nothing]
+    genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just $ TAC.Label name) Nothing,
+            -- Linked list of allocated objects set to NULL
+            TAC.ThreeAddressCode TAC.Set (Just base) (Just zeroConstant) (Just zeroConstant)]
+
+    -- Get entries of each param
+    paramEntries <- mapM (lookupInScope $ scope+1) paramStrings
+    mapM_ genForTrackParam paramEntries
+
+    -- Generate TAC for each instruction inside block
     genForList stmts
     return ()
+
+-- | Add new allocated address to set (linked list, actually) of allocated address by the caller
+trackNewAddr :: TAC.Value -> TAC.Value -> TACMonad ()
+trackNewAddr addr isRecursive = do
+    -- If it is a recursive call of malloc, don't do anything
+    isRecursiveInst <- nextInst
+    genRaw [TAC.ThreeAddressCode TAC.If Nothing (Just isRecursive) Nothing]
+
+    prevBase <- getPrevBase
+
+    temp <- newTemp $ AST.Simple "quarter"
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just temp) (Just prevBase) (Just zeroConstant)]
+
+    Just node <- genForCall "malloc" doubleWordConstant True
+    genRaw [TAC.ThreeAddressCode TAC.Set (Just node) (Just zeroConstant) (Just temp),
+            TAC.ThreeAddressCode TAC.Set (Just node) (Just arqWordConstant) (Just addr),
+            TAC.ThreeAddressCode TAC.Set (Just prevBase) (Just zeroConstant) (Just node)]
+
+    TAC.Label labelStr <- newLabel
+    bindLabel [isRecursiveInst] labelStr
+
+collectGarbage :: TACMonad ()
+collectGarbage = do
+    iter <- newTemp $ AST.Simple "quarter"
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just iter) (Just base) (Just zeroConstant)]
+
+    -- If iter == NULL, break
+    whileLabel@(TAC.Label whileLabelStr) <- newLabel
+    isIterNullInst <- nextInst
+    genRaw [TAC.ThreeAddressCode TAC.Eq (Just iter) (Just zeroConstant) Nothing]
+    
+    -----------------------------------------------------------------------------
+    -- Get next node
+    nextIter <- newTemp $ AST.Simple "quarter"
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just nextIter) (Just iter) (Just zeroConstant)]
+
+    -- Free address stored in node
+    addr <- newTemp $ AST.Simple "quarter"
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just addr) (Just iter) (Just arqWordConstant)]
+    genForCallWithGC "free" addr
+
+    -- Free address of node
+    genForCallWithGC "free" iter
+
+    -- Move to next iter
+    genRaw [TAC.ThreeAddressCode TAC.Assign (Just iter) (Just nextIter) Nothing]
+
+    -- Jump to guard
+    genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing (Just whileLabel)]
+    -----------------------------------------------------------------------------
+
+    TAC.Label labelStr <- newLabel
+    bindLabel [isIterNullInst] labelStr
 
 -- | Generate malloc function
 genForMallocFunction :: TACMonad ()
 genForMallocFunction = do
-    genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just $ TAC.Label "malloc") Nothing]
+    setOffset $ 3*arqWord
+    genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just $ TAC.Label "malloc") Nothing,
+            -- Linked list of allocated objects set to NULL
+            TAC.ThreeAddressCode TAC.Set (Just base) (Just zeroConstant) (Just zeroConstant)]
 
     size <- newTemp $ AST.Simple "quarter"
-    genRaw [TAC.ThreeAddressCode TAC.Get (Just size) (Just base) (Just zeroConstant)]
+    isRecursive <- newTemp $ AST.Simple "whole"
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just size) (Just base) (Just arqWordConstant),
+            TAC.ThreeAddressCode TAC.Get (Just isRecursive) (Just base) (Just doubleWordConstant)]
 
     --------------------------------------------------------------
     -- Initialization
@@ -802,14 +885,15 @@ genForMallocFunction = do
     -- Split block and return
     nextBlock <- newTemp $ AST.Simple "quarter"
     nextSize <- newTemp $ AST.Simple "quarter"
-    genRaw [TAC.ThreeAddressCode TAC.Add (Just nextBlock)   (Just iter)                 (Just tempSize),
+    genRaw [TAC.ThreeAddressCode TAC.Add (Just nextBlock)   (Just iter)                 (Just size),
             TAC.ThreeAddressCode TAC.Sub (Just nextSize)    (Just tempSize)             (Just size)]
 
     -- Generate blocks
     genForBlock nextBlock nextIter zeroConstant nextSize
     genForBlock iter nextBlock oneConstant size
 
-    genForReturn $ Just iter
+    trackNewAddr iter isRecursive
+    genForReturn' $ Just iter
 
     --------------------------------------------------------------
     -- Move to next block
@@ -847,15 +931,21 @@ genForMallocFunction = do
     finalLabel@(TAC.Label finalLabelStr) <- newLabel
     bindLabel [finalGoTo] finalLabelStr
 
-    genForReturn $ Just newBlock
+    trackNewAddr iter isRecursive
+    genForReturn' $ Just newBlock
 
 -- | Generate free function
 genForFreeFunction :: TACMonad ()
 genForFreeFunction = do
-    genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just $ TAC.Label "free") Nothing]
+    setOffset $ 3*arqWord
+    genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just $ TAC.Label "free") Nothing,
+            -- Linked list of allocated objects set to NULL
+            TAC.ThreeAddressCode TAC.Set (Just base) (Just zeroConstant) (Just zeroConstant)]
 
     addr <- newTemp $ AST.Simple "quarter"
-    genRaw [TAC.ThreeAddressCode TAC.Get (Just addr) (Just base) (Just zeroConstant)]
+    isRecursive <- newTemp $ AST.Simple "whole"
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just addr) (Just base) (Just arqWordConstant),
+            TAC.ThreeAddressCode TAC.Get (Just isRecursive) (Just base) (Just doubleWordConstant)]
 
     --------------------------------------------------------------
     -- Initialization
@@ -890,7 +980,7 @@ genForFreeFunction = do
     genForMerge iter nextIter
     genForMerge prev iter
 
-    genForReturn Nothing
+    genForReturn' Nothing
 
     --------------------------------------------------------------
     -- Move to next block
@@ -906,7 +996,7 @@ genForFreeFunction = do
     finalLabel@(TAC.Label finalLabelStr) <- newLabel
     bindLabel [compInst] finalLabelStr
 
-    genForReturn Nothing
+    genForReturn' Nothing
 
 -- | Generate TAC for block of metadata
 genForBlock :: TAC.Value -> TAC.Value -> TAC.Value -> TAC.Value -> TACMonad ()
@@ -1006,11 +1096,18 @@ backpatch label l1@(idx:idxs) (inst:insts) i
 --------------------------- Monadic helpers --------------------------------
 ----------------------------------------------------------------------------
 
+getPrevBase :: TACMonad TAC.Value
+getPrevBase = do
+    let minusFour = toQuarterConstant $ -arqWord
+    prevBase <- newTemp $ AST.Simple "quarter"
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just prevBase) (Just base) (Just minusFour)]
+    return prevBase
+
 genForIncrementBase :: TACMonad TAC.Value
 genForIncrementBase = do
     -- Increment `base` and Store current `base`
     temp <- newTemp $ AST.Simple "quarter"
-    currOffset <- getAndIncrementOffsetBy PMonad.arqWord
+    currOffset <- getAndIncrementOffsetBy arqWord
 
     genRaw [TAC.ThreeAddressCode TAC.Add (Just temp) (Just arqWordConstant) (Just $ toQuarterConstant currOffset),
             TAC.ThreeAddressCode TAC.Set (Just base) (Just $ toQuarterConstant currOffset) (Just base),
@@ -1018,22 +1115,47 @@ genForIncrementBase = do
     
     return temp
 
-genForCall :: String -> TAC.Value -> TACMonad (Maybe TAC.Value)
-genForCall name param' = do
+----------------------------------------------------------------------------
+-- | Generate TAC for a call to `malloc` or `free` with Garbage Collector
+genForCallWithGC name param' = genForCall name param' False
+
+genForCall :: String -> TAC.Value -> Bool -> TACMonad (Maybe TAC.Value)
+genForCall name param' isRecursive = do
     param <- newTemp $ TAC.getType param'
     genRaw [TAC.ThreeAddressCode TAC.Assign (Just param) (Just param') Nothing]
 
     genForIncrementBase
-    genRaw [TAC.ThreeAddressCode TAC.Param Nothing (Just param) Nothing]
+    genForParamInst param
+    genForParamInst $ toWholeConstant isRecursive
 
     case name of
         "malloc" -> do
             ret <- newTemp $ AST.Simple "quarter"
-            genRaw [TAC.ThreeAddressCode TAC.Call (Just ret) (Just $ TAC.Label name) (Just $ toQuarterConstant 1) ]
+            genRaw [TAC.ThreeAddressCode TAC.Call (Just ret) (Just $ TAC.Label name) (Just $ toQuarterConstant 2) ]
             return $ Just ret
         "free" -> do
-            genRaw [TAC.ThreeAddressCode TAC.Call Nothing (Just $ TAC.Label name) (Just $ toQuarterConstant 1) ]
+            genRaw [TAC.ThreeAddressCode TAC.Call Nothing (Just $ TAC.Label name) (Just $ toQuarterConstant 2) ]
             return Nothing
+
+genForParamInst :: TAC.Value -> TACMonad ()
+genForParamInst param = 
+    genRaw [TAC.ThreeAddressCode TAC.Param Nothing (Just param) Nothing]
+
+genForTrackParam :: AST.Entry -> TACMonad ()
+genForTrackParam e@AST.Entry{AST.entry_type=Just entryType, AST.entry_category=cat} =
+    case entryType of
+        AST.Compound "Melody" _ -> do
+            -- Get param
+            let Just offset = AST.offset cat
+                offsetValue = toQuarterConstant offset
+            param <- newTemp entryType
+            genRaw [TAC.ThreeAddressCode TAC.Get (Just param) (Just base) (Just offsetValue)]
+
+            -- Create deep copy
+            paramCopy <- genForDeepCopy param
+            genRaw [TAC.ThreeAddressCode TAC.Set (Just base) (Just offsetValue) (Just paramCopy)]
+        _ ->
+            return ()
 
 newLabel :: TACMonad TAC.Value
 newLabel = do
@@ -1073,7 +1195,7 @@ getOffset = do
 getAndIncrementOffsetBy :: Int -> TACMonad Int
 getAndIncrementOffsetBy add = do
     currOffset <- getOffset
-    setOffset $ ((currOffset + add + (PMonad.arqWord-1)) `div` PMonad.arqWord) * PMonad.arqWord
+    setOffset $ nextWord currOffset add
     return currOffset
 
 pushArrayElement :: TAC.Value -> Int -> Int -> TAC.Value -> TACMonad Int
@@ -1087,6 +1209,13 @@ getChain symbol = do
     TACState{sym_table=table} <- RWS.get
     -- Get chain of matching entries
     return $ Map.lookup symbol table
+
+-- | Get entry of a symbol in a specific scope
+lookupInScope :: Int -> String -> TACMonad AST.Entry
+lookupInScope scope symbol = do
+    Just chain <- getChain symbol
+    -- Get entry that matches symbol
+    return $ head $ filter (\e -> AST.entry_scope e == scope) chain
 
 -- | Get size of a type
 getSize :: AST.ASTType -> TACMonad Int
