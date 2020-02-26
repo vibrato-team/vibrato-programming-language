@@ -3,7 +3,7 @@ track par(n:quarter): whole {
     else{
         if( n = 1 ) min ||
         else {
-            impar( n-1 ) ||
+            play impar with ( n-1 ) ||
         }
     }
 }
@@ -13,7 +13,7 @@ track impar(n:quarter): whole {
     else{
         if( n = 1 ) maj ||
         else {
-            par( n-1 ) ||
+            play par with ( n-1 ) ||
         }
     }
 }
@@ -24,9 +24,9 @@ moderato(){
         |>("Ingresa un numero no negativo: ") |
         @(num) |
 
-        if(num = -1) |] |
+        if(num = -1) |] 
 
-        if( par(num) ){
+        if( play par with(num) ){
             |>("El numero", num," es par") |
         }
         else{

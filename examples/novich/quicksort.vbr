@@ -40,26 +40,26 @@ moderato(){
         |>("2) Flotantes ") |
         |>("3) Caracteres ") |
         |>("-1) Salir ") |
-        @(opt)
+        @(opt) |
 
         if( opt = -1) |] 
         
-        |>("indique el tamaño: ")
-        @(tamArr)
+        |>("indique el tamaño: ") |
+        @(tamArr) |
 
-        arr: Sample< Melody<quarter> >(tamArr) |
+        arr: Sample< Melody<quarter> > <-> new Melody<quarter>(tamArr) |
         aux: quarter |
         loop x {
             @(aux) |
-            arr[x] = aux |
+            arr![x] <-> aux |
         } in ( tamArr - 1 )
 
         play quicksort with (arr, 0, tamArr) |
         |>("Arrelgo: [") |
         loop x {
-            |>(arr[x], ", ")
+            |>(arr![x], ", ") |
         } in (tamArr - 2)
-        |> (arr[tamArr-1], "]")
+        |> (arr![tamArr-1], "]") |
 
     }
 

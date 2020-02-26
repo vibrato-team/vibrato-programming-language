@@ -3,20 +3,20 @@
 /*
 
 track varianza(estadisticos: Sample<Melody<32th> >, cantElem: quarter): 32th{
-    s: quarter <-> 0 |
-    media: 32th <-> promedio(estadisticos, cantElem)
+    s: 32th <-> 0 |
+    media: 32th <-> play promedio with (estadisticos, cantElem) |
     loop x {
-        s = s + ((estadisticos![x] - media) ^ 2) |
-    } in (length(estadisticos))
+        s <-> s + ((estadisticos![x] - media) ^ 2) |
+    } in (cantElem)
 
-    s / length(estadisticos) ||
+    s / cantElem ||
 }
 
 track desv_standar(estadisticos: Sample<Melody<32th> >, cantElem: quarter): 32th{
-    sqrt(varianza(estadisticos, cantElem), 0.01) ||
+    play sqrt with (play varianza with (estadisticos, cantElem), 0.01) ||
 }
 
-tack max(estadisticos: Sample<Melody<32th> >, cantElem: quarter): 32th{
+track max(estadisticos: Sample<Melody<32th> >, cantElem: quarter): 32th{
     max: 32th <-> estadisticos![0] |
     loop x {
         if( max < estadisticos![x]){
@@ -38,7 +38,7 @@ track min(estadisticos: Sample<Melody<32th> >, cantElem: quarter): 32th{
 track promedio(estadisticos: Sample<Melody<32th> >, cantElem: quarter): 32th {
     promedio: 32th <-> 0 |
     loop x {
-        promedio <-> promedio + estadistico![x] |
+        promedio <-> promedio + estadisticos![x] |
     } in (cantElem)
     promedio / cantElem ||
 }
@@ -60,15 +60,15 @@ track sqrt(n: 32th, error: 32th): 32th {
 }
 
 moderato(){
-    opcion: half |
+    opcion: quarter |
     cantElem: quarter |
     estadisticos: Sample< Melody<32th> > |
     aux: 32th |
 
     loop(maj){
-        |>("¿Desea iniciar un calculo estadistico?\n(Y/n)")
-        @(opcion)
-        if(opcion = "n") |] 
+        |>("¿Desea iniciar un calculo estadistico?\n(1 / 0)") |
+        @(opcion) |
+        if(opcion = 0) |] 
 
         |>("Indique el numero de elementos:") |
         @(cantElem) |
@@ -79,16 +79,16 @@ moderato(){
         -- Guardamos los valores ingresados por el usuario
         loop x {
             |>("Ingrese estadistico #", x) |
-            @(aux)
-            estadisticos![x] <-> aux
+            @(aux) |
+            estadisticos![x] <-> aux |
         } in (cantElem)
 
         |>("Cantidad de muestras:", cantElem) |
         |>("Promedio de las muestras: ", play promedio with (estadisticos, cantElem)) |
         |>("Varianza: ", play varianza with (estadisticos, cantElem)) |
         |>("Desviacion estandar: ", play desv_standar with (estadisticos, cantElem)) |
-        |>("Muestra Maxima: " play max with (estadisticos, cantElem)) |
-        |>("Muestra Minima: " play min with (estadisticos, cantElem)) |
+        |>("Muestra Maxima: ", play max with (estadisticos, cantElem)) |
+        |>("Muestra Minima: ", play min with (estadisticos, cantElem)) |
     }
 
 }
