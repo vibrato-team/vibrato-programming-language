@@ -1,7 +1,7 @@
 moderato() {
-    x0: 32th <-> 1234567890|
-    arr: Melody<32th> <-> [2.0, x0]|
-    brr: Melody< Melody<32th> > <-> [[1.23, 2.34], arr, [], arr]|
+    x0: 64th <-> 1234567890|
+    arr: Melody<64th> <-> [64th(2.0), x0]|
+    brr: Melody< Melody<64th> > <-> [[64th(1.23), 64th(2.34)], arr, [], arr]|
     brr[1][0] <-> 4.0|
     brr[1][1]#|
 

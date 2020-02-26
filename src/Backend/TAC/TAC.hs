@@ -29,6 +29,7 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) w
   show (ThreeAddressCode GoTo Nothing Nothing Nothing)            = "\t" ++ "goto __"
   show (ThreeAddressCode If Nothing (Just b) (Just label))        = "\t" ++ "if " ++ show b ++ " then goto " ++ show label
   show (ThreeAddressCode If Nothing (Just b) Nothing)             = "\t" ++ "if " ++ show b ++ " then goto __"
+  show (ThreeAddressCode IfFalse Nothing (Just b) (Just label))   = "\t" ++ "if not " ++ show b ++ " then goto " ++ show label
   show (ThreeAddressCode Eq (Just x) (Just y) (Just label))       = "\t" ++ "if " ++ show x ++ " = " ++ show y ++ " then goto " ++ show label
   show (ThreeAddressCode Neq (Just x) (Just y) (Just label))      = "\t" ++  "if " ++ show x ++ " != " ++ show y ++ " then goto " ++ show label
   show (ThreeAddressCode Lt (Just x) (Just y) (Just label))       = "\t" ++ "if " ++ show x ++ " < " ++ show y ++ " then goto " ++ show label
@@ -47,6 +48,8 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) w
   show (ThreeAddressCode Return Nothing Nothing Nothing)          = "\treturn" 
   show (ThreeAddressCode Return Nothing (Just t) Nothing)         = "\treturn " ++ show t 
   show (ThreeAddressCode Sbrk (Just t) (Just sz) Nothing)         = "\t" ++ show t ++ " := sbrk(" ++ show sz ++ ")"  
+  show (ThreeAddressCode Print Nothing (Just x) Nothing)          = "\tprint(" ++ show x ++ ")"
+  show (ThreeAddressCode Read Nothing (Just x) Nothing)           = "\tread(" ++ show x ++ ")"
 
   show tac = show (tacLvalue tac) ++ " := " ++ show (tacRvalue1 tac) ++ show (tacOperand tac) ++ show (tacRvalue2 tac)
 
@@ -142,24 +145,36 @@ data Operation =
     -- | free(x)
     Free        |
 
+    -- IO
+    Print       |
+    Read        |
+
     Cast String String
     deriving (Eq, Show)
 
 
 data Id = 
-  Temp  { entry_name  :: String, entry_type  :: AST.ASTType } |
+  Temp  { temp_name  :: String, temp_type  :: AST.ASTType, temp_offset :: Maybe Int } |
   Var   { entry :: AST.Entry }
   deriving (Eq)
 
 instance Show Id where
-  show x@Temp{} = entry_name x
-  show x@Var{entry=e} = "$base[" ++ show (fromJust $ AST.offset $ AST.entry_category e) ++ "]"
+  show x@Temp{temp_offset=Just offset} = temp_name x ++ "_" ++ show offset
+  show x@Temp{} = temp_name x
+  show x = getSymID x ++ "_" ++ show (idOffset x)
+
+idOffset :: Id -> Int
+idOffset Temp{temp_offset=Just offset} = offset
+idOffset Var{entry=e} = fromJust $ AST.offset $ AST.entry_category e
+
+operandOffset :: Operand Id b -> Int
+operandOffset (Id x) = idOffset x
 
 instance SymEntryCompatible Id where
-  getSymID t@Temp{} = entry_name t
+  getSymID t@Temp{} = temp_name t
   getSymID x@Var{entry=e} = AST.entry_name e
 
 getType :: Value -> AST.ASTType
 getType (Constant (_, t)) = t
-getType (Id Temp{entry_type=t}) = t
+getType (Id Temp{temp_type=t}) = t
 getType (Id Var{entry=e}) = fromJust $ AST.entry_type e

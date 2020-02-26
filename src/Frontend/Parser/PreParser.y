@@ -168,7 +168,7 @@ In                      : in        { True }
 Signature               : track Id PushScope '(' ListaParam ClosePar MaybeType             {% do
                                                                                             let tk = AST.id_token $2
                                                                                             PMonad.pushFunctionName $ token tk
-                                                                                            createFunctionEntry tk $7 $2 (reverse $5) Nothing }
+                                                                                            createFunctionEntry tk $7 $2 (reverse $5) Nothing Nothing }
 
 ListaParam              :: { [AST.VarDeclaration] }
 ListaParam              : ParamDeclaration                          { [$1] }

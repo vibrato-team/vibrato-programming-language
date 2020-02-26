@@ -135,14 +135,16 @@ ExternalList            : ExternalList FunctionDeclaration  { }
                         | ExternalList ChordLegato          { }
                         | {- empty -}                       { }
 
--- TODO: Agregar los params y los fields en un nuevo scope
 FunctionDeclaration     :: { () }                                           -- add block to function entry
 FunctionDeclaration     : Signature Block PopScope                          {% do
-                                                                                PMonad.updateEntry (addBlock $2) $1
+                                                                                currOffset <- PMonad.getOffset
+                                                                                PMonad.updateEntry (addBlock $2 currOffset) $1
                                                                                 PMonad.clearReturnType }
 MainDeclaration         : Main PushScope '(' ClosePar Block                 {% do
                                                                                 pushIfError $4 $3 $ matchingError "parentheses"
-                                                                                let idMain = AST.Id $1 in createFunctionEntry (AST.id_token idMain) Nothing idMain [] (Just $5) }
+                                                                                currOffset <- PMonad.getOffset
+
+                                                                                let idMain = AST.Id $1 in createFunctionEntry (AST.id_token idMain) Nothing idMain [] (Just $5) (Just currOffset) }
 
 Signature               :: { String }
 Signature               : TrackId PushScope '(' ListaParam ClosePar MaybeType             {% do
@@ -277,7 +279,7 @@ VarInit                 : Id ':' Type '<->' Expression          {% do
                                                                     offset <- addOffset $3
                                                                     maybeEntry <- createVarEntry (AST.id_token $1) (Just $3) (Just offset)
 
-                                                                    idExp <- returnAndGetOffset $ AST.IdExp $1 $3 maybeEntry
+                                                                    idExp <- return $ AST.IdExp $1 $3 maybeEntry
                                                                     let expType = AST.exp_type $5
 
                                                                     checkAssignment idExp $5 $4
@@ -303,7 +305,7 @@ LValue                  : Indexing                              { $1 }
                                                                         Nothing ->
                                                                             return AST.errorExp
                                                                         maybeEntry@(Just entry) ->
-                                                                            returnAndGetOffset $ AST.IdExp $1 (fromJust $ AST.entry_type entry) maybeEntry}
+                                                                            return $ AST.IdExp $1 (fromJust $ AST.entry_type entry) maybeEntry}
 
 Return                  :: { AST.Instruction }
 Return                  : Expression '||'                       {% do
@@ -385,14 +387,14 @@ CallFuncion             : play Id With '(' ListExp ClosePar          {% do
                                                                             Just entry -> do
                                                                                 let category = AST.entry_category entry
                                                                                 case category of
-                                                                                    AST.Function _ params -> do
+                                                                                    AST.Function{AST.function_params=params} -> do
                                                                                         -- Verificacion of the list of expressions
                                                                                         casted_args <- checkParams $4 (reverse $5) params
-                                                                                        returnAndGetOffset $ \offset -> AST.CallExp $2 casted_args (fromMaybe voidType $ AST.entry_type entry) offset maybeEntry
+                                                                                        return $ AST.CallExp $2 casted_args (fromMaybe voidType $ AST.entry_type entry) maybeEntry
 
                                                                                     _ -> do
                                                                                         pushError $1 "Calling a not track expression:"
-                                                                                        returnAndGetOffset $ \offset -> AST.CallExp $2 (reverse $5) (fromMaybe voidType $ AST.entry_type entry) offset maybeEntry }
+                                                                                        return $ AST.CallExp $2 (reverse $5) (fromMaybe voidType $ AST.entry_type entry) maybeEntry }
 
                         | play Id                               {% do
                                                                             maybeEntry <- checkVarIsDeclared (AST.id_token $2)
@@ -401,12 +403,12 @@ CallFuncion             : play Id With '(' ListExp ClosePar          {% do
                                                                                 Just entry -> do
                                                                                     let category = AST.entry_category entry
                                                                                     case category of
-                                                                                        AST.Function _ params ->
+                                                                                        AST.Function{AST.function_params=params} ->
                                                                                             if length params == 0
                                                                                                 then return () 
                                                                                                 else pushError (AST.id_token $2) "Wrong number of arguments:"
                                                                                         _ -> pushError $1 "Calling a not track expression:"
-                                                                                    returnAndGetOffset $ \offset -> AST.CallExp $2 [] (fromMaybe voidType $ AST.entry_type entry) offset maybeEntry }
+                                                                                    return $ AST.CallExp $2 [] (fromMaybe voidType $ AST.entry_type entry) maybeEntry }
 
 ListExp                 :: { [AST.Expression] }
 ListExp                 : Expression                            { [$1] }
@@ -431,7 +433,7 @@ Indexing                : Expression '[' Expression CloseSquare     {% do
                                                                                 -- Check index expression is an integer
                                                                                 checkExpType $3 [AST.Simple "quarter", AST.Simple "eighth"] $2
 
-                                                                                returnAndGetOffset $ AST.IndexingExp $1 $3 $2 (AST.type_type $ AST.exp_type $1) }
+                                                                                return $ AST.IndexingExp $1 $3 $2 (AST.type_type $ AST.exp_type $1) }
 
 DotExpression           :: { AST.Expression }
 DotExpression           : Expression '.' Id                         {% do
@@ -447,7 +449,7 @@ DotExpression           : Expression '.' Id                         {% do
                                                                                 throwIfNothing levelMaybe $2 "Expression is not a chord or legato:"
 
                                                                                 fieldEntry <- analyzeField (AST.id_token $3) (fromJust levelMaybe)
-                                                                                returnAndGetOffset $ AST.DotExp $1 $3 (fromJust $ AST.entry_type fieldEntry) }
+                                                                                return $ AST.DotExp $1 $3 (fromJust $ AST.entry_type fieldEntry) }
 
 Dereference             :: { AST.Expression }
 Dereference             : Expression '!'                            {% do 
@@ -458,7 +460,7 @@ Dereference             : Expression '!'                            {% do
                                                                                 if AST.type_str expType /= "Sample"
                                                                                     then pushError $2 "Dereferencing a not sample expression:"
                                                                                     else return ()
-                                                                                returnAndGetOffset $ AST.DereferenceExp $1 $2 (AST.type_type $ AST.exp_type $1) }
+                                                                                return $ AST.DereferenceExp $1 $2 (AST.type_type $ AST.exp_type $1) }
 
 Type                    :: { AST.ASTType }
 Type                    : PrimitiveType                         { $1 }
@@ -482,11 +484,11 @@ MelodyType              : melody '<' Type CloseAngular          {%do
                                                                     return $ AST.Compound (token $1) $3 }
 
 Literal                 :: { AST.Expression }
-Literal                 : int                                   {%do returnAndGetOffset $ AST.LiteralExp $1 (AST.Simple "quarter") }
-                        | float                                 {%do returnAndGetOffset $ AST.LiteralExp $1 (AST.Simple "32th") }
+Literal                 : int                                   {%do return $ AST.LiteralExp $1 (AST.Simple "quarter") }
+                        | float                                 {%do return $ AST.LiteralExp $1 (AST.Simple "32th") }
                         | string                                {%do
-                                                                    returnAndGetOffset $ AST.LiteralExp $1 (AST.Compound "Melody" $ AST.Simple "half") }
-                        | char                                  {%do returnAndGetOffset $ AST.LiteralExp $1 (AST.Simple "half") }
+                                                                    return $ AST.LiteralExp $1 (AST.Compound "Melody" $ AST.Simple "half") }
+                        | char                                  {%do return $ AST.LiteralExp $1 (AST.Simple "half") }
                         | MelodyLiteral                         { $1 }
 
                         | IdType '(' ListExp ClosePar           {% do 
@@ -502,11 +504,11 @@ Literal                 : int                                   {%do returnAndGe
                                                                             case (AST.type_adt $ AST.entry_category a) of
                                                                                 Just AST.Chord -> do
                                                                                     casted_args <- checkParams $2 (reverse $3) fields
-                                                                                    returnAndGetOffset $ AST.ChordLiteral casted_args $1
+                                                                                    return $ AST.ChordLiteral casted_args $1
 
                                                                                 Just AST.Legato -> do
                                                                                     pushError $2 "This sintax is for chords only:"
-                                                                                    returnAndGetOffset $ AST.LegatoLiteral (AST.Id $2) (head $3) $1} -- Just for returning a legato and error recovering
+                                                                                    return $ AST.LegatoLiteral (AST.Id $2) (head $3) $1} -- Just for returning a legato and error recovering
 
                         | IdType '(' Id ':' Expression ClosePar     {% do 
                                                                         if $1 == AST.errorType
@@ -520,7 +522,7 @@ Literal                 : int                                   {%do returnAndGe
                                                                                 case (AST.type_adt $ AST.entry_category entry) of
                                                                                     Just AST.Chord -> do
                                                                                         pushError $2 "This sintax is for legatos only:"
-                                                                                        returnAndGetOffset $ AST.ChordLiteral [$5] $1 -- just for returning a chord
+                                                                                        return $ AST.ChordLiteral [$5] $1 -- just for returning a chord
 
                                                                                     Just AST.Legato -> do
                                                                                         -- Check if `Id` is a field in the legato.
@@ -529,10 +531,10 @@ Literal                 : int                                   {%do returnAndGe
                                                                                         case filter equalId fields of
                                                                                             [] -> do
                                                                                                 pushError $2 $ show idToken ++ " is not a field in " ++ show $1 ++ ":"
-                                                                                                returnAndGetOffset $ AST.LegatoLiteral $3 $5 $1 -- just for returning a legato
+                                                                                                return $ AST.LegatoLiteral $3 $5 $1 -- just for returning a legato
                                                                                             matchedField -> do
                                                                                                 casted_arg <- checkParams $2 [$5] matchedField
-                                                                                                returnAndGetOffset $ AST.LegatoLiteral $3 (head casted_arg) $1}
+                                                                                                return $ AST.LegatoLiteral $3 (head casted_arg) $1}
 
                         | PrimitiveType '(' Expression ClosePar     {%do
                                                                         pushIfError $4 $2 $ matchingError "parentheses"
@@ -542,7 +544,7 @@ Literal                 : int                                   {%do returnAndGe
                         | MelodyType '(' Expression ClosePar        {%do
                                                                         pushIfError $4 $2 $ matchingError "parentheses"
                                                                         checkExpType $3 [AST.Simple "quarter", AST.Simple "eighth"] $2
-                                                                        returnAndGetOffset $ AST.MelodyLiteral' $3 $1 }
+                                                                        return $ AST.MelodyLiteral' $3 $1 }
 
 MelodyLiteral           :: { AST.Expression }
 MelodyLiteral           : '[' ListExp CloseSquare               {%do
@@ -550,7 +552,7 @@ MelodyLiteral           : '[' ListExp CloseSquare               {%do
                                                                     pushIfError $3 $1 $ matchingError "square bracket"
 
                                                                     case $2 of
-                                                                        [] -> returnAndGetOffset $ AST.MelodyLiteral [] (AST.Simple "empty_list")
+                                                                        [] -> return $ AST.MelodyLiteral [] (AST.Simple "empty_list")
                                                                         (e:es) -> do
                                                                             let expType = AST.exp_type e
                                                                             if all (equalType expType) $ map AST.exp_type $2
@@ -558,7 +560,7 @@ MelodyLiteral           : '[' ListExp CloseSquare               {%do
                                                                                     return ()
                                                                                 else pushError $1 "Not homogeneous melodies are not allowed:" 
 
-                                                                            returnAndGetOffset $ AST.MelodyLiteral (reverse $2) (AST.Compound "Melody" expType) }
+                                                                            return $ AST.MelodyLiteral (reverse $2) (AST.Compound "Melody" expType) }
 
 Expression              :: { AST.Expression }
 Expression              : LValue %prec LVALUE                   { $1 }
@@ -566,22 +568,22 @@ Expression              : LValue %prec LVALUE                   { $1 }
                         | not Expression                        {%do
                                                                     let expected = AST.Simple "whole"
                                                                     checkExpType $2 [expected] $1
-                                                                    returnAndGetOffset $ AST.NotExp $2 expected }
+                                                                    return $ AST.NotExp $2 expected }
                         | Expression and Expression             {%do
                                                                     let expected = AST.Simple "whole"
                                                                     checkExpType $1 [expected] $2
                                                                     checkExpType $3 [expected] $2
-                                                                    returnAndGetOffset $ AST.AndExp $1 $3 expected } 
+                                                                    return $ AST.AndExp $1 $3 expected } 
                         | Expression or Expression              {%do
                                                                     let expected = AST.Simple "whole"
                                                                     checkExpType $1 [expected] $2
                                                                     checkExpType $3 [expected] $2
-                                                                    returnAndGetOffset $ AST.OrExp $1 $3 expected } 
+                                                                    return $ AST.OrExp $1 $3 expected } 
 
                         -- Aritmetivos
                         | '-' Expression %prec NEG              {%do
                                                                     checkExpType $2 AST.numberTypes $1
-                                                                    returnAndGetOffset $ AST.NegativeExp $2 (AST.exp_type $2) }
+                                                                    return $ AST.NegativeExp $2 (AST.exp_type $2) }
 
                         | Expression '-' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
@@ -591,7 +593,7 @@ Expression              : LValue %prec LVALUE                   { $1 }
                                                                         exp1 = castExp $1 finalType
                                                                         exp2 = castExp $3 finalType
 
-                                                                    returnAndGetOffset $ AST.SubstractionExp exp1 exp2 finalType }
+                                                                    return $ AST.SubstractionExp exp1 exp2 finalType }
                         | Expression mod Expression             {%do
                                                                     checkExpType $1 [AST.Simple "quarter", AST.Simple "eighth"] $2
                                                                     checkExpType $3 [AST.Simple "quarter", AST.Simple "eighth"] $2
@@ -600,7 +602,7 @@ Expression              : LValue %prec LVALUE                   { $1 }
                                                                         exp1 = castExp $1 finalType
                                                                         exp2 = castExp $3 finalType
 
-                                                                    returnAndGetOffset $ AST.ModExp exp1 exp2 finalType }
+                                                                    return $ AST.ModExp exp1 exp2 finalType }
                         | Expression '/' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
@@ -609,7 +611,7 @@ Expression              : LValue %prec LVALUE                   { $1 }
                                                                         exp1 = castExp $1 finalType
                                                                         exp2 = castExp $3 finalType
 
-                                                                    returnAndGetOffset $ AST.DivExp exp1 exp2 finalType }
+                                                                    return $ AST.DivExp exp1 exp2 finalType }
                         | Expression '*' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
@@ -618,12 +620,12 @@ Expression              : LValue %prec LVALUE                   { $1 }
                                                                         exp1 = castExp $1 finalType
                                                                         exp2 = castExp $3 finalType
 
-                                                                    returnAndGetOffset $ AST.MultExp exp1 exp2 finalType }
+                                                                    return $ AST.MultExp exp1 exp2 finalType }
                         | Expression '^' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 [AST.Simple "quarter", AST.Simple "eighth"] $2
                                                                     
-                                                                    returnAndGetOffset $ AST.PowExp $1 $3 (AST.exp_type $1) }             
+                                                                    return $ AST.PowExp $1 $3 (AST.exp_type $1) }             
                         | Expression '+' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
@@ -632,7 +634,7 @@ Expression              : LValue %prec LVALUE                   { $1 }
                                                                         exp1 = castExp $1 finalType
                                                                         exp2 = castExp $3 finalType
 
-                                                                    returnAndGetOffset $ AST.AdditionExp exp1 exp2 finalType }
+                                                                    return $ AST.AdditionExp exp1 exp2 finalType }
 
                         -- Relacionales
                         | Expression '=' Expression             {%do
@@ -643,7 +645,7 @@ Expression              : LValue %prec LVALUE                   { $1 }
                                                                         exp1 = castExp $1 finalType
                                                                         exp2 = castExp $3 finalType
 
-                                                                    returnAndGetOffset $ AST.EqualExp exp1 exp2 (AST.Simple "whole") }
+                                                                    return $ AST.EqualExp exp1 exp2 (AST.Simple "whole") }
 
                         | Expression '/=' Expression            {%do
                                                                     let expected = [AST.exp_type $1]
@@ -653,7 +655,7 @@ Expression              : LValue %prec LVALUE                   { $1 }
                                                                         exp1 = castExp $1 finalType
                                                                         exp2 = castExp $3 finalType
 
-                                                                    returnAndGetOffset $ AST.NotEqualExp exp1 exp2 (AST.Simple "whole") }
+                                                                    return $ AST.NotEqualExp exp1 exp2 (AST.Simple "whole") }
                         | Expression '<' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
@@ -662,7 +664,7 @@ Expression              : LValue %prec LVALUE                   { $1 }
                                                                         exp1 = castExp $1 finalType
                                                                         exp2 = castExp $3 finalType
 
-                                                                    returnAndGetOffset $ AST.LessExp exp1 exp2 (AST.Simple "whole") }
+                                                                    return $ AST.LessExp exp1 exp2 (AST.Simple "whole") }
                         | Expression '>' Expression             {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
@@ -671,7 +673,7 @@ Expression              : LValue %prec LVALUE                   { $1 }
                                                                         exp1 = castExp $1 finalType
                                                                         exp2 = castExp $3 finalType
 
-                                                                    returnAndGetOffset $ AST.GreaterExp exp1 exp2 (AST.Simple "whole") }
+                                                                    return $ AST.GreaterExp exp1 exp2 (AST.Simple "whole") }
                         | Expression '<=' Expression            {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
@@ -680,11 +682,11 @@ Expression              : LValue %prec LVALUE                   { $1 }
                                                                         exp1 = castExp $1 finalType
                                                                         exp2 = castExp $3 finalType
 
-                                                                    returnAndGetOffset $ AST.LessEqualExp exp1 exp2 (AST.Simple "whole") }
+                                                                    return $ AST.LessEqualExp exp1 exp2 (AST.Simple "whole") }
                         | Expression '>=' Expression            {%do
                                                                     checkExpType $1 AST.numberTypes $2
                                                                     checkExpType $3 AST.numberTypes $2
-                                                                    returnAndGetOffset $ AST.GreaterEqualExp $1 $3 (AST.Simple "whole") }
+                                                                    return $ AST.GreaterEqualExp $1 $3 (AST.Simple "whole") }
 
                         -- Micelaneos
                         | Literal                               { $1 }
@@ -693,17 +695,17 @@ Expression              : LValue %prec LVALUE                   { $1 }
                                                                     return $2 }
 
                         | new Literal                           {%do 
-                                                                    returnAndGetOffset $ AST.NewExp (Just $2) (AST.Compound "Sample" (AST.exp_type $2)) }
+                                                                    return $ AST.NewExp (Just $2) (AST.Compound "Sample" (AST.exp_type $2)) }
 
                         | new IdType                            {%do
-                                                                    returnAndGetOffset $ AST.NewExp Nothing (AST.Compound "Sample" $2) }
+                                                                    return $ AST.NewExp Nothing (AST.Compound "Sample" $2) }
 
                         | length '(' Expression ClosePar        {%do
                                                                     pushIfError $4 $2 $ matchingError "parentheses"
                                                                     case AST.exp_type $3 of
                                                                         AST.Simple "Error" -> return AST.errorExp
                                                                         AST.Compound "Melody" _ ->
-                                                                            returnAndGetOffset $ AST.LengthExp $3 $ AST.Simple "quarter"
+                                                                            return $ AST.LengthExp $3 $ AST.Simple "quarter"
                                                                         _ -> do
                                                                             pushError $2 "Expression is not a melody:"
                                                                             return AST.errorExp}
@@ -766,20 +768,15 @@ parseError (tk:_) = do
     srcFile <- RWS.ask
     throwCompilerError srcFile [Error (line tk) (col tk) "Parse error:"]
 
-returnAndGetOffset :: (Int -> AST.Expression) -> PMonad.ParserMonad AST.Expression
-returnAndGetOffset exp' = do
-    offset <- PMonad.getOffset
-    return $ exp' offset
-
 -----------------------------------------------------------------------------------------------
 -- Entry Creation
 -----------------------------------------------------------------------------------------------
 
-createFunctionEntry :: Token -> Maybe AST.ASTType -> AST.Id -> [AST.VarDeclaration] -> Maybe AST.Block -> ParserMonad ()
-createFunctionEntry tk semType funcId params block = do
+createFunctionEntry :: Token -> Maybe AST.ASTType -> AST.Id -> [AST.VarDeclaration] -> Maybe AST.Block -> Maybe Int -> ParserMonad ()
+createFunctionEntry tk semType funcId params block offset = do
     a <- verifyFunctionEntry (token tk) 
     if a then do 
-        let funcat = AST.Function { AST.function_block = block, AST.function_params = params }
+        let funcat = AST.Function { AST.function_block = block, AST.function_params = params, AST.max_offset = offset }
         PMonad.ParserState{PMonad.state_scopes=AST.Scopes _ (_:prev:_)} <- RWS.get
         
         let entry = AST.Entry {
@@ -915,7 +912,7 @@ verifyFunctionEntry name = do
     entry <- PMonad.lookup name
     case entry of
         Nothing -> return True
-        Just (AST.Entry _ (AST.Function _ _) _ _ _) -> return False
+        Just (AST.Entry _ (AST.Function{}) _ _ _) -> return False
         Just _ -> return True
 
 verifyVarEntry :: String -> Int -> ParserMonad (Bool)
@@ -952,14 +949,14 @@ verifyParamsEntry name current_scope = do
         Just _ -> return True
 
 -- | Add block to a function
-addBlock :: AST.Block -> [AST.Entry] -> Maybe [AST.Entry]
-addBlock block lst = Just $ map mapping lst
+addBlock :: AST.Block -> Int -> [AST.Entry] -> Maybe [AST.Entry]
+addBlock block offset lst = Just $ map mapping lst
     where 
         condition e = 
             case AST.entry_category e of
-                AST.Function Nothing _ -> True
+                AST.Function{AST.function_block=Nothing} -> True
                 _ -> False
-        mapping e = if condition e then e { AST.entry_category = (AST.entry_category e) { AST.function_block = Just block } }
+        mapping e = if condition e then e { AST.entry_category = (AST.entry_category e) { AST.function_block = Just block, AST.max_offset = Just offset } }
                 else e
 
 addFields :: [AST.VarDeclaration] -> [AST.Entry] -> Maybe [AST.Entry]

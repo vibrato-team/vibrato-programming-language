@@ -1,0 +1,20 @@
+moderato() {
+    loop (maj) {
+        x: quarter|
+        @(x)|
+
+        if (x = 0) |]
+        if (x < 0) >>
+
+        total: quarter <-> 0|
+        loop i {
+            y: quarter|
+            z: quarter|
+            @(y, z)|
+            if (y+z <= 0) >>
+            total <-> total + y+z|
+        } in (x)
+
+        |>(total)|
+    }
+}

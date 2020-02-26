@@ -1,0 +1,21 @@
+moderato() {
+    v: Melody<quarter> <-> [1,2,3,4,5,6,7,8,9,10,12,14,23,34,35,46,47,57,58,59,67]|
+    lo: quarter <-> 0|
+    hi: quarter <-> length(v)|
+    idx: quarter|
+    x: quarter <-> 46|
+
+    loop (lo < hi) {
+        mid: quarter <-> (lo+hi)/2|
+        y: quarter <-> v[mid]|
+        if (y = x) {
+            idx <-> mid|
+            |]
+        }
+        if (x < y) {
+            hi <-> mid|
+            >>
+        }
+        lo <-> mid+1|
+    }
+}
