@@ -447,7 +447,6 @@ DotExpression           : Expression '.' Id                         {% do
                                                                                 let entry = fromJust entryMaybe
                                                                                     levelMaybe = AST.entry_level entry
                                                                                 throwIfNothing levelMaybe $2 "Expression is not a chord or legato:"
-
                                                                                 fieldEntry <- analyzeField (AST.id_token $3) (fromJust levelMaybe)
                                                                                 return $ AST.DotExp $1 $3 (fromJust $ AST.entry_type fieldEntry) }
 
@@ -721,18 +720,16 @@ IdType                  : id_type                               {%do
                                                                             return AST.errorType
                                                                         Just _ -> return $ AST.Simple (token $1) }
 
-NewType                 :: { String }
-NewType                 : chord IdType                         {%do
-                                                                    let typeStr = AST.type_str $2
-                                                                    computeTypeSize $2
-                                                                    return typeStr }
-                        | legato IdType                        {%do
-                                                                    let typeStr = AST.type_str $2
-                                                                    computeTypeSize $2
-                                                                    return typeStr }
+NewType                 :: { AST.ASTType }
+NewType                 : chord IdType                         { $2 }
+                        | legato IdType                        { $2 }
 
 ChordLegato             :: { () }
-ChordLegato             : NewType PushScope ChordLegatoFields PopScope  {% PMonad.updateEntry (addFields $3) $1 }
+ChordLegato             : NewType PushScope ChordLegatoFields PopScope  {%do
+                                                                            let typeStr = AST.type_str $1
+                                                                            PMonad.updateEntry (addFields $3) typeStr
+                                                                            computeTypeSize $1 
+                                                                            return ()}
 
 ChordLegatoFields       : '{' ListaField CloseBracket                    {% do
                                                                             pushIfError $3 $1 $ matchingError "bracket"
@@ -852,7 +849,7 @@ computeTypeSize (AST.Simple typeStr) = do
     Just (entry@AST.Entry{AST.entry_category=cat}) <- PMonad.lookup typeStr
     case AST.type_size cat of
         -1 -> do
-            -- Traverse types of fields and compute correspondant sizes.            
+            -- Traverse types of fields and compute correspondant sizes.
             let fieldTypes = map AST.var_type $ fromJust $ AST.type_fields cat
             size <- foldM (\sz t -> computeTypeSize t >>= (\w -> return $ sz+w)) 0 fieldTypes
 
@@ -862,7 +859,8 @@ computeTypeSize (AST.Simple typeStr) = do
 
         size -> return size
 
-computeTypeSize (AST.Compound typeStr astType) = return 4
+computeTypeSize (AST.Compound typeStr astType) = do
+    return 4
 
 
 createFieldEntry :: Token -> AST.ASTType -> Maybe Int -> ParserMonad ()

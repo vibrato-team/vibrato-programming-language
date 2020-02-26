@@ -1,9 +1,10 @@
-chord D {
-    x: quarter
+chord Persona {
+    x: quarter,
+    y: whole
 }
 
 moderato() {
-    d: D|
-    d.x <-> 1|
-    |> (d.x)|
+    d: Persona <-> Persona(10,maj) |
+    -- d.x <-> 1|
+    -- |> (d.x)|
 }

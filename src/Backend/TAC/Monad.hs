@@ -430,6 +430,26 @@ genForExp exp@AST.CallExp{AST.exp_id=expId, AST.exp_params=params, AST.exp_type=
             ret <- newTemp expType
             genRaw [TAC.ThreeAddressCode TAC.Call (Just ret) (Just $ TAC.Label name) (Just $ toQuarterConstant n) ]
             return (Just ret, [], [])
+-- Strucs 
+genForExp (AST.ChordLiteral exp_exps exp_type exp_offset) = do
+    -- Reservamos memoria
+    size <- getSize exp_type
+
+    liftIO $ print "Sexo analllllll"
+    foldl (\acc b -> do 
+        x <- getSize $ AST.exp_type b 
+        liftIO $ print x ) 
+        exp_exps exp_exps
+    liftIO $ print "Sexo Vag"
+
+    -- liftIO $ print exp_exps
+    liftIO $ print exp_type
+    liftIO $ print exp_offset
+    return (Nothing, [], [])
+
+genForExp x = do
+    liftIO $ print x
+    return (Nothing, [], [])
 
 -- | Insert a list of raw instructions into final Three Address Code
 genRaw :: [TAC.Instruction] -> TACMonad ()

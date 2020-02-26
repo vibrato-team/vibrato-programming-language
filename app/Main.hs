@@ -49,14 +49,14 @@ main = do
                             acc p@(state, tac) entry = RWS.execRWST (TACMonad.genForFunction entry) () state >>= concatStates p
                             acc' p@(state, tac) genForFunction = RWS.execRWST genForFunction () state >>= concatStates p
                             functionGenerators = [TACMonad.genForMallocFunction, TACMonad.genForFreeFunction]
-
                         (state, tac) <- foldM acc' (TACMonad.initialState table, []) functionGenerators
                         (state, tac) <- foldM acc (state, tac) functionEntries
 
                         -- Backpatching
                         let bpMap = TACMonad.bp_map state
                             finalTAC = TACMonad.backpatchAll bpMap tac
-                        printTAC finalTAC
+                        print "Jejeje"
+                        -- printTAC finalTAC
                 
     
     hClose handle

@@ -51,7 +51,8 @@ analyzeField tk level = do
     entryMaybe <- PMonad.lookupField tkString level
 
     throwIfNothing entryMaybe tk (show tkString ++ " is not a valid field:")
-    return $ fromJust entryMaybe
+    let j = fromJust entryMaybe
+    return j
 
 matchingError tkString = "Couldnt match closing " ++ tkString ++ ":"
 

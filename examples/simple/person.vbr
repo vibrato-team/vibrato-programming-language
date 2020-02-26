@@ -12,10 +12,14 @@ moderato() {
         Leonardo("Leonardo", 23)
     ]|
 
+    -- loop idx {
+    --     like arpeggio persons[idx]
+    --         (name, age) -> {
+    --             |>("Se llama", name, "y tiene", age)|
+    --         }
+    -- } in (length(persons))
+
     loop idx {
-        like arpeggio persons[idx]
-            (name, age) -> {
-                |>("Se llama", name, "y tiene", age)|
-            }
+        |>("Se llama", persons[idx].name, "y tiene", persons[idx].age)|
     } in (length(persons))
 }
