@@ -778,13 +778,13 @@ createFunctionEntry tk semType funcId params block offset = do
     if a then do 
         let funcat = AST.Function { AST.function_block = block, AST.function_params = params, AST.max_offset = offset }
         PMonad.ParserState{PMonad.state_scopes=AST.Scopes _ (_:prev:_)} <- RWS.get
-        
+        currScope <- PMonad.currScope
         let entry = AST.Entry {
             AST.entry_name = token tk,
             AST.entry_category = funcat,
             AST.entry_scope = prev,
             AST.entry_type = semType,
-            AST.entry_level = Nothing
+            AST.entry_level = Just currScope
         }
         PMonad.insertEntry entry
     else

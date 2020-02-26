@@ -804,7 +804,7 @@ genForFunction entry = do
         name            = AST.entry_name entry
         params          = AST.function_params cat
         paramStrings    = map (Tokens.token . AST.id_token . AST.var_id) params
-        scope           = AST.entry_scope entry
+        Just level      = AST.entry_level entry
 
     setOffset maxOffset
     genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just $ TAC.Label name) Nothing,
@@ -812,7 +812,7 @@ genForFunction entry = do
             TAC.ThreeAddressCode TAC.Set (Just base) (Just zeroConstant) (Just zeroConstant)]
 
     -- Get entries of each param
-    paramEntries <- mapM (lookupInScope $ scope+1) paramStrings
+    paramEntries <- mapM (lookupInScope level) paramStrings
     mapM_ genForTrackParam paramEntries
 
     -- Generate TAC for each instruction inside block
