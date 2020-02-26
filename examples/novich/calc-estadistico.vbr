@@ -3,11 +3,17 @@
 /*
 
 track varianza(estadisticos: Sample<Melody<32th> >, cantElem: quarter): 32th{
+    s: quarter <-> 0 |
+    media: 32th <-> promedio(estadisticos, cantElem)
+    loop x {
+        s = s + ((estadisticos![x] - media) ^ 2) |
+    } in (length(estadisticos))
 
+    s / length(estadisticos) ||
 }
 
 track desv_standar(estadisticos: Sample<Melody<32th> >, cantElem: quarter): 32th{
-    
+    sqrt(varianza(estadisticos, cantElem), 0.01) ||
 }
 
 tack max(estadisticos: Sample<Melody<32th> >, cantElem: quarter): 32th{
@@ -35,6 +41,22 @@ track promedio(estadisticos: Sample<Melody<32th> >, cantElem: quarter): 32th {
         promedio <-> promedio + estadistico![x] |
     } in (cantElem)
     promedio / cantElem ||
+}
+
+track abs(n:32th): 32th {
+    if( n < 0 ) n * -1 ||
+    n ||
+}
+
+track sqrt(n: 32th, error: 32th): 32th {
+    prev: 32th <-> 1.0 |
+    new_: 32th <-> 0.5 * (1.0 + n) |
+
+    loop (play abs with (new_ - prev) > error ){
+        prev <-> new_ |
+        new_ <-> 0.5 * (new_ + n/new_) |
+    }
+    new_ ||
 }
 
 moderato(){

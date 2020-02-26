@@ -1,0 +1,66 @@
+track swap(arr: Sample< Melody<quarter> >, pos1: quarter, pos2: quarter){
+    aux: quarter <-> arr![pos1] |
+    arr![pos1] <-> arr![pos2] |
+    arr![pos2] <-> aux |
+}
+
+track partition(arr: Sample< Melody<quarter> >, low: quarter, high: quarter): quarter{
+    pivot: quarter <-> arr![high] |
+    i: quarter <-> low - 1 |
+
+    loop j {
+        if (arr![j] < pivot){
+            i <-> i + 1 |
+            play swap with (arr, i, j) |
+        }
+    } in (low, high-1)
+
+    play swap with (arr, i + 1, high) |
+    ( i + 1 ) ||
+}
+
+
+track quicksort(arr: Sample< Melody<quarter> >, low: quarter , high: quarter ){
+    pi : quarter |
+    if( low < high ){
+        pi <-> play partition with (arr, low, high) |
+
+        play quicksort with ( arr, low, pi - 1 ) |
+        play quicksort with ( arr, pi + 1, high ) |
+    }
+}
+
+moderato(){
+    opt: quarter |
+    tamArr: quarter |
+    
+    loop (maj){
+        |>("Desea Ordenar por: ") |
+        |>("1) Enteros ") |
+        |>("2) Flotantes ") |
+        |>("3) Caracteres ") |
+        |>("-1) Salir ") |
+        @(opt)
+
+        if( opt = -1) |] 
+        
+        |>("indique el tamaño: ")
+        @(tamArr)
+
+        arr: Sample< Melody<quarter> >(tamArr) |
+        aux: quarter |
+        loop x {
+            @(aux) |
+            arr[x] = aux |
+        } in ( tamArr - 1 )
+
+        play quicksort with (arr, 0, tamArr) |
+        |>("Arrelgo: [") |
+        loop x {
+            |>(arr[x], ", ")
+        } in (tamArr - 2)
+        |> (arr[tamArr-1], "]")
+
+    }
+
+}

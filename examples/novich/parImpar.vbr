@@ -1,0 +1,36 @@
+track par(n:quarter): whole {
+    if( n = 0 ) maj ||
+    else{
+        if( n = 1 ) min ||
+        else {
+            impar( n-1 ) ||
+        }
+    }
+}
+
+track impar(n:quarter): whole {
+    if( n = 0 ) min ||
+    else{
+        if( n = 1 ) maj ||
+        else {
+            par( n-1 ) ||
+        }
+    }
+}
+
+moderato(){
+    num: quarter |
+    loop (maj){
+        |>("Ingresa un numero no negativo: ") |
+        @(num) |
+
+        if(num = -1) |] |
+
+        if( par(num) ){
+            |>("El numero", num," es par") |
+        }
+        else{
+            |>("El numero", num," es impar") |
+        }
+    }
+}
