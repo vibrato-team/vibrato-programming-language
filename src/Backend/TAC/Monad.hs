@@ -1158,7 +1158,7 @@ genForIncrementBase = do
 genForCallWithGC name param' = genForCall name param' False
 
 genForCall :: String -> TAC.Value -> Bool -> TACMonad (Maybe TAC.Value)
-genForCall name param' isRecursive = do
+genForCall "free" param' isRecursive = do
     param <- newTemp $ TAC.getType param'
     genRaw [TAC.ThreeAddressCode TAC.Assign (Just param) (Just param') Nothing]
 
@@ -1166,14 +1166,28 @@ genForCall name param' isRecursive = do
     genForParamInst param
     genForParamInst $ toWholeConstant isRecursive
 
-    case name of
-        "malloc" -> do
-            ret <- newTemp $ AST.Simple "quarter"
-            genRaw [TAC.ThreeAddressCode TAC.Call (Just ret) (Just $ TAC.Label name) (Just $ toQuarterConstant 2) ]
-            return $ Just ret
-        "free" -> do
-            genRaw [TAC.ThreeAddressCode TAC.Call Nothing (Just $ TAC.Label name) (Just $ toQuarterConstant 2) ]
-            return Nothing
+    genRaw [TAC.ThreeAddressCode TAC.Call Nothing (Just $ TAC.Label "free") (Just $ toQuarterConstant 2) ]
+    return Nothing
+
+genForCall "malloc" param' isRecursive = do
+    param <- newTemp $ TAC.getType param'
+    temp0 <- newTemp $ TAC.getType param'
+    temp1 <- newTemp $ TAC.getType param'
+    temp2 <- newTemp $ TAC.getType param'
+
+    genRaw [TAC.ThreeAddressCode TAC.Assign (Just param) (Just param') Nothing,
+            TAC.ThreeAddressCode TAC.Sub (Just temp0) (Just arqWordConstant) (Just oneConstant),
+            TAC.ThreeAddressCode TAC.Add (Just temp1) (Just param) (Just temp0),
+            TAC.ThreeAddressCode TAC.Div (Just temp2) (Just temp1) (Just arqWordConstant),
+            TAC.ThreeAddressCode TAC.Mult (Just param) (Just temp2) (Just arqWordConstant)]
+
+    genForIncrementBase
+    genForParamInst param
+    genForParamInst $ toWholeConstant isRecursive
+
+    ret <- newTemp $ AST.Simple "quarter"
+    genRaw [TAC.ThreeAddressCode TAC.Call (Just ret) (Just $ TAC.Label "malloc") (Just $ toQuarterConstant 2) ]
+    return $ Just ret
 
 genForParamInst :: TAC.Value -> TACMonad ()
 genForParamInst param = 
