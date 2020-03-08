@@ -883,6 +883,7 @@ genForMallocFunction = do
     size <- newTemp $ AST.Simple "quarter"
     isRecursive <- newTemp $ AST.Simple "whole"
     genRaw [TAC.ThreeAddressCode TAC.Get (Just size) (Just base) (Just arqWordConstant),
+            TAC.ThreeAddressCode TAC.Add (Just size) (Just size) (Just $ toQuarterConstant $ 3*arqWord),
             TAC.ThreeAddressCode TAC.Get (Just isRecursive) (Just base) (Just doubleWordConstant)]
 
     --------------------------------------------------------------
@@ -931,6 +932,7 @@ genForMallocFunction = do
     genForBlock iter nextBlock oneConstant size
 
     trackNewAddr iter isRecursive
+    genRaw [TAC.ThreeAddressCode TAC.Add (Just iter) (Just iter) (Just $ toQuarterConstant $ 3*arqWord)]
     genForReturn' $ Just iter
 
     --------------------------------------------------------------
@@ -983,6 +985,7 @@ genForFreeFunction = do
     addr <- newTemp $ AST.Simple "quarter"
     isRecursive <- newTemp $ AST.Simple "whole"
     genRaw [TAC.ThreeAddressCode TAC.Get (Just addr) (Just base) (Just arqWordConstant),
+            TAC.ThreeAddressCode TAC.Sub (Just addr) (Just addr) (Just $ toQuarterConstant $ 3*arqWord),
             TAC.ThreeAddressCode TAC.Get (Just isRecursive) (Just base) (Just doubleWordConstant)]
 
     --------------------------------------------------------------
@@ -1214,7 +1217,7 @@ newLabel = do
     state@TACState{label_count=labelCount} <- RWS.get
     RWS.put state{label_count=labelCount+1}
 
-    let label = TAC.Label $ show labelCount
+    let label = TAC.Label $ "label_" ++ show labelCount
     genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just label) Nothing]
 
     return label
