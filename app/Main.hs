@@ -4,6 +4,7 @@ import qualified Frontend.Lexer as Lexer
 import qualified Frontend.Parser.Parser as Parser
 import qualified Frontend.Parser.PreParser as PreParser
 import qualified Frontend.Parser.Monad as PMonad
+import qualified Backend.FlowGraph as FGraph
 import AST
 import Util.Error
 import qualified Control.Monad.RWS.Lazy as RWS
@@ -55,17 +56,21 @@ main = do
 
                         -- Backpatching
                         let bpMap = TACMonad.bp_map state
-                            finalTAC = TACMonad.backpatchAll bpMap tac
-                        printTAC finalTAC
-                
-    
+                            preliminarTAC = TAC.ThreeAddressCode TAC.GoTo Nothing Nothing (Just $ TAC.Label "moderato") : TACMonad.backpatchAll bpMap tac
+                            (finalTAC, blockLeaders) = FGraph.getBlockLeaders preliminarTAC
+
+                        putStrLn $ "Block Leaders:\n" ++ show blockLeaders ++ "\n\nThree Address Code:"
+                        printTAC finalTAC 0 blockLeaders
+
     hClose handle
 
 printTable :: (Show a, Show b) => Map.Map a [b] -> IO ()
 printTable table = mapM_ (\(str, entry) -> print str >> mapM_ (\a -> putStr "\t" >> print a) entry ) (Map.toList table)
 
-printTAC :: [TAC.Instruction] -> IO ()
-printTAC [] = return ()
-printTAC (inst:insts) = do
+printTAC :: [TAC.Instruction] -> Int -> Set.Set Int -> IO ()
+printTAC [] _ _ = return ()
+printTAC (inst:insts) line blockLeaders = do
+    when (Set.member line blockLeaders) $ putStrLn "\t-------------------------------------------------------------------------------"
+    putStr $ show line ++ "\t" 
     print inst
-    printTAC insts
+    printTAC insts (line+1) blockLeaders
