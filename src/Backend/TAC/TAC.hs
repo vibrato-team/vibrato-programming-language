@@ -50,6 +50,8 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) w
   show (ThreeAddressCode Sbrk (Just t) (Just sz) Nothing)         = "\t" ++ show t ++ " := sbrk(" ++ show sz ++ ")"  
   show (ThreeAddressCode Print Nothing (Just x) Nothing)          = "\tprint(" ++ show x ++ ")"
   show (ThreeAddressCode Read Nothing (Just x) Nothing)           = "\tread(" ++ show x ++ ")"
+  show (ThreeAddressCode Entry Nothing Nothing Nothing)           = "\tENTRY"
+  show (ThreeAddressCode Exit Nothing Nothing Nothing)            = "\tEXIT"
 
   show tac = show (tacLvalue tac) ++ " := " ++ show (tacRvalue1 tac) ++ show (tacOperand tac) ++ show (tacRvalue2 tac)
 
@@ -68,6 +70,9 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (Operand a b) where
   show (Label l) = l
 
 data Operation =
+    Entry         |
+    Exit          |
+
     Assign        |
     -- Arithmetic
     -- | Addition
@@ -152,6 +157,18 @@ data Operation =
     Cast String String
     deriving (Eq, Show)
 
+jumpInsts' = [GoTo, If, IfFalse, Eq, Neq, Lt, Gt, Lte, Gte]
+jumpInsts = Call : jumpInsts'
+
+getDestiny :: (SymEntryCompatible a) => ThreeAddressCode a b -> Maybe (Operand a b)
+getDestiny inst
+  | tacOperand inst `elem` jumpInsts' =
+    tacRvalue2 inst
+  | otherwise =
+    tacRvalue1 inst
+
+entryNode = ThreeAddressCode Entry Nothing Nothing Nothing :: Instruction
+exitNode = ThreeAddressCode Exit Nothing Nothing Nothing :: Instruction
 
 data Id = 
   Temp  { temp_name  :: String, temp_type  :: AST.ASTType, temp_offset :: Maybe Int } |

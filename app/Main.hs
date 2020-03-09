@@ -4,7 +4,8 @@ import qualified Frontend.Lexer as Lexer
 import qualified Frontend.Parser.Parser as Parser
 import qualified Frontend.Parser.PreParser as PreParser
 import qualified Frontend.Parser.Monad as PMonad
-import qualified Backend.FlowGraph as FGraph
+import qualified Backend.FlowGraph.FlowGraph as FGraph
+import qualified Backend.FlowGraph.Block as Block
 import AST
 import Util.Error
 import qualified Control.Monad.RWS.Lazy as RWS
@@ -56,11 +57,16 @@ main = do
 
                         -- Backpatching
                         let bpMap = TACMonad.bp_map state
-                            preliminarTAC = TAC.ThreeAddressCode TAC.GoTo Nothing Nothing (Just $ TAC.Label "moderato") : TACMonad.backpatchAll bpMap tac
-                            (finalTAC, blockLeaders) = FGraph.getBlockLeaders preliminarTAC
+                            preliminarTAC = (TAC.entryNode : TAC.ThreeAddressCode TAC.GoTo Nothing Nothing (Just $ TAC.Label "moderato") : TACMonad.backpatchAll bpMap tac) ++ [TAC.exitNode]
+                            (finalTAC, blockLeaders') = FGraph.getBlockLeaders preliminarTAC
+                            blockLeaders = Set.insert (length finalTAC - 1) blockLeaders'
 
                         putStrLn $ "Block Leaders:\n" ++ show blockLeaders ++ "\n\nThree Address Code:"
-                        printTAC finalTAC 0 blockLeaders
+
+                        let labelMap = FGraph.getLabelIdxs finalTAC 0 Map.empty
+                            blocksList = reverse $ FGraph.getBlocks finalTAC 0 (-1) labelMap blockLeaders Set.empty [] []
+
+                        mapM_ (\block@Block.Block{Block.insts=tac, Block.from_idx=fromIdx} -> putStrLn "\n" >> printDelimiter >> print block >> printTAC tac fromIdx blockLeaders >> printDelimiter) blocksList
 
     hClose handle
 
@@ -70,7 +76,9 @@ printTable table = mapM_ (\(str, entry) -> print str >> mapM_ (\a -> putStr "\t"
 printTAC :: [TAC.Instruction] -> Int -> Set.Set Int -> IO ()
 printTAC [] _ _ = return ()
 printTAC (inst:insts) line blockLeaders = do
-    when (Set.member line blockLeaders) $ putStrLn "\t-------------------------------------------------------------------------------"
+    when (Set.member line blockLeaders) printDelimiter
     putStr $ show line ++ "\t" 
     print inst
     printTAC insts (line+1) blockLeaders
+
+printDelimiter = putStrLn "-------------------------------------------------------------------------------"
