@@ -7,7 +7,7 @@ class SymEntryCompatible a where
   getSymID :: a -> String
 
 data (SymEntryCompatible a) => ThreeAddressCode a b = ThreeAddressCode
-  { tacOperand :: Operation,
+  { tacOperation :: Operation,
     tacLvalue  :: Maybe (Operand a b),
     tacRvalue1 :: Maybe (Operand a b),
     tacRvalue2 :: Maybe (Operand a b)
@@ -53,7 +53,7 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) w
   show (ThreeAddressCode Entry Nothing Nothing Nothing)           = "\tENTRY"
   show (ThreeAddressCode Exit Nothing Nothing Nothing)            = "\tEXIT"
 
-  show tac = show (tacLvalue tac) ++ " := " ++ show (tacRvalue1 tac) ++ show (tacOperand tac) ++ show (tacRvalue2 tac)
+  show tac = show (tacLvalue tac) ++ " := " ++ show (tacRvalue1 tac) ++ show (tacOperation tac) ++ show (tacRvalue2 tac)
 
 type Instruction = ThreeAddressCode Id AST.ASTType
 type Value = Operand Id AST.ASTType
@@ -157,17 +157,52 @@ data Operation =
     Cast String String
     deriving (Eq, Show)
 
-jumpInsts' = [GoTo, If, IfFalse, Eq, Neq, Lt, Gt, Lte, Gte]
+conditionalJumpInsts = [If, IfFalse, Eq, Neq, Lt, Gt, Lte, Gte]
+
+-- Operations that are going to be translated into jumps but not jump and link.
+jumpInsts' = GoTo : conditionalJumpInsts
+
+-- Operations that are going to be translated into jumps, including jump and link.
 jumpInsts = Call : jumpInsts'
 
 getDestiny :: (SymEntryCompatible a) => ThreeAddressCode a b -> Maybe (Operand a b)
 getDestiny inst
-  | tacOperand inst `elem` jumpInsts' =
+  | tacOperation inst `elem` jumpInsts' =
     tacRvalue2 inst
   | otherwise =
     tacRvalue1 inst
 
+-- Operations that are considerad assignments, without Casting
+assignmentInsts = [Assign, Add, Sub, Minus, Mult, Div, Mod,  Get, Ref, Call, Sbrk]
+
+isAnAssignment :: Operation -> Bool
+isAnAssignment op
+  | op `elem` assignmentInsts = True
+  | otherwise =
+    case op of
+      Cast _ _ -> True
+      _ -> False
+
+getValues :: Instruction -> [Value]
+getValues inst =
+  if tacOperation inst `elem` conditionalJumpInsts 
+    then catMaybes [tacLvalue inst, tacRvalue1 inst] 
+    else catMaybes [tacRvalue1 inst, tacRvalue2 inst]
+
+getIds :: Instruction -> [Id]
+getIds inst =
+  let values = getValues inst in
+    mapMaybe getId values
+
+getId :: Value -> Maybe Id
+getId val =
+  case val of
+    Id var -> Just var
+    _ -> Nothing
+
+-- Entry Node of the flow graph
 entryNode = ThreeAddressCode Entry Nothing Nothing Nothing :: Instruction
+-- Exit Node of the flow graph
 exitNode = ThreeAddressCode Exit Nothing Nothing Nothing :: Instruction
 
 data Id = 
@@ -179,6 +214,9 @@ instance Show Id where
   show x@Temp{temp_offset=Just offset} = temp_name x ++ "_" ++ show offset
   show x@Temp{} = temp_name x
   show x = getSymID x ++ "_" ++ show (idOffset x)
+
+instance Ord Id where
+  compare x y = show x `compare` show y
 
 idOffset :: Id -> Int
 idOffset Temp{temp_offset=Just offset} = offset

@@ -6,6 +6,7 @@ import qualified Frontend.Parser.PreParser as PreParser
 import qualified Frontend.Parser.Monad as PMonad
 import qualified Backend.FlowGraph.FlowGraph as FGraph
 import qualified Backend.FlowGraph.Block as Block
+import qualified Backend.FlowGraph.LiveVariables as LV
 import AST
 import Util.Error
 import qualified Control.Monad.RWS.Lazy as RWS
@@ -61,24 +62,33 @@ main = do
                             (finalTAC, blockLeaders') = FGraph.getBlockLeaders preliminarTAC
                             blockLeaders = Set.insert (length finalTAC - 1) blockLeaders'
 
+                        --------------------------------------------------------------------------------------------------
                         putStrLn $ "Block Leaders:\n" ++ show blockLeaders ++ "\n\nThree Address Code:"
 
                         let labelMap = FGraph.getLabelIdxs finalTAC 0 Map.empty
                             blocksList = reverse $ FGraph.getBlocks finalTAC 0 (-1) labelMap blockLeaders Set.empty [] []
 
-                        mapM_ (\block@Block.Block{Block.insts=tac, Block.from_idx=fromIdx} -> putStrLn "\n" >> printDelimiter >> print block >> printTAC tac fromIdx blockLeaders >> printDelimiter) blocksList
+                        mapM_ (\block@Block.Block{Block.insts=tac, Block.from_idx=fromIdx} -> putStrLn "\n" >> printDelimiter >> print block >> printTAC tac fromIdx blockLeaders print >> printDelimiter) blocksList
+                        --------------------------------------------------------------------------------------------------
+                        printDelimiter
+                        printDelimiter
+                        --------------------------------------------------------------------------------------------------
+                        putStrLn "Live Variables per instruction:\n"
+
+                        liveVarsMap <- LV.getLiveVarsMap tac blocksList
+                        printTAC (Map.toList liveVarsMap) 0 blockLeaders (\(idx, liveVars) -> putStrLn $ "IN[" ++ show idx ++ "] = " ++ show (Set.toList liveVars))
 
     hClose handle
 
 printTable :: (Show a, Show b) => Map.Map a [b] -> IO ()
 printTable table = mapM_ (\(str, entry) -> print str >> mapM_ (\a -> putStr "\t" >> print a) entry ) (Map.toList table)
 
-printTAC :: [TAC.Instruction] -> Int -> Set.Set Int -> IO ()
-printTAC [] _ _ = return ()
-printTAC (inst:insts) line blockLeaders = do
+printTAC :: [a] -> Int -> Set.Set Int -> (a -> IO ()) -> IO ()
+printTAC [] _ _ _ = return ()
+printTAC (inst:insts) line blockLeaders print' = do
     when (Set.member line blockLeaders) printDelimiter
     putStr $ show line ++ "\t" 
-    print inst
-    printTAC insts (line+1) blockLeaders
+    print' inst
+    printTAC insts (line+1) blockLeaders print'
 
 printDelimiter = putStrLn "-------------------------------------------------------------------------------"

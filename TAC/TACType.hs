@@ -4,7 +4,7 @@ class SymEntryCompatible a where
   getSymID :: a -> String
 
 data (SymEntryCompatible a) => ThreeAddressCode a b = ThreeAddressCode
-  { tacOperand :: Operation,
+  { tacOperation :: Operation,
     tacLvalue  :: Maybe (Operand a b),
     tacRvalue1 :: Maybe (Operand a b),
     tacRvalue2 :: Maybe (Operand a b)
@@ -44,7 +44,7 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) w
   show (ThreeAddressCode Return Nothing Nothing Nothing)          = "\treturn" 
   show (ThreeAddressCode Return Nothing (Just t) Nothing)          = "\treturn " ++ show t 
 
-  show tac = show (tacLvalue tac) ++ " := " ++ show (tacRvalue1 tac) ++ show (tacOperand tac) ++ show (tacRvalue2 tac)
+  show tac = show (tacLvalue tac) ++ " := " ++ show (tacRvalue1 tac) ++ show (tacOperation tac) ++ show (tacRvalue2 tac)
 
 data (SymEntryCompatible a) => Operand a b = 
   Id a | 

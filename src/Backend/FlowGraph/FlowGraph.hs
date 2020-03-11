@@ -15,7 +15,7 @@ getReachableLabels (inst:tac) set =
         Just (TAC.Label labelStr) ->
             getReachableLabels tac $ Set.insert labelStr set
         _ ->
-            case TAC.tacOperand inst of
+            case TAC.tacOperation inst of
                 TAC.Call ->
                     let Just (TAC.Label labelStr) = TAC.tacRvalue1 inst in
                         getReachableLabels tac $ Set.insert labelStr set
@@ -39,7 +39,7 @@ getReachedByGoto (inst:tac) idx reachableLabels set =
 getFollowingGoto :: [TAC.Instruction] -> Int -> Set.Set Int -> Set.Set Int
 getFollowingGoto [] _ set = set
 getFollowingGoto (inst:tac) idx set =
-    if TAC.tacOperand inst `elem` TAC.jumpInsts
+    if TAC.tacOperation inst `elem` TAC.jumpInsts
         then getFollowingGoto tac (idx+1) $ Set.insert (idx+1) set
         else getFollowingGoto tac (idx+1) set
 
@@ -71,7 +71,7 @@ getBlocks currTac@(inst:tac) idx start labelMap blockLeaders edgesSet blockInsts
             _ -> -- Otherwise
                 let prevInst = head blockInsts
                     -- Add an edge from closing block to this one if closing one does not terminate in a goto.
-                    edgesSet' = if TAC.tacOperand prevInst == TAC.GoTo then edgesSet else Set.insert idx edgesSet
+                    edgesSet' = if TAC.tacOperation prevInst `elem` [TAC.GoTo, TAC.Return] then edgesSet else Set.insert idx edgesSet
                     -- Generate closing block
                     block = Block.Block (reverse blockInsts) start idx Set.empty edgesSet'
                     -- Insert closing block into set of blocks
@@ -80,7 +80,7 @@ getBlocks currTac@(inst:tac) idx start labelMap blockLeaders edgesSet blockInsts
                 getBlocks currTac idx idx labelMap blockLeaders Set.empty [] blocksList'
 
     -- If instruction is a jump, generate an edge to destiny block.
-    | TAC.tacOperand inst `elem` TAC.jumpInsts =
+    | TAC.tacOperation inst `elem` TAC.jumpInsts =
         -- Lookup for Label's index
         let Just (TAC.Label labelStr) = TAC.getDestiny inst
             Just labelIdx = Map.lookup labelStr labelMap
@@ -91,7 +91,7 @@ getBlocks currTac@(inst:tac) idx start labelMap blockLeaders edgesSet blockInsts
 
         getBlocks tac (idx+1) start labelMap blockLeaders edgesSet' blockInsts' blocksList
 
-    | TAC.tacOperand inst `notElem` [TAC.Entry, TAC.Exit] =
+    | TAC.tacOperation inst `notElem` [TAC.Entry, TAC.Exit] =
         -- Add instruction to block's instructions
         let blockInsts' = (inst:blockInsts) in
         getBlocks tac (idx+1) start labelMap blockLeaders edgesSet blockInsts' blocksList

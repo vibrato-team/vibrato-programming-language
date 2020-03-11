@@ -12,7 +12,7 @@ data Block = Block {
 } deriving (Eq)
 
 instance Show Block where
-    show (Block _ fromIdx toIdx liveVars edgesSet) = "B [" ++ show fromIdx ++ ", " ++ show toIdx ++ "), <" ++ show liveVars ++ ">, => " ++ show edgesSet
+    show (Block _ fromIdx toIdx liveVars edgesSet) = "B [" ++ show fromIdx ++ ", " ++ show toIdx ++ "), => " ++ show edgesSet
 
 type Edge = Int
 
