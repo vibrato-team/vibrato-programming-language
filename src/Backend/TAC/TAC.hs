@@ -197,7 +197,7 @@ getIds inst =
 getId :: Value -> Maybe Id
 getId val =
   case val of
-    Id var -> Just var
+    Id var@Temp{} -> Just var
     _ -> Nothing
 
 -- Entry Node of the flow graph

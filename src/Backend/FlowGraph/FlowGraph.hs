@@ -73,7 +73,7 @@ getBlocks currTac@(inst:tac) idx start labelMap blockLeaders edgesSet blockInsts
                     -- Add an edge from closing block to this one if closing one does not terminate in a goto.
                     edgesSet' = if TAC.tacOperation prevInst `elem` [TAC.GoTo, TAC.Return] then edgesSet else Set.insert idx edgesSet
                     -- Generate closing block
-                    block = Block.Block (reverse blockInsts) start idx Set.empty edgesSet'
+                    block = Block.Block (reverse blockInsts) start idx edgesSet'
                     -- Insert closing block into set of blocks
                     blocksList' = block : blocksList in
                         
