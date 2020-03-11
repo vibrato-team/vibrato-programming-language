@@ -75,7 +75,7 @@ main = do
                         --------------------------------------------------------------------------------------------------
                         putStrLn "Live Variables per instruction:\n"
 
-                        liveVarsMap <- LV.getLiveVarsMap tac blocksList
+                        liveVarsMap <- LV.getLiveVarsMap finalTAC blocksList
                         printTAC (Map.toList liveVarsMap) 0 blockLeaders (\(idx, liveVars) -> putStrLn $ "IN[" ++ show idx ++ "] = " ++ show (Set.toList liveVars))
 
     hClose handle
