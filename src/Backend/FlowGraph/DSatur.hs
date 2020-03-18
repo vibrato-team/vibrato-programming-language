@@ -124,7 +124,16 @@ dSaturRecursion = do
         Just var -> do
             colorVar var
             dSaturRecursion
-        Nothing -> return ()
+        Nothing ->
+            if Map.size varRegMap == Map.size adyMap
+                then return ()
+                else do
+                    let coloredVarsSet = Map.keysSet varRegMap
+                        allVarsSet = Map.keysSet adyMap
+                        nonColoredVars = Set.toList $ allVarsSet `Set.difference` coloredVarsSet
+                    Just u <- getVarWithMaximalDegree nonColoredVars
+                    colorVar u
+                    dSaturRecursion
 
 genEpilProl :: [(Idx, TAC.Instruction)] -> LVMonad ()
 genEpilProl [] = return ()
@@ -132,12 +141,15 @@ genEpilProl ((idx, inst):tac) = do
     state@LVState{var_reg_map = varRegMap, new_tac = newTac, live_vars_map = liveVarsMap} <- State.get
     case TAC.tacOperation inst of
         TAC.Call -> do
-            let liveVars = Set.toList $ fromJust $ Map.lookup (idx+1) liveVarsMap
+            let liveVarsSet0 = fromJust $ Map.lookup idx liveVarsMap
+                liveVarsSet1 = fromJust $ Map.lookup (idx+1) liveVarsMap
+                liveVars = Set.toList $ liveVarsSet0 `Set.intersection` liveVarsSet1
                 regs = mapMaybe (`Map.lookup` varRegMap) liveVars
                 varsRegs = zip liveVars regs
                 newTac' = inst : insertRawSpillsForEpilProl TAC.Store varsRegs newTac
                 newTac'' = insertRawSpillsForEpilProl TAC.Load varsRegs newTac'
             State.put $ state{ new_tac = newTac'' }
+
         _ -> do
             let newTac' = inst:newTac
             State.put $ state{ new_tac = newTac' }

@@ -28,6 +28,7 @@ data LVState = LVState {
     to_spill        :: Set.Set TAC.Id,
     d_satur_map     :: DSaturMap,
     id_d_satur_map  :: Map.Map TAC.Id Int,
+    all_vars        :: Set.Set TAC.Id,
     new_tac         :: [TAC.Instruction]
 }
 
@@ -38,7 +39,7 @@ getInitialState :: [TAC.Instruction] -> [Block.Block] -> LVState
 getInitialState tac blocks = 
     let tacMap = Map.fromList $ snd $ foldl (\(idx, tacMap') inst -> (idx+1, (idx, inst):tacMap')) (0, []) tac
         blockMap = Map.fromList $ map (\b -> (Block.from_idx b, b)) blocks in
-        LVState (Map.fromList $ zip [0..(length tac)] (repeat Set.empty)) tacMap blockMap True Map.empty Map.empty Set.empty Map.empty Map.empty []
+        LVState (Map.fromList $ zip [0..(length tac)] (repeat Set.empty)) tacMap blockMap True Map.empty Map.empty Set.empty Map.empty Map.empty Set.empty []
 
 getVarsList :: LVMonad [TAC.Id]
 getVarsList = do

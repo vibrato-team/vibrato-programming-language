@@ -27,9 +27,8 @@ addEdges vs u =
     mapM_ (addEdge u) vs
 
 addEdge :: TAC.Id -> TAC.Id -> LVMonad ()
-addEdge u v
-    | u/= v = do
-        state@LVState{ady_map=adyMap} <- State.get
-        let adyMap' = Map.insertWith Set.union v (Set.singleton u) $ Map.insertWith Set.union u (Set.singleton v) adyMap
-        State.put $ state{ ady_map = adyMap' }
-    | otherwise = return ()
+addEdge u v= do
+    state@LVState{ady_map=adyMap} <- State.get
+    let value = if u /= v then Set.singleton u else Set.empty
+        adyMap' = Map.insertWith Set.union v value $ Map.insertWith Set.union u (Set.singleton v) adyMap
+    State.put $ state{ ady_map = adyMap' }

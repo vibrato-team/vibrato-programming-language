@@ -83,7 +83,7 @@ main = do
                         --------------------------------------------------------------------------------------------------
                         -- printDelimiter
                         -- putStrLn "Interference graph:\n"
-                        -- mapM_ (\(var, ady) -> putStrLn $ show var ++ " [$" ++ show (fromJust $ Map.lookup var varRegMap) ++ "] ->\n\t" ++ show (length ady) ++ " " ++ show (Set.toList ady)) $ Map.toList interferenceGraph
+                        mapM_ (\(var, ady) -> putStrLn $ show var ++ " [$" ++ show (fromJust $ Map.lookup var varRegMap) ++ "] ->\n\t" ++ show (length ady) ++ " " ++ show (Set.toList ady)) $ Map.toList interferenceGraph
 
                         --------------------------------------------------------------------------------------------------
                         printDelimiter
