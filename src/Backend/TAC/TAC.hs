@@ -187,7 +187,7 @@ getValues :: Instruction -> [Value]
 getValues inst =
   if tacOperation inst `elem` conditionalJumpInsts 
     then catMaybes [tacLvalue inst, tacRvalue1 inst] 
-    else catMaybes [tacRvalue1 inst, tacRvalue2 inst]
+    else catMaybes [tacLvalue inst, tacRvalue1 inst, tacRvalue2 inst]
 
 getIds :: Instruction -> [Id]
 getIds inst =

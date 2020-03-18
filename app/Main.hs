@@ -7,6 +7,7 @@ import qualified Frontend.Parser.Monad as PMonad
 import qualified Backend.FlowGraph.FlowGraph as FGraph
 import qualified Backend.FlowGraph.Block as Block
 import qualified Backend.FlowGraph.LiveVariables as LV
+import qualified Backend.FlowGraph.InterferenceGraph as IG
 import AST
 import Util.Error
 import qualified Control.Monad.RWS.Lazy as RWS
@@ -75,8 +76,11 @@ main = do
                         --------------------------------------------------------------------------------------------------
                         putStrLn "Live Variables per instruction:\n"
 
-                        liveVarsMap <- LV.getLiveVarsMap finalTAC blocksList
+                        state@LV.LVState{LV.ady_map=interferenceGraph, LV.live_vars_map=liveVarsMap} <- IG.returnState finalTAC blocksList
                         printTAC (Map.toList liveVarsMap) 0 blockLeaders (\(idx, liveVars) -> putStrLn $ "IN[" ++ show idx ++ "] = " ++ show (Set.toList liveVars))
+
+                        printDelimiter
+                        mapM_ (\(var, ady) -> putStrLn $ show var ++ "->\n\t" ++ show ady) $ Map.toList interferenceGraph
 
     hClose handle
 

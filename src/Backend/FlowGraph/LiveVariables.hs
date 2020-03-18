@@ -8,16 +8,24 @@ import qualified Backend.FlowGraph.FlowGraph as FlowGraph
 import qualified Data.Map.Lazy as Map
 import qualified Data.Set as Set
 import Data.Maybe
+import Util.Arquitecture
 
 type Idx = Int
 type LiveVars = Set.Set TAC.Id
 type LiveVarsMap = Map.Map Idx LiveVars -- LiveVars[s] == IN[s]
+type VarRegMap = Map.Map TAC.Id Reg
+type IGraph = Map.Map TAC.Id (Set.Set TAC.Id)
+type DSaturMap = Map.Map Int [TAC.Id]
 
 data LVState = LVState {
     live_vars_map :: LiveVarsMap,
     tac_map       :: Map.Map Idx TAC.Instruction,
     block_map     :: Map.Map Idx Block.Block,
-    in_changed    :: Bool
+    in_changed    :: Bool,
+    var_reg_map   :: VarRegMap,
+    ady_map       :: IGraph,
+    to_spill      :: Set.Set TAC.Id,
+    d_satur_map   :: DSaturMap
 }
 
 type LVMonad = State.StateT LVState IO
@@ -27,7 +35,7 @@ getInitialState :: [TAC.Instruction] -> [Block.Block] -> LVState
 getInitialState tac blocks = 
     let tacMap = Map.fromList $ snd $ foldl (\(idx, tacMap') inst -> (idx+1, (idx, inst):tacMap')) (0, []) tac
         blockMap = Map.fromList $ map (\b -> (Block.from_idx b, b)) blocks in
-        LVState (Map.fromList $ zip [0..(length tac)] (repeat Set.empty)) tacMap blockMap True
+        LVState (Map.fromList $ zip [0..(length tac)] (repeat Set.empty)) tacMap blockMap True Map.empty Map.empty Set.empty Map.empty
 
 computeLiveVarsOfInst :: Idx -> LVMonad ()
 computeLiveVarsOfInst idx = do
@@ -59,15 +67,3 @@ computeLiveVars = do
             State.put state{ in_changed = False }
             mapM_ computeLiveVarsOfInst [1..(Map.size tacMap - 1)]
             computeLiveVars
-
-
-getLiveVarsMap :: [TAC.Instruction] -> [Block.Block] -> IO LiveVarsMap
-getLiveVarsMap tac blocks = do
-    let initialState = getInitialState tac blocks
-        moderatoLabel = TAC.Label "moderato"
-        moderatoInst = TAC.ThreeAddressCode TAC.NewLabel Nothing (Just moderatoLabel) Nothing
-        isModerato (inst,_) = inst == moderatoInst
-        moderatoIdx  = snd $ head $ filter isModerato (zip tac [0..])
-
-    finalState <- State.execStateT computeLiveVars initialState
-    return $ live_vars_map finalState
