@@ -91,6 +91,10 @@ getBlocks currTac@(inst:tac) idx start labelMap blockLeaders edgesSet blockInsts
 
         getBlocks tac (idx+1) start labelMap blockLeaders edgesSet' blockInsts' blocksList
 
+    | TAC.tacOperation inst == TAC.Return =
+        let blockInsts' = (inst:blockInsts) in
+            getBlocks tac (idx+1) start labelMap blockLeaders edgesSet blockInsts' blocksList
+
     | TAC.tacOperation inst `notElem` [TAC.Entry, TAC.Exit] =
         -- Add instruction to block's instructions
         let blockInsts' = (inst:blockInsts) in

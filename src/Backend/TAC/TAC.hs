@@ -207,12 +207,15 @@ exitNode = ThreeAddressCode Exit Nothing Nothing Nothing :: Instruction
 
 data Id = 
   Temp  { temp_name  :: String, temp_type  :: AST.ASTType, temp_offset :: Maybe Int } |
-  Var   { entry :: AST.Entry }
+  Var   { entry :: AST.Entry }  |
+  Reg   { reg_name :: String }  |
+  Global { global_name :: String, temp_type  :: AST.ASTType }
   deriving (Eq)
 
 instance Show Id where
   show x@Temp{temp_offset=Just offset} = temp_name x ++ "_" ++ show offset
-  show x@Temp{} = temp_name x
+  show x@Global{} = global_name x
+  show x@Reg{} = reg_name x
   show x = getSymID x ++ "_" ++ show (idOffset x)
 
 instance Ord Id where
@@ -228,6 +231,8 @@ operandOffset (Id x) = idOffset x
 instance SymEntryCompatible Id where
   getSymID t@Temp{} = temp_name t
   getSymID x@Var{entry=e} = AST.entry_name e
+  getSymID (Reg name) = name
+  getSymID (Global name _) = name
 
 getType :: Value -> AST.ASTType
 getType (Constant (_, t)) = t

@@ -42,8 +42,12 @@ doubleWordConstant = TAC.Constant (show doubleWord, AST.Simple "quarter")
 zeroConstant    = TAC.Constant ("0", AST.Simple "quarter")
 oneConstant     = TAC.Constant ("1", AST.Simple "quarter")
 nullConstant    = zeroConstant
-base            = TAC.Id $ TAC.Temp "$base" (AST.Simple "quarter") Nothing -- Inicializada en null
-memoryHead      = TAC.Id $ TAC.Temp "$head" (AST.Simple "quarter") Nothing
+
+baseReg        = TAC.Reg "$fp"
+base            = TAC.Id baseReg
+
+memoryHeadGlobal  = TAC.Global "head" (AST.Simple "quarter")
+memoryHead      = TAC.Id memoryHeadGlobal
 
 toQuarterConstant :: Int -> TAC.Value 
 toQuarterConstant x = TAC.Constant (show x, AST.Simple "quarter")

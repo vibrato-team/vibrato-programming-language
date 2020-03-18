@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: a26e78e4bba14f5e3b51aee87f01848fa0ae678a5b119ec328846dac45a217b8
+-- hash: af6cc46fb896b6ee0a6429b9e4101d87fa25fb1f0b0cfbeb3be69df453f58edf
 
 name:           vibrato
 version:        0.1.0.0
@@ -34,6 +34,7 @@ library
   exposed-modules:
       AST
       Backend.FlowGraph.Block
+      Backend.FlowGraph.DSatur
       Backend.FlowGraph.FlowGraph
       Backend.FlowGraph.InterferenceGraph
       Backend.FlowGraph.LiveVariables

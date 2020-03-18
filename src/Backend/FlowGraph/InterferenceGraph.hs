@@ -33,9 +33,3 @@ addEdge u v
         let adyMap' = Map.insertWith Set.union v (Set.singleton u) $ Map.insertWith Set.union u (Set.singleton v) adyMap
         State.put $ state{ ady_map = adyMap' }
     | otherwise = return ()
-
-returnState :: [TAC.Instruction] -> [Block.Block] -> IO LVState
-returnState tac blocks = do
-    let initialState = getInitialState tac blocks
-    state <- State.execStateT computeLiveVars initialState
-    State.execStateT computeInterferenceGraph state
