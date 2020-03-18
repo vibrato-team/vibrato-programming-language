@@ -43,7 +43,7 @@ zeroConstant    = TAC.Constant ("0", AST.Simple "quarter")
 oneConstant     = TAC.Constant ("1", AST.Simple "quarter")
 nullConstant    = zeroConstant
 
-baseReg        = TAC.Reg "$fp"
+baseReg        = TAC.Reg "$fp" (AST.Simple "quarter")
 base            = TAC.Id baseReg
 
 memoryHeadGlobal  = TAC.Global "head" (AST.Simple "quarter")

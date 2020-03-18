@@ -76,23 +76,18 @@ computeDSatur (var, ady) = do
 getVarWithMaximalDSatur :: LVMonad (Maybe TAC.Id)
 getVarWithMaximalDSatur = do
     LVState{d_satur_map=dSaturMap} <- State.get
-    -- liftIO $ putStrLn $ "EPA [ " ++ show k
     let maybeValue = Map.lookupLE k dSaturMap
     case maybeValue of
         Just value -> do
             let maxDSaturVars = snd value
-            -- liftIO $ putStrLn $ "EPA ] " ++ show (length maxDSaturVars )
             getVarWithMaximalDegree maxDSaturVars
         Nothing -> return Nothing
 
 colorVar :: TAC.Id -> LVMonad ()
 colorVar var = do
-    liftIO $ print "COLOR VAR"
     state@LVState{ady_map=adyMap, var_reg_map=varRegMap} <- State.get
 
-    -- liftIO $ putStrLn "HEY ["
     let ady = fromJust $ Map.lookup var adyMap
-    -- liftIO $ putStrLn $ "HEY ] " ++ show (Set.size ady)
 
     neighbourColors <- getNeighboursColors var ady
     let availableColors = Set.toList $ colorsSet `Set.difference` Set.fromList neighbourColors
@@ -123,7 +118,6 @@ dSaturAlgorithm = do
 dSaturRecursion :: LVMonad ()
 dSaturRecursion = do
     LVState{var_reg_map=varRegMap, ady_map=adyMap, d_satur_map=dSaturMap} <- State.get
-    liftIO $ putStrLn $ "\n\ndSaturRecursion. DSaturMap:\n" ++ show dSaturMap ++ "\n"
     varsList <- getVarsList
     varMaybe <- getVarWithMaximalDSatur
     case varMaybe of
@@ -132,7 +126,42 @@ dSaturRecursion = do
             dSaturRecursion
         Nothing -> return ()
 
+genEpilProl :: [(Idx, TAC.Instruction)] -> LVMonad ()
+genEpilProl [] = return ()
+genEpilProl ((idx, inst):tac) = do
+    state@LVState{var_reg_map = varRegMap, new_tac = newTac, live_vars_map = liveVarsMap} <- State.get
+    case TAC.tacOperation inst of
+        TAC.Call -> do
+            let liveVars = Set.toList $ fromJust $ Map.lookup (idx+1) liveVarsMap
+                regs = mapMaybe (`Map.lookup` varRegMap) liveVars
+                varsRegs = zip liveVars regs
+                newTac' = inst : insertRawSpillsForEpilProl TAC.Store varsRegs newTac
+                newTac'' = insertRawSpillsForEpilProl TAC.Load varsRegs newTac'
+            State.put $ state{ new_tac = newTac'' }
+        _ -> do
+            let newTac' = inst:newTac
+            State.put $ state{ new_tac = newTac' }
+    genEpilProl tac
+
+insertRawSpillsForEpilProl :: TAC.Operation -> [(TAC.Id, Reg)] -> [TAC.Instruction] -> [TAC.Instruction]
+insertRawSpillsForEpilProl op varsRegs tac = fromJust $ foldl (\(Just insts) p -> maybe (Just insts) (\i -> Just (i:insts)) $ genRawSpillForEpilProl op p ) (Just tac) varsRegs
+
+genRawSpillForEpilProl :: TAC.Operation -> (TAC.Id, Reg) -> Maybe TAC.Instruction
+genRawSpillForEpilProl _ (_, -1) = Nothing
+genRawSpillForEpilProl op (var, reg) =
+    Just $ TAC.ThreeAddressCode op (Just $ TAC.Id $ intToReg reg (TAC.getTypeOfId var)) (Just $ TAC.Id var) Nothing
+
+intToReg num = TAC.Reg ("$" ++ show num)
+
+run = do
+    dSaturAlgorithm
+    LVState{tac_map=tacMap} <- State.get
+    genEpilProl $ Map.toList tacMap
+
+    state@LVState{new_tac=newTac} <- State.get
+    State.put state{ new_tac = reverse newTac }
+
 returnState :: [TAC.Instruction] -> [Block.Block] -> IO LVState
 returnState tac blocks = do
     let initialState = getInitialState tac blocks
-    State.execStateT dSaturAlgorithm initialState
+    State.execStateT run initialState

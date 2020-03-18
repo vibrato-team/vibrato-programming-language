@@ -53,6 +53,10 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) w
   show (ThreeAddressCode Entry Nothing Nothing Nothing)           = "\tENTRY"
   show (ThreeAddressCode Exit Nothing Nothing Nothing)            = "\tEXIT"
 
+  show (ThreeAddressCode Load (Just reg) (Just x) Nothing)        = "\tLOAD " ++ show reg ++ " := " ++ show x
+  show (ThreeAddressCode Store (Just reg) (Just x) Nothing)        = "\tSTORE " ++ show reg ++ " := " ++ show x
+
+
   show tac = show (tacLvalue tac) ++ " := " ++ show (tacRvalue1 tac) ++ show (tacOperation tac) ++ show (tacRvalue2 tac)
 
 type Instruction = ThreeAddressCode Id AST.ASTType
@@ -72,6 +76,9 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (Operand a b) where
 data Operation =
     Entry         |
     Exit          |
+
+    Store         |
+    Load          |
 
     Assign        |
     -- Arithmetic
@@ -208,7 +215,7 @@ exitNode = ThreeAddressCode Exit Nothing Nothing Nothing :: Instruction
 data Id = 
   Temp  { temp_name  :: String, temp_type  :: AST.ASTType, temp_offset :: Maybe Int } |
   Var   { entry :: AST.Entry }  |
-  Reg   { reg_name :: String }  |
+  Reg   { reg_name :: String, reg_type :: AST.ASTType }  |
   Global { global_name :: String, temp_type  :: AST.ASTType }
   deriving (Eq)
 
@@ -231,10 +238,15 @@ operandOffset (Id x) = idOffset x
 instance SymEntryCompatible Id where
   getSymID t@Temp{} = temp_name t
   getSymID x@Var{entry=e} = AST.entry_name e
-  getSymID (Reg name) = name
+  getSymID (Reg name _) = name
   getSymID (Global name _) = name
 
 getType :: Value -> AST.ASTType
 getType (Constant (_, t)) = t
-getType (Id Temp{temp_type=t}) = t
-getType (Id Var{entry=e}) = fromJust $ AST.entry_type e
+getType (Id x) = getTypeOfId x
+
+getTypeOfId :: Id -> AST.ASTType
+getTypeOfId Temp{temp_type=t} = t
+getTypeOfId Var{entry=e} = fromJust $ AST.entry_type e
+getTypeOfId Global{temp_type=t} = t
+getTypeOfId Reg{reg_type=t} = t

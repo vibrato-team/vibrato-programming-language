@@ -71,19 +71,19 @@ main = do
                             blocksList = reverse $ FGraph.getBlocks finalTAC 0 (-1) labelMap blockLeaders Set.empty [] []
 
                         mapM_ (\block@Block.Block{Block.insts=tac, Block.from_idx=fromIdx} -> putStrLn "\n" >> printDelimiter >> print block >> printTAC tac fromIdx blockLeaders print >> printDelimiter) blocksList
-                        --------------------------------------------------------------------------------------------------
-                        printDelimiter
-                        printDelimiter
+                        -- --------------------------------------------------------------------------------------------------
+                        -- printDelimiter
+                        -- printDelimiter
                         --------------------------------------------------------------------------------------------------
                         putStrLn "Live Variables per instruction:\n"
 
-                        state@LV.LVState{LV.ady_map=interferenceGraph, LV.live_vars_map=liveVarsMap, LV.var_reg_map=varRegMap} <- DS.returnState finalTAC blocksList
+                        state@LV.LVState{LV.new_tac=newTac, LV.ady_map=interferenceGraph, LV.live_vars_map=liveVarsMap, LV.var_reg_map=varRegMap} <- DS.returnState finalTAC blocksList
                         printTAC (Map.toList liveVarsMap) 0 blockLeaders (\(idx, liveVars) -> putStrLn $ "IN[" ++ show idx ++ "] = " ++ show (Set.toList liveVars))
-
+                        printTAC newTac 0 Set.empty print
                         --------------------------------------------------------------------------------------------------
-                        printDelimiter
-                        putStrLn "Interference graph:\n"
-                        mapM_ (\(var, ady) -> putStrLn $ show var ++ " [$" ++ show (fromJust $ Map.lookup var varRegMap) ++ "] ->\n\t" ++ show (length ady) ++ " " ++ show (Set.toList ady)) $ Map.toList interferenceGraph
+                        -- printDelimiter
+                        -- putStrLn "Interference graph:\n"
+                        -- mapM_ (\(var, ady) -> putStrLn $ show var ++ " [$" ++ show (fromJust $ Map.lookup var varRegMap) ++ "] ->\n\t" ++ show (length ady) ++ " " ++ show (Set.toList ady)) $ Map.toList interferenceGraph
 
                         --------------------------------------------------------------------------------------------------
                         printDelimiter
