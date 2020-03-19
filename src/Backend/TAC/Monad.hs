@@ -900,7 +900,7 @@ genForMallocFunction = do
     prev <- newTemp $ AST.Simple "quarter"
     iter <- newTemp $ AST.Simple "quarter"
     genRaw [TAC.ThreeAddressCode TAC.Assign (Just prev) (Just zeroConstant) Nothing,
-            TAC.ThreeAddressCode TAC.Assign (Just iter) (Just memoryHead) Nothing]
+            TAC.ThreeAddressCode TAC.Load (Just iter) (Just memoryHead) Nothing]
 
     --------------------------------------------------------------
     -- Guard
@@ -964,7 +964,7 @@ genForMallocFunction = do
     -- If prev == NULL:
     prevNullComp <- nextInst
     genRaw [TAC.ThreeAddressCode TAC.Neq (Just prev) (Just zeroConstant) Nothing,
-            TAC.ThreeAddressCode TAC.Assign (Just memoryHead) (Just newBlock) Nothing]
+            TAC.ThreeAddressCode TAC.Store (Just newBlock) (Just memoryHead) Nothing]
 
     finalGoTo <- nextInst
     genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
@@ -1002,7 +1002,7 @@ genForFreeFunction = do
     prev <- newTemp $ AST.Simple "quarter"
     iter <- newTemp $ AST.Simple "quarter"
     genRaw [TAC.ThreeAddressCode TAC.Assign (Just prev) (Just zeroConstant) Nothing,
-            TAC.ThreeAddressCode TAC.Assign (Just iter) (Just memoryHead) Nothing]
+            TAC.ThreeAddressCode TAC.Load (Just iter) (Just memoryHead) Nothing]
 
     --------------------------------------------------------------
     -- Guard
