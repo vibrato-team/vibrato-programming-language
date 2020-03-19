@@ -3,21 +3,33 @@ module Backend.FlowGraph.LiveVariables where
 import qualified Control.Monad.State.Lazy as State
 import Control.Monad.Trans
 import qualified Backend.TAC.TAC as TAC
+import qualified Backend.TAC.Monad as TACMonad
 import qualified Backend.FlowGraph.Block as Block
 import qualified Backend.FlowGraph.FlowGraph as FlowGraph
 import qualified Data.Map.Lazy as Map
 import qualified Data.Set as Set
 import Data.Maybe
+import Util.Arquitecture
 
 type Idx = Int
 type LiveVars = Set.Set TAC.Id
 type LiveVarsMap = Map.Map Idx LiveVars -- LiveVars[s] == IN[s]
+type VarRegMap = Map.Map TAC.Id Reg
+type IGraph = Map.Map TAC.Id (Set.Set TAC.Id)
+type DSaturMap = Map.Map Int [TAC.Id]
 
 data LVState = LVState {
-    live_vars_map :: LiveVarsMap,
-    tac_map       :: Map.Map Idx TAC.Instruction,
-    block_map     :: Map.Map Idx Block.Block,
-    in_changed    :: Bool
+    live_vars_map   :: LiveVarsMap,
+    tac_map         :: Map.Map Idx TAC.Instruction,
+    block_map       :: Map.Map Idx Block.Block,
+    in_changed      :: Bool,
+    var_reg_map     :: VarRegMap,
+    ady_map         :: IGraph,
+    to_spill        :: Set.Set TAC.Id,
+    d_satur_map     :: DSaturMap,
+    id_d_satur_map  :: Map.Map TAC.Id Int,
+    all_vars        :: Set.Set TAC.Id,
+    new_tac         :: [TAC.Instruction]
 }
 
 type LVMonad = State.StateT LVState IO
@@ -27,7 +39,12 @@ getInitialState :: [TAC.Instruction] -> [Block.Block] -> LVState
 getInitialState tac blocks = 
     let tacMap = Map.fromList $ snd $ foldl (\(idx, tacMap') inst -> (idx+1, (idx, inst):tacMap')) (0, []) tac
         blockMap = Map.fromList $ map (\b -> (Block.from_idx b, b)) blocks in
-        LVState (Map.fromList $ zip [0..(length tac)] (repeat Set.empty)) tacMap blockMap True
+        LVState (Map.fromList $ zip [0..(length tac)] (repeat Set.empty)) tacMap blockMap True Map.empty Map.empty Set.empty Map.empty Map.empty Set.empty []
+
+getVarsList :: LVMonad [TAC.Id]
+getVarsList = do
+    LVState{ady_map=adyMap} <- State.get
+    return $ map fst $ Map.toList adyMap
 
 computeLiveVarsOfInst :: Idx -> LVMonad ()
 computeLiveVarsOfInst idx = do
@@ -35,6 +52,7 @@ computeLiveVarsOfInst idx = do
     let Just prevLiveVars = Map.lookup idx liveVarsMap
         Just (leaderIdx, block) = Map.lookupLE idx blockMap
         inst        = fromJust $ Map.lookup idx tacMap
+        maybeInstPlusOne = Map.lookup (idx+1) tacMap
         operation   = TAC.tacOperation inst
         lValueMaybe = TAC.tacLvalue inst
         idMaybe     = TAC.getId =<< lValueMaybe
@@ -43,7 +61,9 @@ computeLiveVarsOfInst idx = do
             else Set.empty
         usedVars = Set.fromList $ TAC.getIds inst
         succs = if idx + 1 == Block.to_idx block then Set.toList (Block.edges_set block) else [idx+1]
-        liveVarsOfSuccs = map (\idx' -> fromJust $ Map.lookup idx' liveVarsMap ) succs
+        liveVarsOfSuccs = if isJust maybeInstPlusOne && TAC.tacOperation (fromJust maybeInstPlusOne) == TAC.Call
+            then []
+            else map (\idx' -> fromJust $ Map.lookup idx' liveVarsMap ) succs
         outInst = foldl Set.union Set.empty liveVarsOfSuccs
         liveVars = usedVars `Set.union` (outInst `Set.difference` definedVars)
         inChanged = liveVars /= prevLiveVars
@@ -59,15 +79,3 @@ computeLiveVars = do
             State.put state{ in_changed = False }
             mapM_ computeLiveVarsOfInst [1..(Map.size tacMap - 1)]
             computeLiveVars
-
-
-getLiveVarsMap :: [TAC.Instruction] -> [Block.Block] -> IO LiveVarsMap
-getLiveVarsMap tac blocks = do
-    let initialState = getInitialState tac blocks
-        moderatoLabel = TAC.Label "moderato"
-        moderatoInst = TAC.ThreeAddressCode TAC.NewLabel Nothing (Just moderatoLabel) Nothing
-        isModerato (inst,_) = inst == moderatoInst
-        moderatoIdx  = snd $ head $ filter isModerato (zip tac [0..])
-
-    finalState <- State.execStateT computeLiveVars initialState
-    return $ live_vars_map finalState

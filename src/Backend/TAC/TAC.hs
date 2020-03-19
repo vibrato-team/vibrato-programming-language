@@ -6,15 +6,18 @@ import Data.Maybe
 class SymEntryCompatible a where
   getSymID :: a -> String
 
-data (SymEntryCompatible a) => ThreeAddressCode a b = ThreeAddressCode
+data ThreeAddressCode b = ThreeAddressCode
   { tacOperation :: Operation,
-    tacLvalue  :: Maybe (Operand a b),
-    tacRvalue1 :: Maybe (Operand a b),
-    tacRvalue2 :: Maybe (Operand a b)
+    tacLvalue  :: Maybe (Operand Id b),
+    tacRvalue1 :: Maybe (Operand Id b),
+    tacRvalue2 :: Maybe (Operand Id b)
   }
   deriving (Eq)
 
-instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) where
+instance (Show b) => Show (ThreeAddressCode b) where
+  -- show (ThreeAddressCode Assign (Just reg@(Id Reg{})) (Just y@(Id Temp{})) _) = "\tLOAD " ++ show reg ++ " " ++ show y
+  -- show (ThreeAddressCode Assign (Just reg@(Id Reg{})) (Just y@(Id Var{})) _)  = "\tLOAD " ++ show reg ++ " " ++ show y
+  -- show (ThreeAddressCode Assign (Just reg@(Id Reg{})) (Just y@(Id Global{})) _)  = "\tLOAD " ++ show reg ++ " " ++ show y
   show (ThreeAddressCode Assign (Just x) (Just y) _)              = "\t" ++ show x ++ " := " ++ show y
   show (ThreeAddressCode Add (Just x) (Just y) (Just z))          = "\t" ++ show x ++ " := " ++ show y ++ " + " ++ show z
   show (ThreeAddressCode Minus (Just x) (Just y) Nothing)         = "\t" ++ show x ++ " := -" ++ show y 
@@ -36,6 +39,10 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) w
   show (ThreeAddressCode Gt (Just x) (Just y) (Just label))       = "\t" ++ "if " ++ show x ++ " > " ++ show y ++ " then goto " ++ show label
   show (ThreeAddressCode Lte (Just x) (Just y) (Just label))      = "\t" ++  "if " ++ show x ++ " <= " ++ show y ++ " then goto " ++ show label
   show (ThreeAddressCode Gte (Just x) (Just y) (Just label))      = "\t" ++  "if " ++ show x ++ " >= " ++ show y ++ " then goto " ++ show label
+
+  show (ThreeAddressCode Get (Just x@(Id Reg{})) (Just y) (Just i))          = "\tLOAD " ++ show x ++ " " ++ show y ++ "[" ++ show i ++ "]"
+  show (ThreeAddressCode Set (Just x@(Id Reg{})) (Just i) (Just y))          = "\tSTORE " ++ show y ++ " " ++ show x ++ "[" ++ show i ++ "]"
+
   show (ThreeAddressCode Get (Just x) (Just y) (Just i))          = "\t" ++ show x ++ " := " ++ show y ++ "[" ++ show i ++ "]"
   show (ThreeAddressCode Set (Just x) (Just i) (Just y))          = "\t" ++ show x ++ "[" ++ show i ++ "] := " ++ show y
   show (ThreeAddressCode NewLabel Nothing (Just label) Nothing)   = show label ++ ":"
@@ -53,9 +60,15 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) w
   show (ThreeAddressCode Entry Nothing Nothing Nothing)           = "\tENTRY"
   show (ThreeAddressCode Exit Nothing Nothing Nothing)            = "\tEXIT"
 
+  show (ThreeAddressCode Load (Just reg) (Just x) Nothing)                  = "\tLOAD " ++ show reg ++ " " ++ show x
+  show (ThreeAddressCode Load (Just reg) (Just addr) (Just offset))         = "\tLOAD " ++ show reg ++ " " ++ show addr ++ "[" ++ show offset ++ "]"
+  show (ThreeAddressCode Store (Just reg) (Just x) Nothing)                 = "\tSTORE " ++ show reg ++ " " ++ show x
+  show (ThreeAddressCode Store (Just reg) (Just addr) (Just offset))        = "\tSTORE " ++ show reg ++ " " ++ show addr ++ "[" ++ show offset ++ "]"
+
+
   show tac = show (tacLvalue tac) ++ " := " ++ show (tacRvalue1 tac) ++ show (tacOperation tac) ++ show (tacRvalue2 tac)
 
-type Instruction = ThreeAddressCode Id AST.ASTType
+type Instruction = ThreeAddressCode AST.ASTType
 type Value = Operand Id AST.ASTType
 
 data (SymEntryCompatible a) => Operand a b = 
@@ -72,6 +85,9 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (Operand a b) where
 data Operation =
     Entry         |
     Exit          |
+
+    Load          |
+    Store         |
 
     Assign        |
     -- Arithmetic
@@ -165,7 +181,7 @@ jumpInsts' = GoTo : conditionalJumpInsts
 -- Operations that are going to be translated into jumps, including jump and link.
 jumpInsts = Call : jumpInsts'
 
-getDestiny :: (SymEntryCompatible a) => ThreeAddressCode a b -> Maybe (Operand a b)
+getDestiny :: ThreeAddressCode b -> Maybe (Operand Id b)
 getDestiny inst
   | tacOperation inst `elem` jumpInsts' =
     tacRvalue2 inst
@@ -184,10 +200,13 @@ isAnAssignment op
       _ -> False
 
 getValues :: Instruction -> [Value]
-getValues inst =
-  if tacOperation inst `elem` conditionalJumpInsts 
-    then catMaybes [tacLvalue inst, tacRvalue1 inst] 
-    else catMaybes [tacRvalue1 inst, tacRvalue2 inst]
+getValues inst
+  | tacOperation inst `elem` conditionalJumpInsts =
+    catMaybes [tacLvalue inst, tacRvalue1 inst] 
+  | tacOperation inst == Set =
+    catMaybes [tacLvalue inst, tacRvalue1 inst, tacRvalue2 inst]
+  | otherwise =
+    catMaybes [tacRvalue1 inst, tacRvalue2 inst]
 
 getIds :: Instruction -> [Id]
 getIds inst =
@@ -207,13 +226,17 @@ exitNode = ThreeAddressCode Exit Nothing Nothing Nothing :: Instruction
 
 data Id = 
   Temp  { temp_name  :: String, temp_type  :: AST.ASTType, temp_offset :: Maybe Int } |
-  Var   { entry :: AST.Entry }
+  Var   { entry :: AST.Entry }  |
+  Reg   { reg_name :: String, reg_type :: AST.ASTType }  |
+  Global { global_name :: String, temp_type  :: AST.ASTType }
   deriving (Eq)
 
 instance Show Id where
-  show x@Temp{temp_offset=Just offset} = temp_name x ++ "_" ++ show offset
-  show x@Temp{} = temp_name x
-  show x = getSymID x ++ "_" ++ show (idOffset x)
+  show x@Temp{temp_offset=Just offset} = "$fp[" ++ show offset ++ "]"
+  show x@Global{} = global_name x
+  show x@Reg{} = reg_name x
+  show x@Var{} = "$fp[" ++ show (idOffset x) ++ "]"
+  -- show = getSymID
 
 instance Ord Id where
   compare x y = show x `compare` show y
@@ -228,8 +251,15 @@ operandOffset (Id x) = idOffset x
 instance SymEntryCompatible Id where
   getSymID t@Temp{} = temp_name t
   getSymID x@Var{entry=e} = AST.entry_name e
+  getSymID (Reg name _) = name
+  getSymID (Global name _) = name
 
 getType :: Value -> AST.ASTType
 getType (Constant (_, t)) = t
-getType (Id Temp{temp_type=t}) = t
-getType (Id Var{entry=e}) = fromJust $ AST.entry_type e
+getType (Id x) = getTypeOfId x
+
+getTypeOfId :: Id -> AST.ASTType
+getTypeOfId Temp{temp_type=t} = t
+getTypeOfId Var{entry=e} = fromJust $ AST.entry_type e
+getTypeOfId Global{temp_type=t} = t
+getTypeOfId Reg{reg_type=t} = t

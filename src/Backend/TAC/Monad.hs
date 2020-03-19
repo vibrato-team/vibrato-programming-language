@@ -42,8 +42,13 @@ doubleWordConstant = TAC.Constant (show doubleWord, AST.Simple "quarter")
 zeroConstant    = TAC.Constant ("0", AST.Simple "quarter")
 oneConstant     = TAC.Constant ("1", AST.Simple "quarter")
 nullConstant    = zeroConstant
-base            = TAC.Id $ TAC.Temp "$base" (AST.Simple "quarter") Nothing -- Inicializada en null
-memoryHead      = TAC.Id $ TAC.Temp "$head" (AST.Simple "quarter") Nothing
+
+baseReg        = TAC.Reg "$fp" (AST.Simple "quarter")
+base            = TAC.Id baseReg
+
+-- TODO: Store head in temp everytime it is used
+memoryHeadGlobal  = TAC.Global "head" (AST.Simple "quarter")
+memoryHead      = TAC.Id memoryHeadGlobal
 
 toQuarterConstant :: Int -> TAC.Value 
 toQuarterConstant x = TAC.Constant (show x, AST.Simple "quarter")
@@ -197,7 +202,7 @@ genForLValue :: AST.Expression -> TACMonad (TAC.Value -> TACMonad ())
 genForLValue exp@AST.IdExp{AST.exp_entry=Just entry} =
     return $ \rValue -> do
         let lValue = TAC.Id $ TAC.Var entry
-        genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just rValue) Nothing]
+        genRaw [TAC.ThreeAddressCode TAC.Store (Just rValue) (Just lValue) Nothing]
 
 genForLValue exp@AST.DereferenceExp{AST.exp_exp=expExp} =
     return $ \rValue -> do
@@ -299,7 +304,10 @@ genForExp idExp@AST.IdExp{AST.exp_type=AST.Simple "whole", AST.exp_entry=Just ex
 
     return (Nothing, truelist, falselist)
 
-genForExp idExp@AST.IdExp{AST.exp_entry=Just entry} = return (Just $ TAC.Id $ TAC.Var entry, [], [])
+genForExp idExp@AST.IdExp{AST.exp_entry=Just entry, AST.exp_type=expType} = do
+    temp <- newTemp expType
+    genRaw [TAC.ThreeAddressCode TAC.Load (Just temp) (Just $ TAC.Id $ TAC.Var entry) Nothing]
+    return (Just temp, [], [])
 
 -- For array indexing
 genForExp exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, AST.exp_type=expType} = do
@@ -892,7 +900,7 @@ genForMallocFunction = do
     prev <- newTemp $ AST.Simple "quarter"
     iter <- newTemp $ AST.Simple "quarter"
     genRaw [TAC.ThreeAddressCode TAC.Assign (Just prev) (Just zeroConstant) Nothing,
-            TAC.ThreeAddressCode TAC.Assign (Just iter) (Just memoryHead) Nothing]
+            TAC.ThreeAddressCode TAC.Load (Just iter) (Just memoryHead) Nothing]
 
     --------------------------------------------------------------
     -- Guard
@@ -956,7 +964,7 @@ genForMallocFunction = do
     -- If prev == NULL:
     prevNullComp <- nextInst
     genRaw [TAC.ThreeAddressCode TAC.Neq (Just prev) (Just zeroConstant) Nothing,
-            TAC.ThreeAddressCode TAC.Assign (Just memoryHead) (Just newBlock) Nothing]
+            TAC.ThreeAddressCode TAC.Store (Just newBlock) (Just memoryHead) Nothing]
 
     finalGoTo <- nextInst
     genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
@@ -994,7 +1002,7 @@ genForFreeFunction = do
     prev <- newTemp $ AST.Simple "quarter"
     iter <- newTemp $ AST.Simple "quarter"
     genRaw [TAC.ThreeAddressCode TAC.Assign (Just prev) (Just zeroConstant) Nothing,
-            TAC.ThreeAddressCode TAC.Assign (Just iter) (Just memoryHead) Nothing]
+            TAC.ThreeAddressCode TAC.Load (Just iter) (Just memoryHead) Nothing]
 
     --------------------------------------------------------------
     -- Guard

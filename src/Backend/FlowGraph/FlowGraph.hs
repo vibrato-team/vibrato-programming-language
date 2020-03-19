@@ -39,7 +39,7 @@ getReachedByGoto (inst:tac) idx reachableLabels set =
 getFollowingGoto :: [TAC.Instruction] -> Int -> Set.Set Int -> Set.Set Int
 getFollowingGoto [] _ set = set
 getFollowingGoto (inst:tac) idx set =
-    if TAC.tacOperation inst `elem` TAC.jumpInsts
+    if TAC.tacOperation inst `elem` TAC.jumpInsts'
         then getFollowingGoto tac (idx+1) $ Set.insert (idx+1) set
         else getFollowingGoto tac (idx+1) set
 
@@ -80,7 +80,7 @@ getBlocks currTac@(inst:tac) idx start labelMap blockLeaders edgesSet blockInsts
                 getBlocks currTac idx idx labelMap blockLeaders Set.empty [] blocksList'
 
     -- If instruction is a jump, generate an edge to destiny block.
-    | TAC.tacOperation inst `elem` TAC.jumpInsts =
+    | TAC.tacOperation inst `elem` TAC.jumpInsts' =
         -- Lookup for Label's index
         let Just (TAC.Label labelStr) = TAC.getDestiny inst
             Just labelIdx = Map.lookup labelStr labelMap
