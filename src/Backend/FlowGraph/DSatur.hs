@@ -1,5 +1,6 @@
 module Backend.FlowGraph.DSatur where
 
+import qualified AST
 import Backend.FlowGraph.LiveVariables
 import Backend.FlowGraph.InterferenceGraph
 import qualified Control.Monad.State.Lazy as State
@@ -7,6 +8,7 @@ import Control.Monad.Trans
 import qualified Backend.TAC.TAC as TAC
 import qualified Backend.FlowGraph.Block as Block
 import qualified Backend.FlowGraph.FlowGraph as FlowGraph
+import qualified Backend.TAC.Monad as TACMonad
 import qualified Data.Map.Lazy as Map
 import qualified Data.Set as Set
 import Data.Maybe
@@ -19,6 +21,9 @@ type Color = Reg
 colors = generalPurposeRegs
 colorsSet = Set.fromList colors
 k = numberOfRegs+1
+
+----------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------
 
 getDegree :: TAC.Id -> LVMonad Int
 getDegree var = do
@@ -106,6 +111,9 @@ addVarToSpill var = do
     State.put $ state{ to_spill = Set.insert var toSpillSet,
         var_reg_map = Map.insert var (-1) varRegMap }
 
+----------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------
+
 dSaturAlgorithm :: LVMonad ()
 dSaturAlgorithm = do
     computeLiveVars
@@ -135,6 +143,11 @@ dSaturRecursion = do
                     colorVar u
                     dSaturRecursion
 
+
+----------------------------------------------------------------------------------------------------------------------
+--------------------------------Gen TAC for Epilogue and Prologue-----------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------
+
 genEpilProl :: [(Idx, TAC.Instruction)] -> LVMonad ()
 genEpilProl [] = return ()
 genEpilProl ((idx, inst):tac) = do
@@ -150,9 +163,8 @@ genEpilProl ((idx, inst):tac) = do
                 newTac'' = insertRawSpillsForEpilProl TAC.Load varsRegs newTac'
             State.put $ state{ new_tac = newTac'' }
 
-        _ -> do
-            let newTac' = inst:newTac
-            State.put $ state{ new_tac = newTac' }
+        _ -> genSpillIfNecessary inst
+        -- _ -> return ()
     genEpilProl tac
 
 insertRawSpillsForEpilProl :: TAC.Operation -> [(TAC.Id, Reg)] -> [TAC.Instruction] -> [TAC.Instruction]
@@ -163,7 +175,84 @@ genRawSpillForEpilProl _ (_, -1) = Nothing
 genRawSpillForEpilProl op (var, reg) =
     Just $ TAC.ThreeAddressCode op (Just $ TAC.Id $ intToReg reg (TAC.getTypeOfId var)) (Just $ TAC.Id var) Nothing
 
+----------------------------------------------------------------------------------------------------------------------
+-------------------------------------------Gen TAC for Spills---------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------
+genSpillIfNecessary :: TAC.Instruction -> LVMonad ()
+genSpillIfNecessary inst = do
+    state@LVState{new_tac=newTac} <- State.get
+    (epilogue, newInst, prologue) <- foldM (\(epil, inst', prol) valuePos -> getRegOrGenSpill valuePos inst' >>= \(epil', inst'', prol') -> return (epil'++epil, inst'', prol'++prol)) ([], inst, []) [0,1,2]
+    State.put $ state{ new_tac = epilogue ++ (newInst : prologue) ++ newTac }
+
+-- | return a tuple (epilogue_of_spill, new_inst, prologue_of_spill)
+getRegOrGenSpill :: Int -> TAC.Instruction -> LVMonad ([TAC.Instruction], TAC.Instruction, [TAC.Instruction])
+getRegOrGenSpill valuePos inst = do
+    state@LVState{var_reg_map=varRegMap} <- State.get
+
+    let maybeValue = case valuePos of 
+                        0 -> TAC.tacLvalue inst
+                        1 -> TAC.tacRvalue1 inst
+                        2 -> TAC.tacRvalue2 inst
+        defaultRet = ([], inst, [])
+
+    case maybeValue of
+        -- If it is not a value
+        Nothing -> return defaultRet
+        -- otherwise
+        Just value -> do
+            let maybeId = TAC.getId value
+            case maybeId of
+                -- if it is not a variable/temp/etc
+                Nothing -> return defaultRet
+                -- otherwise
+                Just var -> do
+                    liftIO $ print var
+                    let maybeReg = Map.lookup var varRegMap
+                    case maybeReg of
+                        -- It is never alive. TODO: Check if this line is correct
+                        Nothing -> return defaultRet
+                        Just reg ->
+                            if reg == -1
+                                -- If it should generate a spill
+                                then do
+                                    -- base[4], base[8] and base[12] are auxiliars for spills.
+                                    let auxReg = TAC.Id $ intToReg (valuePos + head colors) (TAC.getType value)
+                                        idxValue = TACMonad.toQuarterConstant valuePos
+                                        -- Spill instructions
+                                        auxStoreProl    = TAC.ThreeAddressCode TAC.Store (Just auxReg) (Just TACMonad.base) (Just idxValue)
+                                        auxLoadProl     = TAC.ThreeAddressCode TAC.Load (Just auxReg) maybeValue Nothing
+                                        newInst         = substituteValueByReg inst valuePos auxReg
+                                        auxStoreEpil    = TAC.ThreeAddressCode TAC.Store (Just auxReg) maybeValue Nothing
+                                        auxLoadEpil     = TAC.ThreeAddressCode TAC.Load (Just auxReg) (Just TACMonad.base) (Just idxValue)
+
+                                    return ([auxLoadEpil, auxStoreEpil], newInst, [auxLoadProl, auxStoreProl])
+                                
+                                -- otherwise
+                                else do
+                                    let regValue = TAC.Id $ intToReg reg (TAC.getType value)
+                                    return ([], substituteValueByReg inst valuePos regValue, [])
+                               
+
+
+----------------------------------------------------------------------------------------------------------------------
+------------------------------------------------- Helpers ------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------
+
+intToReg :: Int -> AST.ASTType -> TAC.Id
 intToReg num = TAC.Reg ("$" ++ show num)
+
+getUsedVars :: TAC.Instruction -> Set.Set TAC.Id
+getUsedVars inst = Set.fromList $ TAC.getIds inst
+
+substituteValueByReg :: TAC.Instruction -> Int -> TAC.Value -> TAC.Instruction
+substituteValueByReg inst valuePos auxReg =
+    case valuePos of
+        0 -> inst{ TAC.tacLvalue=Just auxReg }
+        1 -> inst{ TAC.tacRvalue1=Just auxReg }
+        2 -> inst{ TAC.tacRvalue2=Just auxReg }
+
+----------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------
 
 run = do
     dSaturAlgorithm

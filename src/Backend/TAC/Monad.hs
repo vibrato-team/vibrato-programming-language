@@ -46,6 +46,7 @@ nullConstant    = zeroConstant
 baseReg        = TAC.Reg "$fp" (AST.Simple "quarter")
 base            = TAC.Id baseReg
 
+-- TODO: Store head in temp everytime it is used
 memoryHeadGlobal  = TAC.Global "head" (AST.Simple "quarter")
 memoryHead      = TAC.Id memoryHeadGlobal
 
@@ -201,7 +202,7 @@ genForLValue :: AST.Expression -> TACMonad (TAC.Value -> TACMonad ())
 genForLValue exp@AST.IdExp{AST.exp_entry=Just entry} =
     return $ \rValue -> do
         let lValue = TAC.Id $ TAC.Var entry
-        genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just rValue) Nothing]
+        genRaw [TAC.ThreeAddressCode TAC.Store (Just rValue) (Just lValue) Nothing]
 
 genForLValue exp@AST.DereferenceExp{AST.exp_exp=expExp} =
     return $ \rValue -> do
@@ -303,7 +304,10 @@ genForExp idExp@AST.IdExp{AST.exp_type=AST.Simple "whole", AST.exp_entry=Just ex
 
     return (Nothing, truelist, falselist)
 
-genForExp idExp@AST.IdExp{AST.exp_entry=Just entry} = return (Just $ TAC.Id $ TAC.Var entry, [], [])
+genForExp idExp@AST.IdExp{AST.exp_entry=Just entry, AST.exp_type=expType} = do
+    temp <- newTemp expType
+    genRaw [TAC.ThreeAddressCode TAC.Load (Just temp) (Just $ TAC.Id $ TAC.Var entry) Nothing]
+    return (Just temp, [], [])
 
 -- For array indexing
 genForExp exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, AST.exp_type=expType} = do

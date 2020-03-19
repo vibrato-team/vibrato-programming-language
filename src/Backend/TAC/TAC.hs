@@ -53,8 +53,10 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (ThreeAddressCode a b) w
   show (ThreeAddressCode Entry Nothing Nothing Nothing)           = "\tENTRY"
   show (ThreeAddressCode Exit Nothing Nothing Nothing)            = "\tEXIT"
 
-  show (ThreeAddressCode Load (Just reg) (Just x) Nothing)        = "\tLOAD " ++ show reg ++ " := " ++ show x
-  show (ThreeAddressCode Store (Just reg) (Just x) Nothing)        = "\tSTORE " ++ show reg ++ " := " ++ show x
+  show (ThreeAddressCode Load (Just reg) (Just x) Nothing)                  = "\tLOAD " ++ show reg ++ " " ++ show x
+  show (ThreeAddressCode Load (Just reg) (Just addr) (Just offset))         = "\tLOAD " ++ show reg ++ " " ++ show addr ++ "[" ++ show offset ++ "]"
+  show (ThreeAddressCode Store (Just reg) (Just x) Nothing)                 = "\tSTORE " ++ show reg ++ " " ++ show x
+  show (ThreeAddressCode Store (Just reg) (Just addr) (Just offset))        = "\tSTORE " ++ show reg ++ " " ++ show addr ++ "[" ++ show offset ++ "]"
 
 
   show tac = show (tacLvalue tac) ++ " := " ++ show (tacRvalue1 tac) ++ show (tacOperation tac) ++ show (tacRvalue2 tac)
@@ -77,8 +79,8 @@ data Operation =
     Entry         |
     Exit          |
 
-    Store         |
     Load          |
+    Store         |
 
     Assign        |
     -- Arithmetic
@@ -191,10 +193,13 @@ isAnAssignment op
       _ -> False
 
 getValues :: Instruction -> [Value]
-getValues inst =
-  if tacOperation inst `elem` Set:conditionalJumpInsts
-    then catMaybes [tacLvalue inst, tacRvalue1 inst] 
-    else catMaybes [tacRvalue1 inst, tacRvalue2 inst]
+getValues inst
+  | tacOperation inst `elem` conditionalJumpInsts =
+    catMaybes [tacLvalue inst, tacRvalue1 inst] 
+  | tacOperation inst == Set =
+    catMaybes [tacLvalue inst, tacRvalue1 inst, tacRvalue2 inst]
+  | otherwise =
+    catMaybes [tacRvalue1 inst, tacRvalue2 inst]
 
 getIds :: Instruction -> [Id]
 getIds inst =
@@ -220,10 +225,11 @@ data Id =
   deriving (Eq)
 
 instance Show Id where
-  show x@Temp{temp_offset=Just offset} = temp_name x ++ "_" ++ show offset
+  show x@Temp{temp_offset=Just offset} = "$fp[" ++ show offset ++ "]"
   show x@Global{} = global_name x
   show x@Reg{} = reg_name x
-  show x = getSymID x ++ "_" ++ show (idOffset x)
+  show x@Var{} = "$fp[" ++ show (idOffset x) ++ "]"
+  -- show = getSymID
 
 instance Ord Id where
   compare x y = show x `compare` show y
