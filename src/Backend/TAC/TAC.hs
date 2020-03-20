@@ -35,13 +35,10 @@ instance (Show b) => Show (ThreeAddressCode b) where
   show (ThreeAddressCode IfFalse Nothing (Just b) (Just label))   = "\t" ++ "if not " ++ show b ++ " then goto " ++ show label
   show (ThreeAddressCode Eq (Just x) (Just y) (Just label))       = "\t" ++ "if " ++ show x ++ " = " ++ show y ++ " then goto " ++ show label
   show (ThreeAddressCode Neq (Just x) (Just y) (Just label))      = "\t" ++  "if " ++ show x ++ " != " ++ show y ++ " then goto " ++ show label
-  show (ThreeAddressCode Lt (Just x) (Just y) (Just label))       = "\t" ++ "if " ++ show x ++ " < " ++ show y ++ " then goto " ++ show label
-  show (ThreeAddressCode Gt (Just x) (Just y) (Just label))       = "\t" ++ "if " ++ show x ++ " > " ++ show y ++ " then goto " ++ show label
-  show (ThreeAddressCode Lte (Just x) (Just y) (Just label))      = "\t" ++  "if " ++ show x ++ " <= " ++ show y ++ " then goto " ++ show label
-  show (ThreeAddressCode Gte (Just x) (Just y) (Just label))      = "\t" ++  "if " ++ show x ++ " >= " ++ show y ++ " then goto " ++ show label
+  show (ThreeAddressCode Lez (Just x) Nothing (Just label))       = "\t" ++ "if " ++ show x ++ " <=  0 then goto " ++ show label
 
-  show (ThreeAddressCode Get (Just x@(Id Reg{})) (Just y) (Just i))          = "\tLOAD " ++ show x ++ " " ++ show y ++ "[" ++ show i ++ "]"
-  show (ThreeAddressCode Set (Just x@(Id Reg{})) (Just i) (Just y))          = "\tSTORE " ++ show y ++ " " ++ show x ++ "[" ++ show i ++ "]"
+  show (ThreeAddressCode Get (Just x@(Id Reg{})) (Just y) (Just i))          = "\t" ++ show x ++ " := " ++ show y ++ "[" ++ show i ++ "]"
+  show (ThreeAddressCode Set (Just x@(Id Reg{})) (Just i) (Just y))          = "\t" ++ show x ++ "[" ++ show i ++ "] := " ++ show y
 
   show (ThreeAddressCode Get (Just x) (Just y) (Just i))          = "\t" ++ show x ++ " := " ++ show y ++ "[" ++ show i ++ "]"
   show (ThreeAddressCode Set (Just x) (Just i) (Just y))          = "\t" ++ show x ++ "[" ++ show i ++ "] := " ++ show y
@@ -56,6 +53,7 @@ instance (Show b) => Show (ThreeAddressCode b) where
   show (ThreeAddressCode Return Nothing (Just t) Nothing)         = "\treturn " ++ show t 
   show (ThreeAddressCode Sbrk (Just t) (Just sz) Nothing)         = "\t" ++ show t ++ " := sbrk(" ++ show sz ++ ")"  
   show (ThreeAddressCode Print Nothing (Just x) Nothing)          = "\tprint(" ++ show x ++ ")"
+  show (ThreeAddressCode Print Nothing (Just x) (Just sz))        = "\tprint(" ++ show x ++ ", " ++ show sz ++ ")"
   show (ThreeAddressCode Read Nothing (Just x) Nothing)           = "\tread(" ++ show x ++ ")"
   show (ThreeAddressCode Entry Nothing Nothing Nothing)           = "\tENTRY"
   show (ThreeAddressCode Exit Nothing Nothing Nothing)            = "\tEXIT"
@@ -113,7 +111,12 @@ data Operation =
     Not             |
 
     -- Comparators
-    -- | Greater than
+    
+    -- <= 0
+    Lez           |
+    -- > 0
+    Gtz           |
+    -- Greater than
     Gt           |
     -- | Greater than or equal
     Gte        |
@@ -232,10 +235,10 @@ data Id =
   deriving (Eq)
 
 instance Show Id where
-  show x@Temp{temp_offset=Just offset} = "$fp[" ++ show offset ++ "]"
+  show x@Temp{temp_offset=Just offset} = show offset ++ "($fp)"
   show x@Global{} = global_name x
   show x@Reg{} = reg_name x
-  show x@Var{} = "$fp[" ++ show (idOffset x) ++ "]"
+  show x@Var{} = show (idOffset x) ++ "($fp)"
   -- show = getSymID
 
 instance Ord Id where
@@ -263,3 +266,8 @@ getTypeOfId Temp{temp_type=t} = t
 getTypeOfId Var{entry=e} = fromJust $ AST.entry_type e
 getTypeOfId Global{temp_type=t} = t
 getTypeOfId Reg{reg_type=t} = t
+
+intToReg :: Int -> AST.ASTType -> Id
+intToReg num = Reg ("$" ++ show num)
+
+zeroReg = Id $ intToReg 0 (AST.Simple "eighth")

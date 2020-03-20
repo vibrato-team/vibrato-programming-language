@@ -4,6 +4,8 @@ module Util.Arquitecture where
 arqWord :: Int
 arqWord = 4
 
+halfWord = arqWord `div` 2
+
 doubleWord :: Int
 doubleWord = 4*2
 

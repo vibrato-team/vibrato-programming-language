@@ -9,6 +9,7 @@ import qualified Backend.FlowGraph.Block as Block
 import qualified Backend.FlowGraph.LiveVariables as LV
 import qualified Backend.FlowGraph.InterferenceGraph as IG
 import qualified Backend.FlowGraph.DSatur as DS
+import qualified Backend.Assembly as As
 import AST
 import Util.Error
 import qualified Control.Monad.RWS.Lazy as RWS
@@ -28,7 +29,8 @@ import System.IO
 main :: IO ()
 main = do
     args <- getArgs
-    handle <- openFile (head args) ReadMode  
+    let fileName = head args
+    handle <- openFile fileName ReadMode  
     srcFile <- hGetContents handle
 
     let lexResult = Lexer.runAlexScan srcFile
@@ -65,32 +67,36 @@ main = do
                             blockLeaders = Set.insert (length finalTAC - 1) blockLeaders'
 
                         --------------------------------------------------------------------------------------------------
-                        putStrLn $ "Block Leaders:\n" ++ show blockLeaders ++ "\n\nThree Address Code:"
+                        -- putStrLn $ "Block Leaders:\n" ++ show blockLeaders ++ "\n\nThree Address Code:"
 
                         let labelMap = FGraph.getLabelIdxs finalTAC 0 Map.empty
                             blocksList = reverse $ FGraph.getBlocks finalTAC 0 (-1) labelMap blockLeaders Set.empty [] []
 
-                        mapM_ (\block@Block.Block{Block.insts=tac, Block.from_idx=fromIdx} -> putStrLn "\n" >> printDelimiter >> print block >> printTAC tac fromIdx blockLeaders print >> printDelimiter) blocksList
+                        -- mapM_ (\block@Block.Block{Block.insts=tac, Block.from_idx=fromIdx} -> putStrLn "\n" >> printDelimiter >> print block >> printTAC tac fromIdx blockLeaders print >> printDelimiter) blocksList
                         -- --------------------------------------------------------------------------------------------------
-                        printDelimiter
-                        printDelimiter
+                        -- printDelimiter
+                        -- printDelimiter
                         --------------------------------------------------------------------------------------------------
                         state@LV.LVState{LV.new_tac=newTac, LV.ady_map=interferenceGraph, LV.live_vars_map=liveVarsMap, LV.var_reg_map=varRegMap} <- DS.returnState finalTAC blocksList
                         
-                        putStrLn "Live Variables per instruction:\n"
-                        printTAC (Map.toList liveVarsMap) 0 blockLeaders (\(idx, liveVars) -> putStrLn $ "IN[" ++ show idx ++ "] = " ++ show (Set.toList liveVars))
+                        -- putStrLn "Live Variables per instruction:\n"
+                        -- printTAC (Map.toList liveVarsMap) 0 blockLeaders (\(idx, liveVars) -> putStrLn $ "IN[" ++ show idx ++ "] = " ++ show (Set.toList liveVars))
                         
                         -- --------------------------------------------------------------------------------------------------
-                        printDelimiter
-                        putStrLn "New TAC:\n"
+                        -- printDelimiter
+                        -- putStrLn "New TAC:\n"
                         printTAC newTac 0 Set.empty print
                         --------------------------------------------------------------------------------------------------
-                        printDelimiter
-                        putStrLn "Interference graph:\n"
-                        mapM_ (\(var, ady) -> putStrLn $ show var ++ " [$" ++ show (fromJust $ Map.lookup var varRegMap) ++ "] ->\n\t" ++ show (length ady) ++ " " ++ show (Set.toList ady)) $ Map.toList interferenceGraph
+                        -- printDelimiter
+                        -- putStrLn "Interference graph:\n"
+                        -- mapM_ (\(var, ady) -> putStrLn $ show var ++ " [$" ++ show (fromJust $ Map.lookup var varRegMap) ++ "] ->\n\t" ++ show (length ady) ++ " " ++ show (Set.toList ady)) $ Map.toList interferenceGraph
 
                         --------------------------------------------------------------------------------------------------
-                        printDelimiter
+                        -- printDelimiter
+
+                        let ouFileName = fileName ++ ".s"
+                        writeFile ouFileName $ As.generateAssembly newTac
+
 
     hClose handle
 

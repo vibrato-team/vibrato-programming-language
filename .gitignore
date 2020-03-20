@@ -5,3 +5,4 @@
 src/Lexer.hs
 src/Parser.hs
 out
+*.s

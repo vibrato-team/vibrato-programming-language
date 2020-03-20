@@ -328,9 +328,11 @@ Return                  : Expression '||'                       {% do
 IO                      :: { AST.Instruction }
 IO                      : '@' '(' ListExp ClosePar                   {%do
                                                                         pushIfError $4 $2 $ matchingError "parentheses" 
+                                                                        mapM_ (\exp -> checkExpType exp printeableTypes $2) $3
                                                                         return $ AST.RecordInst $ reverse $3 }
                         | '|>' '(' ListExp ClosePar                  {%do
                                                                         pushIfError $4 $2 $ matchingError "parentheses" 
+                                                                        mapM_ (\exp -> checkExpType exp printeableTypes $2) $3
                                                                         return $ AST.PlayInst $ reverse $3 }
 
 Loop                    :: { AST.Instruction }
@@ -755,7 +757,7 @@ PopScope                :: { () }
 PopScope                : {- empty -}                           {% PMonad.popScope }
 
 {
-
+printeableTypes = [AST.Simple "quarter", AST.Simple "eighth", AST.Simple "whole", AST.Simple "half", AST.Simple "32th", AST.Simple "64th", AST.Compound "Melody" (AST.Simple "half")]
 voidType = AST.Simple "void"
 -----------------------------------------------------------------------------------------------
 -- Exceptions

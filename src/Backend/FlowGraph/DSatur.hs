@@ -24,7 +24,7 @@ k = numberOfRegs+1
 
 ----------------------------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------------------------
-
+-- TODO: Use floating porint registers
 getDegree :: TAC.Id -> LVMonad Int
 getDegree var = do
     LVState{ady_map=adyMap} <- State.get
@@ -173,7 +173,7 @@ insertRawSpillsForEpilProl op varsRegs tac = fromJust $ foldl (\(Just insts) p -
 genRawSpillForEpilProl :: TAC.Operation -> (TAC.Id, Reg) -> Maybe TAC.Instruction
 genRawSpillForEpilProl _ (_, -1) = Nothing
 genRawSpillForEpilProl op (var, reg) =
-    Just $ TAC.ThreeAddressCode op (Just $ TAC.Id $ intToReg reg (TAC.getTypeOfId var)) (Just $ TAC.Id var) Nothing
+    Just $ TAC.ThreeAddressCode op (Just $ TAC.Id $ TAC.intToReg reg (TAC.getTypeOfId var)) (Just $ TAC.Id var) Nothing
 
 ----------------------------------------------------------------------------------------------------------------------
 -------------------------------------------Gen TAC for Spills---------------------------------------------------------
@@ -206,7 +206,6 @@ getRegOrGenSpill valuePos inst = do
                 Nothing -> return defaultRet
                 -- otherwise
                 Just var -> do
-                    liftIO $ print var
                     let maybeReg = Map.lookup var varRegMap
                     case maybeReg of
                         -- It is never alive. TODO: Check if this line is correct
@@ -216,8 +215,8 @@ getRegOrGenSpill valuePos inst = do
                                 -- If it should generate a spill
                                 then do
                                     -- base[4], base[8] and base[12] are auxiliars for spills.
-                                    let auxReg = TAC.Id $ intToReg (valuePos + head colors) (TAC.getType value)
-                                        idxValue = TACMonad.toQuarterConstant valuePos
+                                    let auxReg = TAC.Id $ TAC.intToReg (valuePos + head colors) (TAC.getType value)
+                                        idxValue = TACMonad.toEighthConstant valuePos
                                         -- Spill instructions
                                         auxStoreProl    = TAC.ThreeAddressCode TAC.Store (Just auxReg) (Just TACMonad.base) (Just idxValue)
                                         auxLoadProl     = TAC.ThreeAddressCode TAC.Load (Just auxReg) maybeValue Nothing
@@ -229,7 +228,7 @@ getRegOrGenSpill valuePos inst = do
                                 
                                 -- otherwise
                                 else do
-                                    let regValue = TAC.Id $ intToReg reg (TAC.getType value)
+                                    let regValue = TAC.Id $ TAC.intToReg reg (TAC.getType value)
                                     return ([], substituteValueByReg inst valuePos regValue, [])
                                
 
@@ -237,9 +236,6 @@ getRegOrGenSpill valuePos inst = do
 ----------------------------------------------------------------------------------------------------------------------
 ------------------------------------------------- Helpers ------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------------------------
-
-intToReg :: Int -> AST.ASTType -> TAC.Id
-intToReg num = TAC.Reg ("$" ++ show num)
 
 getUsedVars :: TAC.Instruction -> Set.Set TAC.Id
 getUsedVars inst = Set.fromList $ TAC.getIds inst

@@ -35,14 +35,16 @@ data ParserState = ParserState {
 -- | Monad of the parser
 type ParserMonad = RWS.RWST String () ParserState IO
 
+-- TODO: Optimize space calculating offset
+
 -- | Initial state with the level pervasive.
 initialState :: ParserState
 initialState = ParserState (AST.Scopes (Set.fromList [1, 0]) [1, 0]) initialMap 1 Nothing [] (4*arqWord) ["moderato"]
     where 
         wholeEntry          =    ("whole",      [AST.Entry "whole"      (AST.Type Nothing Nothing arqByte)      0   Nothing                       Nothing])
         halfEntry           =    ("half",       [AST.Entry "half"       (AST.Type Nothing Nothing arqByte)      0   Nothing                       Nothing])
-        quarterEntry        =    ("quarter",    [AST.Entry "quarter"    (AST.Type Nothing Nothing arqWord)      0   Nothing                       Nothing])
-        eighthEntry         =    ("eighth",     [AST.Entry "eighth"     (AST.Type Nothing Nothing doubleWord)      0   Nothing                       Nothing])
+        quarterEntry        =    ("quarter",    [AST.Entry "quarter"    (AST.Type Nothing Nothing halfWord)      0   Nothing                       Nothing])
+        eighthEntry         =    ("eighth",     [AST.Entry "eighth"     (AST.Type Nothing Nothing arqWord)      0   Nothing                       Nothing])
         thirySecondEntry    =    ("32th",       [AST.Entry "32th"       (AST.Type Nothing Nothing arqWord)      0   Nothing                       Nothing])
         sixtyFourthEntry    =    ("64th",       [AST.Entry "64th"       (AST.Type Nothing Nothing doubleWord)      0   Nothing                       Nothing])
         nullTypeEntry       =    ("null",       [AST.Entry "null"       (AST.Type Nothing Nothing arqWord)      0   Nothing                       Nothing])
