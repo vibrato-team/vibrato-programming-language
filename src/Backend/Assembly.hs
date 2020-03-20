@@ -3,6 +3,7 @@ import Backend.TAC.TAC
 import Backend.TAC.Monad
 import Backend.FlowGraph.DSatur
 import Data.Maybe
+import Data.List
 import qualified AST
 
 returnReg astType = Id $ Reg "$v0" astType
@@ -54,10 +55,17 @@ tacToAssembly (ThreeAddressCode Set (Just x) (Just i) (Just y))          = error
 tacToAssembly (ThreeAddressCode NewLabel Nothing (Just label) Nothing)   = show label ++ ":"
 
 tacToAssembly (ThreeAddressCode Call Nothing (Just label) (Just _))      = assemblyInst "jal" (Just label) Nothing Nothing
-tacToAssembly (ThreeAddressCode Call (Just t) (Just label) (Just _))         =
+
+tacToAssembly (ThreeAddressCode Call (Just t@(Id Reg{})) (Just label) (Just _))         =
     assemblyInst "jal" (Just label) Nothing Nothing ++ "\n" ++
     -- TODO: Use floating point arithmetic if necessary
     assemblyInst "add" (Just t) (Just $ returnReg (getType t)) (Just zeroReg)
+
+tacToAssembly (ThreeAddressCode Call (Just t) (Just label) (Just _))         =
+    let v0reg = returnReg (getType t) in
+        assemblyInst "jal" (Just label) Nothing Nothing ++ "\n" ++
+        -- TODO: Use floating point arithmetic if necessary
+        tacToMoveInstruction "s" (Just v0reg) (Just t) Nothing
 
 tacToAssembly (ThreeAddressCode Return Nothing Nothing Nothing)          = "\tjr $ra" 
 tacToAssembly (ThreeAddressCode Return Nothing (Just t) Nothing)         =
@@ -130,9 +138,9 @@ tacToMoveInstruction move (Just reg) mayVal2 mayVal3
 assemblyInst :: String -> Maybe Value -> Maybe Value -> Maybe Value -> String
 assemblyInst op mayVal1 mayVal2 mayVal3
     | op `elem` moveInstructions =
-        "\t" ++ op ++ " " ++ justMaybeValue mayVal1 ++ " " ++ justMaybeValue mayVal2 ++ if isJust mayVal3 then "(" ++ justMaybeValue mayVal3 ++ ")" else ""
+        "\t" ++ op ++ " " ++ (intercalate ", " $ words $ justMaybeValue mayVal1 ++ " " ++ justMaybeValue mayVal2 ++ if isJust mayVal3 then "(" ++ justMaybeValue mayVal3 ++ ")" else "")
     | otherwise =    
-        "\t" ++ op ++ " " ++ justMaybeValue mayVal1 ++ " " ++ justMaybeValue mayVal2 ++ " " ++ justMaybeValue mayVal3
+        "\t" ++ op ++ " " ++ (intercalate ", " $ words $ justMaybeValue mayVal1 ++ " " ++ justMaybeValue mayVal2 ++ " " ++ justMaybeValue mayVal3)
 
 syscall :: Int -> Value -> Maybe Value -> String
 syscall v0 a0 maybeA1=

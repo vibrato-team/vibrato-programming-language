@@ -35,8 +35,8 @@ type TACMonad = RWS.RWST () [TAC.Instruction] TACState IO
 initialState :: AST.SymbolTable -> TACState
 initialState = TACState 1 1 0 Map.empty 0 []
 
-trueConstant    = TAC.Constant ("true",  AST.Simple "whole")
-falseConstant   = TAC.Constant ("false", AST.Simple "whole")
+trueConstant    = TAC.Constant ("1",  AST.Simple "whole")
+falseConstant   = TAC.Constant ("0", AST.Simple "whole")
 arqWordConstant = TAC.Constant (show arqWord, AST.Simple "eighth")
 doubleWordConstant = TAC.Constant (show doubleWord, AST.Simple "eighth")
 zeroConstant    = TAC.Constant ("0", AST.Simple "eighth")
@@ -60,8 +60,15 @@ toEighthTemp x = do
 toEighthConstant :: Int -> TAC.Value
 toEighthConstant x = TAC.Constant (show x, AST.Simple "eighth")
 
+toWholeTemp :: Bool -> TACMonad TAC.Value
+toWholeTemp b = do
+    temp <- newTemp $ AST.Simple "whole"
+    let constant = toWholeConstant b
+    genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp) (Just constant) Nothing]
+    return temp
+
 toWholeConstant :: Bool -> TAC.Value
-toWholeConstant b = TAC.Constant (show b, AST.Simple "whole")
+toWholeConstant b = TAC.Constant (if b then "1" else "0", AST.Simple "whole")
 
 ----------------------------------------------------------------------------
 ----------------------------- Generate TAC ---------------------------------
@@ -1234,12 +1241,13 @@ genForCallWithGC name param' = genForCall name param' False
 genForCall :: String -> TAC.Value -> Bool -> TACMonad (Maybe TAC.Value)
 genForCall "free" param' isRecursive = do
     param <- newTemp $ TAC.getType param'
+    tempConstant <- toWholeTemp isRecursive
     genRaw [TAC.ThreeAddressCode TAC.Assign (Just param) (Just param') Nothing]
 
     genForIncrementBase
     currOffset <- getOffset
     genForParamInst currOffset param
-    genForParamInst currOffset $ toWholeConstant isRecursive
+    genForParamInst currOffset tempConstant
     genRaw [TAC.ThreeAddressCode TAC.Call Nothing (Just $ TAC.Label "free") (Just $ toEighthConstant 2) ]
     return Nothing
 
@@ -1247,9 +1255,9 @@ genForCall "malloc" param' isRecursive = do
     param <- newTemp $ TAC.getType param'
     temp1 <- newTemp $ TAC.getType param'
     temp2 <- newTemp $ TAC.getType param'
+    tempConstant <- toWholeTemp isRecursive
 
     arqWordTemp <- toEighthTemp arqWord
-    oneTemp <- toEighthTemp 1
 
     genRaw [TAC.ThreeAddressCode TAC.Assign (Just param) (Just param') Nothing,
             TAC.ThreeAddressCode TAC.Add (Just temp1) (Just param) (Just $ toEighthConstant $ arqWord - 1),
@@ -1259,7 +1267,7 @@ genForCall "malloc" param' isRecursive = do
     genForIncrementBase
     currOffset <- getOffset
     genForParamInst currOffset param
-    genForParamInst currOffset (toWholeConstant isRecursive)
+    genForParamInst currOffset tempConstant
 
     ret <- newTemp $ AST.Simple "eighth"
     genRaw [TAC.ThreeAddressCode TAC.Call (Just ret) (Just $ TAC.Label "malloc") (Just $ toEighthConstant 2) ]
