@@ -39,7 +39,7 @@ type ParserMonad = RWS.RWST String () ParserState IO
 
 -- | Initial state with the level pervasive.
 initialState :: ParserState
-initialState = ParserState (AST.Scopes (Set.fromList [1, 0]) [1, 0]) initialMap 1 Nothing [] (4*arqWord) ["moderato"]
+initialState = ParserState (AST.Scopes (Set.fromList [1, 0]) [1, 0]) initialMap 1 Nothing [] (2*arqWord) ["moderato"]
     where 
         wholeEntry          =    ("whole",      [AST.Entry "whole"      (AST.Type Nothing Nothing arqByte)      0   Nothing                       Nothing])
         halfEntry           =    ("half",       [AST.Entry "half"       (AST.Type Nothing Nothing arqByte)      0   Nothing                       Nothing])
@@ -174,7 +174,7 @@ getOffset = do
 resetOffset :: ParserMonad ()
 resetOffset = do
     state <- RWS.get
-    RWS.put state{ state_offset = 4*arqWord }
+    RWS.put state{ state_offset = 2*arqWord }
 
 -- | Add function name to list of function names
 pushFunctionName :: String -> ParserMonad ()

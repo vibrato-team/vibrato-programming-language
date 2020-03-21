@@ -235,10 +235,10 @@ data Id =
   deriving (Eq)
 
 instance Show Id where
-  show x@Temp{temp_offset=Just offset} = show offset ++ "($fp)"
+  show x@Temp{temp_offset=Just offset} = "-" ++ show offset ++ "($sp)"
   show x@Global{} = global_name x
   show x@Reg{} = reg_name x
-  show x@Var{} = show (idOffset x) ++ "($fp)"
+  show x@Var{} = "-" ++ show (idOffset x) ++ "($sp)"
   -- show = getSymID
 
 instance Ord Id where
@@ -271,3 +271,4 @@ intToReg :: Int -> AST.ASTType -> Id
 intToReg num = Reg ("$" ++ show num)
 
 zeroReg = Id $ intToReg 0 (AST.Simple "eighth")
+raReg = Id $ Reg "$ra" (AST.Simple "eighth")

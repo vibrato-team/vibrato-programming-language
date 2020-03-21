@@ -67,11 +67,11 @@ tacToAssembly (ThreeAddressCode Call (Just t) (Just label) (Just _))         =
         -- TODO: Use floating point arithmetic if necessary
         tacToMoveInstruction "s" (Just v0reg) (Just t) Nothing
 
-tacToAssembly (ThreeAddressCode Return Nothing Nothing Nothing)          = "\tjr $ra" 
+tacToAssembly (ThreeAddressCode Return Nothing Nothing Nothing)          = returnInst 
 tacToAssembly (ThreeAddressCode Return Nothing (Just t) Nothing)         =
     -- TODO: Use floating point arithmetic if necessary
-    assemblyInst "add" (Just $ returnReg (getType t)) (Just t) (Just zeroReg) ++
-    "\n\tjr $ra" 
+    assemblyInst "add" (Just $ returnReg (getType t)) (Just t) (Just zeroReg) ++ "\n" ++
+    returnInst
 
 tacToAssembly (ThreeAddressCode Sbrk (Just t) (Just sz) Nothing) =
     syscall 9 sz Nothing ++ "\n" ++
@@ -135,6 +135,8 @@ tacToMoveInstruction move (Just reg) mayVal2 mayVal3
     | otherwise =
         assemblyInst (move ++ "w") (Just reg) mayVal2 mayVal3
 
+returnInst = "\tjr $ra"
+
 assemblyInst :: String -> Maybe Value -> Maybe Value -> Maybe Value -> String
 assemblyInst op mayVal1 mayVal2 mayVal3
     | op `elem` moveInstructions =
@@ -153,4 +155,4 @@ justMaybeValue = maybe "" show
 
 generateAssembly :: [Instruction] -> String
 generateAssembly tac =
-    ".data\n\thead: .word 0\n.text\nmain:\n\tadd $fp, $zero, $sp" ++ (unlines $ map tacToAssembly tac)
+    ".data\n\thead: .word 0\n.text\nmain:" ++ (unlines $ map tacToAssembly tac)

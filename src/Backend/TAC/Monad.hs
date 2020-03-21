@@ -44,7 +44,7 @@ zeroConstant    = TAC.Constant ("0", AST.Simple "eighth")
 oneConstant     = TAC.Constant ("1", AST.Simple "eighth")
 nullConstant    = zeroConstant
 
-baseReg        = TAC.Reg "$fp" (AST.Simple "eighth")
+baseReg        = TAC.Reg "$sp" (AST.Simple "eighth")
 base            = TAC.Id baseReg
 
 -- TODO: Store head in temp everytime it is used
@@ -868,11 +868,12 @@ genForArrayComp value1 value2
 -- | Generate TAC for return instruction
 genForReturn' :: Maybe TAC.Value -> TACMonad ()
 genForReturn' maybeValue = do
-    let offsetConstant = toEighthConstant $ -arqWord
+    let offsetConstant = toEighthConstant arqWord
     fp <- newTemp $ AST.Simple "eighth"
 
-    genRaw [TAC.ThreeAddressCode TAC.Get (Just fp) (Just base) (Just offsetConstant),
-            TAC.ThreeAddressCode TAC.Assign (Just base) (Just fp) Nothing ]
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just TAC.raReg) (Just base) (Just $ toEighthConstant $ -arqWord),
+            TAC.ThreeAddressCode TAC.Get (Just fp) (Just base) (Just offsetConstant),
+            TAC.ThreeAddressCode TAC.Assign (Just base) (Just fp) Nothing]
     
     genRaw [TAC.ThreeAddressCode TAC.Return Nothing maybeValue Nothing]
 
@@ -895,7 +896,9 @@ genForFunction entry = do
     setOffset maxOffset
     genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just $ TAC.Label name) Nothing,
             -- Linked list of allocated objects set to NULL
-            TAC.ThreeAddressCode TAC.Set (Just base) (Just zeroConstant) (Just TAC.zeroReg)]
+            TAC.ThreeAddressCode TAC.Set (Just base) (Just zeroConstant) (Just TAC.zeroReg),
+            -- Return address
+            TAC.ThreeAddressCode TAC.Set (Just base) (Just $ toEighthConstant (-arqWord)) (Just TAC.raReg)]
 
     -- Get entries of each param
     paramEntries <- mapM (lookupInScope level) paramStrings
@@ -964,14 +967,16 @@ genForMallocFunction = do
     setOffset $ 3*arqWord
     genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just $ TAC.Label "malloc") Nothing,
             -- Linked list of allocated objects set to NULL
-            TAC.ThreeAddressCode TAC.Set (Just base) (Just zeroConstant) (Just TAC.zeroReg)]
+            TAC.ThreeAddressCode TAC.Set (Just base) (Just zeroConstant) (Just TAC.zeroReg),
+            -- Return address
+            TAC.ThreeAddressCode TAC.Set (Just base) (Just $ toEighthConstant (-arqWord)) (Just TAC.raReg)]
 
     size <- newTemp $ AST.Simple "eighth"
     isRecursive <- newTemp $ AST.Simple "whole"
     arqWord3Value <- toEighthTemp $ 3*arqWord
-    genRaw [TAC.ThreeAddressCode TAC.Get (Just size) (Just base) (Just arqWordConstant),
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just size) (Just base) (Just $ toEighthConstant (-2*arqWord)),
             TAC.ThreeAddressCode TAC.Add (Just size) (Just size) (Just arqWord3Value),
-            TAC.ThreeAddressCode TAC.Get (Just isRecursive) (Just base) (Just doubleWordConstant)]
+            TAC.ThreeAddressCode TAC.Get (Just isRecursive) (Just base) (Just $ toEighthConstant (-3*arqWord))]
 
     --------------------------------------------------------------
     -- Initialization
@@ -1022,7 +1027,7 @@ genForMallocFunction = do
 
     trackNewAddr iter isRecursive
     arqWord3Value <- toEighthTemp $ 3*arqWord
-    genRaw [TAC.ThreeAddressCode TAC.Add (Just iter) (Just iter) (Just arqWord3Value)]
+    genRaw [TAC.ThreeAddressCode TAC.Add (Just iter) (Just iter) (Just $ toEighthConstant $ 3*arqWord)]
     genForReturn' $ Just iter
 
     --------------------------------------------------------------
@@ -1063,6 +1068,8 @@ genForMallocFunction = do
     bindLabel [finalGoTo] finalLabelStr
 
     trackNewAddr iter isRecursive
+
+    genRaw [TAC.ThreeAddressCode TAC.Add (Just newBlock) (Just newBlock) (Just $ toEighthConstant $ 3*arqWord)]
     genForReturn' $ Just newBlock
 
 -- | Generate free function
@@ -1071,14 +1078,16 @@ genForFreeFunction = do
     setOffset $ 3*arqWord
     genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just $ TAC.Label "free") Nothing,
             -- Linked list of allocated objects set to NULL
-            TAC.ThreeAddressCode TAC.Set (Just base) (Just zeroConstant) (Just TAC.zeroReg)]
+            TAC.ThreeAddressCode TAC.Set (Just base) (Just zeroConstant) (Just TAC.zeroReg),
+            -- Return address
+            TAC.ThreeAddressCode TAC.Set (Just base) (Just $ toEighthConstant (-arqWord)) (Just TAC.raReg)]
 
     addr <- newTemp $ AST.Simple "eighth"
     isRecursive <- newTemp $ AST.Simple "whole"
     arqWord3Value <- toEighthTemp $ 3*arqWord
-    genRaw [TAC.ThreeAddressCode TAC.Get (Just addr) (Just base) (Just arqWordConstant),
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just addr) (Just base) (Just $ toEighthConstant (-2*arqWord)),
             TAC.ThreeAddressCode TAC.Sub (Just addr) (Just addr) (Just arqWord3Value),
-            TAC.ThreeAddressCode TAC.Get (Just isRecursive) (Just base) (Just doubleWordConstant)]
+            TAC.ThreeAddressCode TAC.Get (Just isRecursive) (Just base) (Just $ toEighthConstant (-3*arqWord))]
 
     --------------------------------------------------------------
     -- Initialization
@@ -1231,7 +1240,7 @@ backpatch label l1@(idx:idxs) (inst:insts) i
 
 getPrevBase :: TACMonad TAC.Value
 getPrevBase = do
-    let minusFour = toEighthConstant $ -arqWord
+    let minusFour = toEighthConstant arqWord
     prevBase <- newTemp $ AST.Simple "eighth"
     genRaw [TAC.ThreeAddressCode TAC.Get (Just prevBase) (Just base) (Just minusFour)]
     return prevBase
@@ -1243,9 +1252,9 @@ genForIncrementBase = do
     currOffset <- getAndIncrementOffsetBy arqWord
     currOffsetValue <- toEighthTemp currOffset
     genRaw [TAC.ThreeAddressCode TAC.Add (Just temp) (Just currOffsetValue) (Just arqWordConstant),
-            TAC.ThreeAddressCode TAC.Add (Just currOffsetValue) (Just currOffsetValue) (Just base),
+            TAC.ThreeAddressCode TAC.Sub (Just currOffsetValue) (Just base) (Just currOffsetValue),
             TAC.ThreeAddressCode TAC.Set (Just currOffsetValue) (Just zeroConstant) (Just base),
-            TAC.ThreeAddressCode TAC.Add (Just base) (Just base) (Just temp) ]
+            TAC.ThreeAddressCode TAC.Sub (Just base) (Just base) (Just temp) ]
     
     return temp
 
@@ -1292,7 +1301,7 @@ genForParamInst :: Int -> TAC.Value -> TACMonad ()
 genForParamInst prevOffset param = do
     size <- getSize $ TAC.getType param
     offset <- getAndIncrementOffsetBy size
-    let offsetValue = toEighthConstant $ offset - prevOffset
+    let offsetValue = toEighthConstant $ -(2*arqWord + offset - prevOffset)
     genRaw [TAC.ThreeAddressCode TAC.Set (Just base) (Just offsetValue) (Just param)]
 
 genForTrackParam :: AST.Entry -> TACMonad ()
@@ -1301,7 +1310,7 @@ genForTrackParam e@AST.Entry{AST.entry_type=Just entryType, AST.entry_category=c
         AST.Compound "Melody" _ -> do
             -- Get param
             let Just offset = AST.offset cat
-                offsetValue = toEighthConstant offset
+                offsetValue = toEighthConstant $ -offset
             param <- newTemp entryType
             genRaw [TAC.ThreeAddressCode TAC.Get (Just param) (Just base) (Just offsetValue)]
 
