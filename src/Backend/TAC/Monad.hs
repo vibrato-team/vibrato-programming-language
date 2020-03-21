@@ -10,6 +10,7 @@ import Control.Monad.RWS.Lazy
 import qualified Frontend.Parser.Monad as PMonad
 import qualified Frontend.Parser.Parser as Parser
 import Data.Maybe
+import Data.Char
 import Util.Arquitecture
 
 type Label = String
@@ -292,8 +293,9 @@ genForExp exp@(AST.LiteralExp expToken expType)
         -- Store size
         genRaw [TAC.ThreeAddressCode TAC.Set (Just temp) (Just zeroConstant) (Just lenValue ) ]
 
-        let chars = map (\c -> TAC.Constant (show c, AST.Simple "half")) string
-        foldM_ ( pushArrayElement temp 1 ) arqWord chars
+        let chars = map (\c -> TAC.Constant (show $ ord c, AST.Simple "half")) string
+        charTemps <- mapM (\c -> newTemp (AST.Simple "half") >>= \t -> genRaw [TAC.ThreeAddressCode TAC.Assign (Just t) (Just c) Nothing] >> return t) chars
+        foldM_ ( pushArrayElement temp 1 ) arqWord charTemps
 
         return (Just temp, [], [])
 
