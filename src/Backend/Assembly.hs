@@ -152,4 +152,5 @@ syscall v0 a0 maybeA1=
 justMaybeValue = maybe "" show
 
 generateAssembly :: [Instruction] -> String
-generateAssembly tac = unlines $ map tacToAssembly tac
+generateAssembly tac =
+    ".data\n\thead: .word 0\n.text\nmain:\n\tadd $fp, $zero, $sp" ++ (unlines $ map tacToAssembly tac)

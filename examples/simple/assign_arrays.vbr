@@ -1,5 +1,5 @@
 moderato() {
     arr: Melody<whole>|
     arr <-> [maj, maj, min]|
-    |>(arr[2], " ", arr[1])| -- -> min maj
+    |>(arr[0], " ", arr[1])| -- -> min maj
 }

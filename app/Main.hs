@@ -67,20 +67,20 @@ main = do
                             blockLeaders = Set.insert (length finalTAC - 1) blockLeaders'
 
                         --------------------------------------------------------------------------------------------------
-                        -- putStrLn $ "Block Leaders:\n" ++ show blockLeaders ++ "\n\nThree Address Code:"
+                        putStrLn $ "Block Leaders:\n" ++ show blockLeaders ++ "\n\nThree Address Code:"
 
                         let labelMap = FGraph.getLabelIdxs finalTAC 0 Map.empty
                             blocksList = reverse $ FGraph.getBlocks finalTAC 0 (-1) labelMap blockLeaders Set.empty [] []
 
-                        -- mapM_ (\block@Block.Block{Block.insts=tac, Block.from_idx=fromIdx} -> putStrLn "\n" >> printDelimiter >> print block >> printTAC tac fromIdx blockLeaders print >> printDelimiter) blocksList
+                        mapM_ (\block@Block.Block{Block.insts=tac, Block.from_idx=fromIdx} -> putStrLn "\n" >> printDelimiter >> print block >> printTAC tac fromIdx blockLeaders print >> printDelimiter) blocksList
                         -- --------------------------------------------------------------------------------------------------
                         -- printDelimiter
                         -- printDelimiter
                         --------------------------------------------------------------------------------------------------
                         state@LV.LVState{LV.new_tac=newTac, LV.ady_map=interferenceGraph, LV.live_vars_map=liveVarsMap, LV.var_reg_map=varRegMap} <- DS.returnState finalTAC blocksList
                         
-                        -- putStrLn "Live Variables per instruction:\n"
-                        -- printTAC (Map.toList liveVarsMap) 0 blockLeaders (\(idx, liveVars) -> putStrLn $ "IN[" ++ show idx ++ "] = " ++ show (Set.toList liveVars))
+                        putStrLn "Live Variables per instruction:\n"
+                        printTAC (Map.toList liveVarsMap) 0 blockLeaders (\(idx, liveVars) -> putStrLn $ "IN[" ++ show idx ++ "] = " ++ show (Set.toList liveVars))
                         
                         -- --------------------------------------------------------------------------------------------------
                         -- printDelimiter

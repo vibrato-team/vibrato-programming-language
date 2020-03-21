@@ -52,7 +52,6 @@ computeLiveVarsOfInst idx = do
     let Just prevLiveVars = Map.lookup idx liveVarsMap
         Just (leaderIdx, block) = Map.lookupLE idx blockMap
         inst        = fromJust $ Map.lookup idx tacMap
-        maybeInstPlusOne = Map.lookup (idx+1) tacMap
         operation   = TAC.tacOperation inst
         lValueMaybe = TAC.tacLvalue inst
         idMaybe     = TAC.getId =<< lValueMaybe
@@ -61,13 +60,11 @@ computeLiveVarsOfInst idx = do
             else Set.empty
         usedVars = Set.fromList $ TAC.getIds inst
         succs = if idx + 1 == Block.to_idx block then Set.toList (Block.edges_set block) else [idx+1]
-        liveVarsOfSuccs = if isJust maybeInstPlusOne && TAC.tacOperation (fromJust maybeInstPlusOne) == TAC.Call
-            then []
-            else map (\idx' -> fromJust $ Map.lookup idx' liveVarsMap ) succs
+        liveVarsOfSuccs = map (\idx' -> fromJust $ Map.lookup idx' liveVarsMap ) succs
         outInst = foldl Set.union Set.empty liveVarsOfSuccs
         liveVars = usedVars `Set.union` (outInst `Set.difference` definedVars)
         inChanged = liveVars /= prevLiveVars
-
+        
     State.put state{ live_vars_map = Map.insert idx liveVars liveVarsMap, in_changed = prevInChanged || inChanged }
 
 computeLiveVars :: LVMonad ()

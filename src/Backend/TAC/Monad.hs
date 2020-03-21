@@ -271,8 +271,29 @@ genForLValue exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, A
                 TAC.ThreeAddressCode TAC.Add (Just index') (Just index') (Just lValue),
                 TAC.ThreeAddressCode TAC.Set (Just index') (Just zeroConstant) (Just rValue)]
 
+genForIndexingExp exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, AST.exp_type=expType} = do
+    let quarterType = AST.Simple "eighth"
+
+    -- Get addr of left expression
+    (Just temp1, _, _) <- genForExp expLeft
+    temp1' <- newTemp $ AST.exp_type expLeft
+    genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp1') (Just temp1) Nothing]
+
+    -- Get offset
+    (Just temp2, _, _) <- genForExp expRight
+    w <- getSize expType
+    temp2' <- newTemp quarterType
+    constantTemp <- toEighthTemp w
+    genRaw [TAC.ThreeAddressCode TAC.Mult (Just temp2') (Just constantTemp) (Just temp2)]
+
+    -- Increment by one word, because first element is an int with size information
+    temp2'' <- newTemp quarterType
+    genRaw [TAC.ThreeAddressCode TAC.Add (Just temp2'') (Just temp2') (Just arqWordConstant)]
 
 
+    temp <- newTemp expType
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just temp) (Just temp1') (Just temp2'')]
+    return (Just temp, [], [])
 
 -- | Generate corresponding TAC to Expression
 genForExp :: AST.Expression -> TACMonad (Maybe TAC.Value, InstList, InstList)
@@ -357,29 +378,21 @@ genForExp idExp@AST.IdExp{AST.exp_entry=Just entry, AST.exp_type=expType} = do
     return (Just temp, [], [])
 
 -- For array indexing
-genForExp exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, AST.exp_type=expType} = do
-    let quarterType = AST.Simple "eighth"
 
-    -- Get addr of left expression
-    (Just temp1, _, _) <- genForExp expLeft
-    temp1' <- newTemp $ AST.exp_type expLeft
-    genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp1') (Just temp1) Nothing]
+genForExp exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, AST.exp_type=AST.Simple "whole"} = do
+    (Just value, _, _) <- genForIndexingExp exp
+    inst1 <- nextInst
+    let truelist = makelist inst1
+    genRaw [TAC.ThreeAddressCode TAC.If Nothing (Just value) Nothing]
 
-    -- Get offset
-    (Just temp2, _, _) <- genForExp expRight
-    w <- getSize expType
-    temp2' <- newTemp quarterType
-    constantTemp <- toEighthTemp w
-    genRaw [TAC.ThreeAddressCode TAC.Mult (Just temp2') (Just constantTemp) (Just temp2)]
+    inst2 <- nextInst
+    let falselist = makelist inst2
+    genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing Nothing]
 
-    -- Increment by one word, because first element is an int with size information
-    temp2'' <- newTemp quarterType
-    genRaw [TAC.ThreeAddressCode TAC.Add (Just temp2'') (Just temp2') (Just arqWordConstant)]
+    return (Nothing, truelist, falselist)
 
-
-    temp <- newTemp expType
-    genRaw [TAC.ThreeAddressCode TAC.Get (Just temp) (Just temp1') (Just temp2'')]
-    return (Just temp, [], [])
+genForExp exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, AST.exp_type=expType} =
+    genForIndexingExp exp
 
 genForExp exp@AST.LengthExp{AST.exp_exp=expExp, AST.exp_type=expType} = do
     -- Get addr of array
