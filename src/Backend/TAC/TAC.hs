@@ -62,7 +62,7 @@ instance (Show b) => Show (ThreeAddressCode b) where
   show (ThreeAddressCode Load (Just reg) (Just addr) (Just offset))         = "\tLOAD " ++ show reg ++ " " ++ show addr ++ "[" ++ show offset ++ "]"
   show (ThreeAddressCode Store (Just reg) (Just x) Nothing)                 = "\tSTORE " ++ show reg ++ " " ++ show x
   show (ThreeAddressCode Store (Just reg) (Just addr) (Just offset))        = "\tSTORE " ++ show reg ++ " " ++ show addr ++ "[" ++ show offset ++ "]"
-
+  show (ThreeAddressCode Comment Nothing (Just comment) Nothing)            = "\t" ++ show comment
 
   show tac = show (tacLvalue tac) ++ " := " ++ show (tacRvalue1 tac) ++ show (tacOperation tac) ++ show (tacRvalue2 tac)
 
@@ -81,6 +81,7 @@ instance (SymEntryCompatible a, Show a, Show b) => Show (Operand a b) where
   show (Label l) = l
 
 data Operation =
+    Comment       |
     Entry         |
     Exit          |
 

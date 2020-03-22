@@ -228,7 +228,7 @@ getRegOrGenSpill valuePos inst = do
                                 then do
                                     -- base[4], base[8] and base[12] are auxiliars for spills.
                                     let auxReg = TAC.Id $ TAC.intToReg (valuePos + head colors) (TAC.getType value)
-                                        idxValue = TACMonad.toEighthConstant valuePos
+                                        idxValue = TACMonad.toEighthConstant $ -(2*arqWord + arqWord*valuePos) -- first two words are reserved for linked list of allocated objects and $ra
                                         -- Spill instructions
                                         auxStoreProl    = TAC.ThreeAddressCode TAC.Store (Just auxReg) (Just TACMonad.base) (Just idxValue)
                                         auxLoadProl     = TAC.ThreeAddressCode TAC.Load (Just auxReg) maybeValue Nothing

@@ -333,7 +333,7 @@ genForExp exp@AST.MelodyLiteral{AST.exp_exps=expList, AST.exp_type=expType } = d
 
     temp <- genForArray sizeValue expType
     tempList <- mapM genForArrayElement expList
-    typeSize <- getSize expType
+    typeSize <- getSize $ AST.type_type expType
     foldM_ ( pushArrayElement temp typeSize ) arqWord tempList
 
     return (Just temp, [], [])
@@ -483,11 +483,7 @@ genForExp exp@AST.GreaterEqualExp{} = genForComp exp TAC.Gte
 genForExp exp@AST.CallExp{AST.exp_id=expId, AST.exp_params=params, AST.exp_type=expType , AST.exp_entry=Just entry} = do
     -- Generate TAC to each param
     tempList <- mapM genAndBindExp params
-
-    genForIncrementBase
-    -- Push params to stack
-    currOffset <- getOffset
-    mapM_ (genForParamInst currOffset) tempList
+    genForNewFrame tempList
 
     -- Call function
     let n = length params
@@ -722,7 +718,8 @@ gen AST.StopInst = do
 
 gen AST.RecordInst{ AST.inst_exps = exps } = do
     tempList <- mapM genAndBindExp exps
-    mapM_ (\t -> genRaw [TAC.ThreeAddressCode TAC.Read Nothing (Just t) Nothing]) tempList
+    genAssignments <- mapM genForLValue exps
+    mapM_ (\(t, genAssignment) -> genRaw [TAC.ThreeAddressCode TAC.Read Nothing (Just t) Nothing] >> genAssignment t) $ zip tempList genAssignments
     return []
 
 gen AST.PlayInst{ AST.inst_exps = exps } = do
@@ -899,6 +896,7 @@ genForFunction entry = do
             TAC.ThreeAddressCode TAC.Set (Just base) (Just zeroConstant) (Just TAC.zeroReg),
             -- Return address
             TAC.ThreeAddressCode TAC.Set (Just base) (Just $ toEighthConstant (-arqWord)) (Just TAC.raReg)]
+            -- Next three words are reserverd for spills.
 
     -- Get entries of each param
     paramEntries <- mapM (lookupInScope level) paramStrings
@@ -911,6 +909,7 @@ genForFunction entry = do
 -- | Add new allocated address to set (linked list, actually) of allocated address by the caller
 trackNewAddr :: TAC.Value -> TAC.Value -> TACMonad ()
 trackNewAddr addr isRecursive = do
+    genComment "Track new address"
     -- If it is a recursive call of malloc, don't do anything
     isRecursiveInst <- nextInst
     genRaw [TAC.ThreeAddressCode TAC.If Nothing (Just isRecursive) Nothing]
@@ -964,7 +963,7 @@ collectGarbage = do
 -- | Generate malloc function
 genForMallocFunction :: TACMonad ()
 genForMallocFunction = do
-    setOffset $ 3*arqWord
+    setOffset initialOffset
     genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just $ TAC.Label "malloc") Nothing,
             -- Linked list of allocated objects set to NULL
             TAC.ThreeAddressCode TAC.Set (Just base) (Just zeroConstant) (Just TAC.zeroReg),
@@ -974,9 +973,9 @@ genForMallocFunction = do
     size <- newTemp $ AST.Simple "eighth"
     isRecursive <- newTemp $ AST.Simple "whole"
     arqWord3Value <- toEighthTemp $ 3*arqWord
-    genRaw [TAC.ThreeAddressCode TAC.Get (Just size) (Just base) (Just $ toEighthConstant (-2*arqWord)),
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just size) (Just base) (Just $ toEighthConstant initialOffset),
             TAC.ThreeAddressCode TAC.Add (Just size) (Just size) (Just arqWord3Value),
-            TAC.ThreeAddressCode TAC.Get (Just isRecursive) (Just base) (Just $ toEighthConstant (-3*arqWord))]
+            TAC.ThreeAddressCode TAC.Get (Just isRecursive) (Just base) (Just $ toEighthConstant $ initialOffset + arqWord)]
 
     --------------------------------------------------------------
     -- Initialization
@@ -1026,7 +1025,6 @@ genForMallocFunction = do
     genForBlock iter nextBlock oneTemp size
 
     trackNewAddr iter isRecursive
-    arqWord3Value <- toEighthTemp $ 3*arqWord
     genRaw [TAC.ThreeAddressCode TAC.Add (Just iter) (Just iter) (Just $ toEighthConstant $ 3*arqWord)]
     genForReturn' $ Just iter
 
@@ -1075,7 +1073,7 @@ genForMallocFunction = do
 -- | Generate free function
 genForFreeFunction :: TACMonad ()
 genForFreeFunction = do
-    setOffset $ 3*arqWord
+    setOffset initialOffset
     genRaw [TAC.ThreeAddressCode TAC.NewLabel Nothing (Just $ TAC.Label "free") Nothing,
             -- Linked list of allocated objects set to NULL
             TAC.ThreeAddressCode TAC.Set (Just base) (Just zeroConstant) (Just TAC.zeroReg),
@@ -1085,9 +1083,9 @@ genForFreeFunction = do
     addr <- newTemp $ AST.Simple "eighth"
     isRecursive <- newTemp $ AST.Simple "whole"
     arqWord3Value <- toEighthTemp $ 3*arqWord
-    genRaw [TAC.ThreeAddressCode TAC.Get (Just addr) (Just base) (Just $ toEighthConstant (-2*arqWord)),
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just addr) (Just base) (Just $ toEighthConstant initialOffset),
             TAC.ThreeAddressCode TAC.Sub (Just addr) (Just addr) (Just arqWord3Value),
-            TAC.ThreeAddressCode TAC.Get (Just isRecursive) (Just base) (Just $ toEighthConstant (-3*arqWord))]
+            TAC.ThreeAddressCode TAC.Get (Just isRecursive) (Just base) (Just $ toEighthConstant $ initialOffset + arqWord)]
 
     --------------------------------------------------------------
     -- Initialization
@@ -1237,6 +1235,7 @@ backpatch label l1@(idx:idxs) (inst:insts) i
 ----------------------------------------------------------------------------
 --------------------------- Monadic helpers --------------------------------
 ----------------------------------------------------------------------------
+genComment cmnt = genRaw [TAC.ThreeAddressCode TAC.Comment Nothing (Just $ TAC.Label cmnt) Nothing]
 
 getPrevBase :: TACMonad TAC.Value
 getPrevBase = do
@@ -1245,8 +1244,9 @@ getPrevBase = do
     genRaw [TAC.ThreeAddressCode TAC.Get (Just prevBase) (Just base) (Just minusFour)]
     return prevBase
 
-genForIncrementBase :: TACMonad TAC.Value
+genForIncrementBase :: TACMonad ()
 genForIncrementBase = do
+    genComment "Increment Base"
     -- Increment `base` and Store current `base`
     temp <- newTemp $ AST.Simple "eighth"
     currOffset <- getAndIncrementOffsetBy arqWord
@@ -1256,7 +1256,11 @@ genForIncrementBase = do
             TAC.ThreeAddressCode TAC.Set (Just currOffsetValue) (Just zeroConstant) (Just base),
             TAC.ThreeAddressCode TAC.Sub (Just base) (Just base) (Just temp) ]
     
-    return temp
+genForNewFrame :: [TAC.Value] -> TACMonad ()
+genForNewFrame params = do
+    currOffset <- getOffset
+    foldM_ genForParamInst (currOffset + 2*arqWord) params
+    genForIncrementBase
 
 ----------------------------------------------------------------------------
 -- | Generate TAC for a call to `malloc` or `free` with Garbage Collector
@@ -1264,18 +1268,16 @@ genForCallWithGC name param' = genForCall name param' False
 
 genForCall :: String -> TAC.Value -> Bool -> TACMonad (Maybe TAC.Value)
 genForCall "free" param' isRecursive = do
+    genComment "Call to `free`"
     param <- newTemp $ TAC.getType param'
     tempConstant <- toWholeTemp isRecursive
     genRaw [TAC.ThreeAddressCode TAC.Assign (Just param) (Just param') Nothing]
-
-    genForIncrementBase
-    currOffset <- getOffset
-    genForParamInst currOffset param
-    genForParamInst currOffset tempConstant
+    genForNewFrame [param, tempConstant]
     genRaw [TAC.ThreeAddressCode TAC.Call Nothing (Just $ TAC.Label "free") (Just $ toEighthConstant 2) ]
     return Nothing
 
 genForCall "malloc" param' isRecursive = do
+    genComment "Call to `malloc`"
     param <- newTemp $ TAC.getType param'
     temp1 <- newTemp $ TAC.getType param'
     temp2 <- newTemp $ TAC.getType param'
@@ -1288,21 +1290,19 @@ genForCall "malloc" param' isRecursive = do
             TAC.ThreeAddressCode TAC.Div (Just temp2) (Just temp1) (Just arqWordTemp),
             TAC.ThreeAddressCode TAC.Mult (Just param) (Just temp2) (Just arqWordTemp)]
 
-    genForIncrementBase
-    currOffset <- getOffset
-    genForParamInst currOffset param
-    genForParamInst currOffset tempConstant
+    genForNewFrame [param, tempConstant]
 
     ret <- newTemp $ AST.Simple "eighth"
     genRaw [TAC.ThreeAddressCode TAC.Call (Just ret) (Just $ TAC.Label "malloc") (Just $ toEighthConstant 2) ]
     return $ Just ret
 
-genForParamInst :: Int -> TAC.Value -> TACMonad ()
-genForParamInst prevOffset param = do
+genForParamInst :: Int -> TAC.Value -> TACMonad Int
+genForParamInst offset param = do
+    genComment "Insert parameter"
     size <- getSize $ TAC.getType param
-    offset <- getAndIncrementOffsetBy size
-    let offsetValue = toEighthConstant $ -(2*arqWord + offset - prevOffset)
+    let offsetValue = toEighthConstant $ -(initialOffset + offset)
     genRaw [TAC.ThreeAddressCode TAC.Set (Just base) (Just offsetValue) (Just param)]
+    return $ offset + size
 
 genForTrackParam :: AST.Entry -> TACMonad ()
 genForTrackParam e@AST.Entry{AST.entry_type=Just entryType, AST.entry_category=cat} =

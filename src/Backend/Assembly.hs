@@ -25,7 +25,7 @@ tacToAssembly (ThreeAddressCode Mult (Just x) (Just y) (Just z))         = assem
 tacToAssembly (ThreeAddressCode Div (Just x) (Just y) (Just z))          = assemblyInst "div" (Just y) (Just z) Nothing ++ "\n" ++ assemblyInst "mflo" (Just x) Nothing Nothing
 
 -- TODO: Cast between int and float
-tacToAssembly (ThreeAddressCode (Cast _ toType) (Just x) (Just y) _)     = ""
+tacToAssembly (ThreeAddressCode (Cast _ toType) (Just x) (Just y) _)     = tacToAssembly (ThreeAddressCode Assign (Just x) (Just y) Nothing)
 
 tacToAssembly (ThreeAddressCode GoTo Nothing Nothing (Just label))       = assemblyInst "j" (Just label) Nothing Nothing
 tacToAssembly (ThreeAddressCode If Nothing (Just b) (Just label))        = assemblyInst "bne" (Just b) (Just zeroReg) (Just label)
@@ -94,19 +94,25 @@ tacToAssembly (ThreeAddressCode Print Nothing (Just x) Nothing)
 tacToAssembly (ThreeAddressCode Read Nothing (Just x) maybeSize)
     -- Read integer
     | getType x `elem` map AST.Simple ["half", "whole", "quarter", "eighth"] =
-        syscall 5 x Nothing
+        syscall 5 x Nothing ++ "\n" ++
+        assemblyInst "add" (Just x) (Just $ returnReg $ getType x) (Just zeroReg)
     -- Read float
     | getType x == AST.Simple "32th" =
-        syscall 6 x Nothing
+        syscall 6 x Nothing ++ "\n" ++
+        assemblyInst "add" (Just x) (Just $ returnReg $ getType x) (Just zeroReg)
     -- Read double
     | getType x == AST.Simple "64th" =
-        syscall 7 x Nothing
+        syscall 7 x Nothing ++ "\n" ++
+        assemblyInst "add" (Just x) (Just $ returnReg $ getType x) (Just zeroReg)
     -- Read string
     | otherwise =
-        syscall 8 x maybeSize
+        syscall 8 x maybeSize ++ "\n" ++
+        assemblyInst "add" (Just x) (Just $ returnReg $ getType x) (Just zeroReg)
 
 tacToAssembly (ThreeAddressCode Entry Nothing Nothing Nothing)           = ""
 tacToAssembly (ThreeAddressCode Exit Nothing Nothing Nothing)            = ""
+
+tacToAssembly (ThreeAddressCode Comment Nothing (Just cmnt) Nothing) = "\t# " ++ show cmnt
 
 tacToAssembly (ThreeAddressCode Load r@(Just reg) v1@(Just x) Nothing) =
     tacToMoveInstruction "l" r v1 Nothing

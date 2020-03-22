@@ -8,7 +8,6 @@ track fact(numero: quarter): eighth {
 
 moderato() {
     n: quarter|
-    |> ("Ingrese un entero o \"quarter\":")|
     @ (n)|
-    |> ("Factorial de", n, "es", play fact with (n))|
+    |> (play fact with (n))|
 }

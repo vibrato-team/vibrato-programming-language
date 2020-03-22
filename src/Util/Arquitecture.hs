@@ -22,3 +22,18 @@ generalPurposeRegs :: [Reg]
 generalPurposeRegs = [8..25]
 
 numberOfRegs = length generalPurposeRegs
+
+{--
+----------------------------------------------------------
+linked list of allocated objects for this frame
+-----------------------------------------------------------
+return address
+-----------------------------------------------------------
+first auxiliar temporal for spills
+-----------------------------------------------------------
+second auxilliar temporal for spills
+-----------------------------------------------------------
+third auxiliar temporal for spills
+-----------------------------------------------------------
+--}
+initialOffset       = 5*arqWord
