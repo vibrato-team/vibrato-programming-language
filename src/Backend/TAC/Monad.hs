@@ -1113,42 +1113,54 @@ genForFreeFunction = do
             TAC.ThreeAddressCode TAC.Get (Just isRecursive) (Just base) (Just $ toEighthConstant $ -(initialOffset + arqWord))]
 
     --------------------------------------------------------------
+    genComment "--------------------------------------------------------------"
     -- Initialization
-    -- Iterate thorugh linked list
+    -- Iterate through linked list
+    genComment "Iterate through linked list"
     prev <- newTemp $ AST.Simple "eighth"
     iter <- newTemp $ AST.Simple "eighth"
     genRaw [TAC.ThreeAddressCode TAC.Assign (Just prev) (Just zeroConstant) Nothing,
             TAC.ThreeAddressCode TAC.Load (Just iter) (Just memoryHead) Nothing]
 
     --------------------------------------------------------------
+    genComment "--------------------------------------------------------------"
     -- Guard
     -- while (iter != null) { check; iter = iter.next }
+    genComment "while (iter != null) { check; iter = iter.next }"
     whileLabel@(TAC.Label whileLabelStr) <- newLabel
     compInst <- nextInst
     genRaw [TAC.ThreeAddressCode TAC.Eq (Just iter) (Just TAC.zeroReg) Nothing]
 
     -- Get next block
+    genComment "Get next block"
     nextIter <- newTemp $ AST.Simple "eighth"
     genRaw [TAC.ThreeAddressCode TAC.Get (Just nextIter) (Just iter) (Just zeroConstant)]
 
     ---------------------------------------------------------------------
+    genComment "--------------------------------------------------------------"
     -- BODY
+    genComment "Body"
 
     -- If it is not the addr, move to next block
+    genComment "If it is not the addr, move to next block"
     iterEqAddrInst <- nextInst
     genRaw [TAC.ThreeAddressCode TAC.Neq (Just iter) (Just addr) Nothing,
             TAC.ThreeAddressCode TAC.Set (Just iter) (Just arqWordConstant) (Just TAC.zeroReg)]
 
     ---------------------------------------------------------------------
-    -- Deallocate and merge
+    genComment "---------------------------------------------------------------------"
     -- if prev != NULL, and prev[1] == 0, merge with prev
+    genComment "if prev != NULL, and prev[1] == 0, merge with prev"
+
     genForMerge iter nextIter
     genForMerge prev iter
 
     genForReturn' Nothing
 
     --------------------------------------------------------------
+    genComment "--------------------------------------------------------------"
     -- Move to next block
+    genComment "Move to next block"
     moveLabel@(TAC.Label moveLabelStr) <- newLabel
     bindLabel [iterEqAddrInst] moveLabelStr
 
@@ -1156,8 +1168,10 @@ genForFreeFunction = do
             TAC.ThreeAddressCode TAC.Assign (Just iter) (Just nextIter) Nothing,
             TAC.ThreeAddressCode TAC.GoTo Nothing Nothing (Just whileLabel)]
 
-    -------------------------------------------------------------Value-
-    -- Finish loop and allocate new block
+    --------------------------------------------------------------
+    genComment "--------------------------------------------------------------"
+    -- Finish loop
+    genComment "Finish loop"
     finalLabel@(TAC.Label finalLabelStr) <- newLabel
     bindLabel [compInst] finalLabelStr
 
@@ -1174,6 +1188,7 @@ genForBlock block next allocated size =
 genForMerge :: TAC.Value -> TAC.Value -> TACMonad ()
 genForMerge prev iter = do
     -- Deallocate and merge
+    genComment "Deallocate and merge"
     -- if prev != NULL:
     prevNullInst <- nextInst
     genRaw [TAC.ThreeAddressCode TAC.Eq (Just prev) (Just TAC.zeroReg) Nothing ]
@@ -1187,6 +1202,9 @@ genForMerge prev iter = do
 
     --------------------------------------------------------------
     -- Merge
+    checkIterIsNullInst <- nextInst
+    genRaw [TAC.ThreeAddressCode TAC.Eq (Just iter) (Just TAC.zeroReg) Nothing]
+
     next <- newTemp $ AST.Simple "eighth"
     genRaw [TAC.ThreeAddressCode TAC.Get (Just next) (Just iter) (Just zeroConstant)]
 
@@ -1202,7 +1220,7 @@ genForMerge prev iter = do
     --------------------------------------------------------------
     -- if prev is not mergeable
     finalLabel@(TAC.Label finalLabelStr) <- newLabel
-    bindLabel [prevNullInst, prevFreeInst] finalLabelStr
+    bindLabel [prevNullInst, prevFreeInst, checkIterIsNullInst] finalLabelStr
 
 -- | Generate TAC for increment or decrement instruction
 genForAbrev :: AST.Expression -> TAC.Operation -> TACMonad InstList

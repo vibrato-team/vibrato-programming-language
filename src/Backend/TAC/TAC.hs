@@ -177,7 +177,7 @@ data Operation =
     Cast String String
     deriving (Eq, Show)
 
-conditionalJumpInsts = [If, IfFalse, Eq, Neq, Lt, Gt, Lte, Gte]
+conditionalJumpInsts = [If, IfFalse, Eq, Neq, Lt, Gt, Lte, Gte, Lez]
 
 -- Operations that are going to be translated into jumps but not jump and link.
 jumpInsts' = GoTo : conditionalJumpInsts

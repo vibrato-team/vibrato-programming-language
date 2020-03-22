@@ -368,7 +368,7 @@ IdConst                 :: { (AST.Id, (Maybe AST.ASTType, AST.Entry)) }
 IdConst                 : id MaybeType                                   {% do 
                                                                             case $2 of 
                                                                                 Nothing -> do 
-                                                                                    offset <- addOffset $ AST.Simple "quarter"
+                                                                                    offset <- addOffset $ AST.Simple "eighth"
                                                                                     createConstEntry $1 $2 (Just offset)
                                                                                 Just typex -> do 
                                                                                     offset <- addOffset typex
