@@ -193,7 +193,7 @@ getDestiny inst
     tacRvalue1 inst
 
 -- Operations that are considerad assignments, without Casting
-assignmentInsts = [Assign, Add, Sub, Minus, Mult, Div, Mod,  Get, Ref, Call, Sbrk]
+assignmentInsts = [Assign, Add, Sub, Minus, Mult, Div, Mod,  Get, Ref, Call, Sbrk, Store]
 
 isAnAssignment :: Operation -> Bool
 isAnAssignment op
@@ -207,7 +207,7 @@ getValues :: Instruction -> [Value]
 getValues inst
   | tacOperation inst `elem` conditionalJumpInsts =
     catMaybes [tacLvalue inst, tacRvalue1 inst] 
-  | tacOperation inst == Set =
+  | tacOperation inst `elem` [Set, Store] =
     catMaybes [tacLvalue inst, tacRvalue1 inst, tacRvalue2 inst]
   | otherwise =
     catMaybes [tacRvalue1 inst, tacRvalue2 inst]

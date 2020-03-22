@@ -128,6 +128,8 @@ tacToAssembly (ThreeAddressCode Store r@(Just reg) v1@(Just x) Nothing) =
 tacToAssembly (ThreeAddressCode Store r@(Just reg) v1@(Just addr) offset@(Just _)) =
     tacToMoveInstruction "s" r offset v1
 
+tacToAssembly t = error $ show t
+
 moveInstructions = ["lb", "lh", "lw", "lbu", "lhu", "sb", "sh", "sw"]
 
 tacToMoveInstruction :: String -> Maybe Value -> Maybe Value -> Maybe Value -> String

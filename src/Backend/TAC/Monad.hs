@@ -272,14 +272,17 @@ genForLValue exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, A
                 TAC.ThreeAddressCode TAC.Set (Just index') (Just zeroConstant) (Just rValue)]
 
 genForIndexingExp exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, AST.exp_type=expType} = do
+    genComment "Idexing expression"
     let quarterType = AST.Simple "eighth"
 
     -- Get addr of left expression
+    genComment "Get addr of left expression"
     (Just temp1, _, _) <- genForExp expLeft
     temp1' <- newTemp $ AST.exp_type expLeft
     genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp1') (Just temp1) Nothing]
 
     -- Get offset
+    genComment "Get offset"
     (Just temp2, _, _) <- genForExp expRight
     w <- getSize expType
     temp2' <- newTemp quarterType
@@ -287,10 +290,11 @@ genForIndexingExp exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRig
     genRaw [TAC.ThreeAddressCode TAC.Mult (Just temp2') (Just constantTemp) (Just temp2)]
 
     -- Increment by one word, because first element is an int with size information
+    genComment "Increment by one word, because first element is an int with size information"
     temp2'' <- newTemp quarterType
     genRaw [TAC.ThreeAddressCode TAC.Add (Just temp2'') (Just temp2') (Just arqWordConstant)]
 
-
+    genComment "Get"
     temp <- newTemp expType
     genRaw [TAC.ThreeAddressCode TAC.Get (Just temp) (Just temp1') (Just temp2'')]
     return (Just temp, [], [])
@@ -534,6 +538,7 @@ gen :: AST.Instruction -> TACMonad InstList
 gen (AST.VarDecInst _) = return []
 
 gen inst@(AST.AssignInst leftExp rightExp) = do
+    genComment "Assignment"
     let expType = AST.exp_type rightExp
     genAssignment <- genForLValue leftExp
     case expType of
@@ -574,6 +579,7 @@ gen inst@(AST.AssignInst leftExp rightExp) = do
             return []
 
 gen AST.IfInst{AST.inst_exp=instExp, AST.inst_inst=instInst, AST.inst_else=instElse} = do
+    genComment "If"
     (_, truelist, falselist) <- genForExp instExp
     nextinst <- nextInst
     label@(TAC.Label l) <- newLabel
@@ -623,6 +629,7 @@ gen AST.ReturnInst{AST.inst_maybe_exp=maybeExp} = do
     return []
 
 gen AST.WhileInst { AST.inst_exp = instExp, AST.inst_block = instInst } = do
+    genComment "While"
     pushLoopScope
 
     -- LoopLabel
@@ -651,12 +658,15 @@ gen AST.WhileInst { AST.inst_exp = instExp, AST.inst_block = instInst } = do
     return []
 
 gen (AST.ForInst inst_id inst_type inst_entry inst_block inst_start inst_end inst_step ) = do
+    genComment "For"
     pushLoopScope
 
     -- Var declare and assign 
+    genComment "Loop variable"
     var <- getVarForLoop inst_type inst_id inst_entry
         
     -- Asignar exp_start a var
+    genComment "Assign start to var"
     case inst_start of
         Nothing -> genRaw [TAC.ThreeAddressCode TAC.Assign (Just var) (Just zeroConstant) Nothing ]
         Just start -> do 
@@ -664,12 +674,15 @@ gen (AST.ForInst inst_id inst_type inst_entry inst_block inst_start inst_end ins
             genRaw [TAC.ThreeAddressCode TAC.Assign (Just var) (Just temp) Nothing ]
     
     -- Generar codigo para Exp_End
+    genComment "Code for end"
     (Just tempToCompare, _, _) <- genForExp inst_end
 
     -- LoopLabel
+    genComment "Loop"
     label@(TAC.Label loop) <- newLabel
 
     -- Create If
+    genComment "Check if loop var is in range"
     tempLez <- transformToLez TAC.Lt var tempToCompare
     nextinstIf <- nextInst
     genRaw [TAC.ThreeAddressCode TAC.Lez (Just tempLez) Nothing Nothing]
@@ -681,9 +694,11 @@ gen (AST.ForInst inst_id inst_type inst_entry inst_block inst_start inst_end ins
     bindLabel [nextinstIf] ltrue
 
     -- TAC BlockInstr
+    genComment "Loop block"
     nextlist1 <- gen (AST.BlockInst inst_block)
 
     -- Incremento de variable de iteracion
+    genComment "Increment loop var"
     labelContinue <- newLabel
     bindContinue labelContinue
 
@@ -717,12 +732,14 @@ gen AST.StopInst = do
     return []
 
 gen AST.RecordInst{ AST.inst_exps = exps } = do
+    genComment "Read"
     tempList <- mapM genAndBindExp exps
     genAssignments <- mapM genForLValue exps
     mapM_ (\(t, genAssignment) -> genRaw [TAC.ThreeAddressCode TAC.Read Nothing (Just t) Nothing] >> genAssignment t) $ zip tempList genAssignments
     return []
 
 gen AST.PlayInst{ AST.inst_exps = exps } = do
+    genComment "Print"
     tempList <- mapM genAndBindExp exps
     mapM_ genPrintForTemp tempList
     return []
@@ -752,9 +769,11 @@ getVarForLoop (Just type_id) inst_id inst_entry = do
 genForDeepCopy :: TAC.Value -> TACMonad TAC.Value
 genForDeepCopy value1
     | AST.type_str (TAC.getType value1) == "Melody" = do
+        genComment "Deep copy of melody"
         let valueType@AST.Compound{AST.type_type=innerType} = TAC.getType value1
 
-        -- Get the length of array, which is stored one word after the address
+        -- Get the length of array, which is stored on the first word at the address
+        genComment "Get the length of array, which is stored on the first word at the address"
         arr1 <- newTemp valueType
         genRaw [TAC.ThreeAddressCode TAC.Assign (Just arr1) (Just value1) Nothing]
 
@@ -762,6 +781,7 @@ genForDeepCopy value1
         genRaw [TAC.ThreeAddressCode TAC.Get (Just len) (Just arr1) (Just zeroConstant)]
 
         -- Allocate memory
+        genComment "Allocate memory"
         addr <- genForArray len valueType
         size <- getSizeForArray len valueType
 
@@ -770,12 +790,14 @@ genForDeepCopy value1
         genRaw [TAC.ThreeAddressCode TAC.Assign (Just i) (Just arqWordConstant) Nothing]
 
         -- Iterate through array
-        tempLez <- transformToLez TAC.Gte i size
+        genComment "Iterate through array"
         whileLabel <- newLabel
+        tempLez <- transformToLez TAC.Gte i size
         guardInst <- nextInst
         genRaw [ TAC.ThreeAddressCode TAC.Lez (Just tempLez) Nothing Nothing ]
 
         -- Body
+        genComment "Body"
         temp1 <- newTemp innerType
         genRaw [TAC.ThreeAddressCode TAC.Get (Just temp1) (Just arr1) (Just i)]
 
@@ -787,6 +809,7 @@ genForDeepCopy value1
                 TAC.ThreeAddressCode TAC.GoTo Nothing Nothing (Just whileLabel)]
 
         -- Final
+        genComment "Final"
         label@(TAC.Label l) <- newLabel
         bindLabel [guardInst] l
 
@@ -831,8 +854,8 @@ genForArrayComp value1 value2
         genRaw [TAC.ThreeAddressCode TAC.Assign (Just i) (Just arqWordConstant) Nothing]
 
         -- Iterate through array
-        tempLez <- transformToLez TAC.Gte i size
         whileLabel <- newLabel
+        tempLez <- transformToLez TAC.Gte i size
         guardInst <- nextInst
         genRaw [ TAC.ThreeAddressCode TAC.Lez (Just tempLez) Nothing Nothing ]
 
@@ -865,6 +888,7 @@ genForArrayComp value1 value2
 -- | Generate TAC for return instruction
 genForReturn' :: Maybe TAC.Value -> TACMonad ()
 genForReturn' maybeValue = do
+    genComment "Return"
     let offsetConstant = toEighthConstant arqWord
     fp <- newTemp $ AST.Simple "eighth"
 
@@ -929,6 +953,7 @@ trackNewAddr addr isRecursive = do
 
 collectGarbage :: TACMonad ()
 collectGarbage = do
+    genComment "Collect garbage"
     iter <- newTemp $ AST.Simple "eighth"
     genRaw [TAC.ThreeAddressCode TAC.Get (Just iter) (Just base) (Just zeroConstant)]
 
@@ -973,9 +998,9 @@ genForMallocFunction = do
     size <- newTemp $ AST.Simple "eighth"
     isRecursive <- newTemp $ AST.Simple "whole"
     arqWord3Value <- toEighthTemp $ 3*arqWord
-    genRaw [TAC.ThreeAddressCode TAC.Get (Just size) (Just base) (Just $ toEighthConstant initialOffset),
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just size) (Just base) (Just $ toEighthConstant $ -initialOffset),
             TAC.ThreeAddressCode TAC.Add (Just size) (Just size) (Just arqWord3Value),
-            TAC.ThreeAddressCode TAC.Get (Just isRecursive) (Just base) (Just $ toEighthConstant $ initialOffset + arqWord)]
+            TAC.ThreeAddressCode TAC.Get (Just isRecursive) (Just base) (Just $ toEighthConstant $ -(initialOffset + arqWord))]
 
     --------------------------------------------------------------
     -- Initialization
@@ -1045,7 +1070,7 @@ genForMallocFunction = do
     newBlock <- newTemp $ AST.Simple "eighth"
     genRaw [TAC.ThreeAddressCode TAC.Sbrk (Just newBlock) (Just size) Nothing]
     oneTemp <- toEighthTemp 1
-    genForBlock newBlock (TAC.Id $ TAC.Reg "$0" $ AST.Simple "eighth") oneTemp size
+    genForBlock newBlock TAC.zeroReg oneTemp size
 
     -- If prev == NULL:
     prevNullComp <- nextInst
@@ -1083,9 +1108,9 @@ genForFreeFunction = do
     addr <- newTemp $ AST.Simple "eighth"
     isRecursive <- newTemp $ AST.Simple "whole"
     arqWord3Value <- toEighthTemp $ 3*arqWord
-    genRaw [TAC.ThreeAddressCode TAC.Get (Just addr) (Just base) (Just $ toEighthConstant initialOffset),
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just addr) (Just base) (Just $ toEighthConstant $ -initialOffset),
             TAC.ThreeAddressCode TAC.Sub (Just addr) (Just addr) (Just arqWord3Value),
-            TAC.ThreeAddressCode TAC.Get (Just isRecursive) (Just base) (Just $ toEighthConstant $ initialOffset + arqWord)]
+            TAC.ThreeAddressCode TAC.Get (Just isRecursive) (Just base) (Just $ toEighthConstant $ -(initialOffset + arqWord))]
 
     --------------------------------------------------------------
     -- Initialization
