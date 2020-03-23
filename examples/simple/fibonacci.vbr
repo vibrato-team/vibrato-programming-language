@@ -1,16 +1,17 @@
 **/
+    Código en el lenguaje "Vibrato", diseñado por David y Gus.
     Fibonacci iterativo.
 /**
 
-track fibo(n: quarter): quarter {
-    n0: quarter <-> 1| -- fibonacci de 0
-    n1: quarter <-> 1| -- fibonacci de 1
+track fibo(n: eighth): eighth {
+    n0: eighth <-> 1| -- fibonacci de 0
+    n1: eighth <-> 1| -- fibonacci de 1
 
     if (n = 0) n0 ||
     if (n = 1) n1 ||
 
     loop x {
-        aux: quarter <-> n1|
+        aux: eighth <-> n1|
         n1 <-> n0 + n1|
         n0 <-> aux|
     } in (n - 1)
@@ -19,8 +20,8 @@ track fibo(n: quarter): quarter {
 }
 
 moderato() {
-    n: quarter|
+    n: eighth|
     |> ("Ingrese un entero:")|
     @ (n)|
-    |> ("Fibonacci de", n, "es", play fibo with (n))|
+    |> ("Fibonacci de ", n, " es ", play fibo with (n), '\n')|
 }

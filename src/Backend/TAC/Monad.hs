@@ -306,6 +306,7 @@ genForExp :: AST.Expression -> TACMonad (Maybe TAC.Value, InstList, InstList)
 genForExp exp@(AST.LiteralExp expToken expType)
     -- if it's a string
     | expType == AST.Compound "Melody" (AST.Simple "half") = do
+        genComment "String literal"
         let string = init (tail $ getStringFromExp exp) ++ ['\0']
             len = length string
             size = arqWord + len -- Allocate one int for size and one byte for NUL
@@ -316,8 +317,10 @@ genForExp exp@(AST.LiteralExp expToken expType)
         Just temp <- genForCallWithGC "malloc" sizeValue
         
         -- Store size
+        genComment "Store size at first word"
         genRaw [TAC.ThreeAddressCode TAC.Set (Just temp) (Just zeroConstant) (Just lenValue ) ]
 
+        genComment "Push array elements"
         let chars = map (\c -> TAC.Constant (show $ ord c, AST.Simple "half")) string
         charTemps <- mapM (\c -> newTemp (AST.Simple "half") >>= \t -> genRaw [TAC.ThreeAddressCode TAC.Assign (Just t) (Just c) Nothing] >> return t) chars
         foldM_ ( pushArrayElement temp 1 ) arqWord charTemps
@@ -746,21 +749,26 @@ gen AST.RecordInst{ AST.inst_exps = exps } = do
 gen AST.PlayInst{ AST.inst_exps = exps } = do
     genComment "Print"
     tempList <- mapM genAndBindExp exps
-    mapM_ genPrintForTemp tempList
+    let types = map AST.exp_type exps
+    mapM_ genPrintForTemp $ zip tempList types
     return []
 
 gen x = return []
 
-genPrintForTemp :: TAC.Value -> TACMonad ()
-genPrintForTemp temp =
-    case TAC.getType temp of
+genPrintForTemp :: (TAC.Value, AST.ASTType) -> TACMonad ()
+genPrintForTemp (temp, expType) = do
+    genComment "Print"
+    case expType of
         AST.Compound "Melody" (AST.Simple "half") -> do
             sz <- newTemp $ AST.Simple "eighth"
-            addr <- newTemp $ AST.Simple "eighth"
+            addr <- newTemp expType
             genRaw [TAC.ThreeAddressCode TAC.Get (Just sz) (Just temp) (Just zeroConstant),
                     TAC.ThreeAddressCode TAC.Add (Just addr) (Just temp) (Just arqWordConstant),
                     TAC.ThreeAddressCode TAC.Print Nothing (Just addr) (Just sz)]
-        _ -> genRaw [TAC.ThreeAddressCode TAC.Print Nothing (Just temp) Nothing]
+        _ -> do
+            temp' <- newTemp expType
+            genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp') (Just temp) Nothing,
+                    TAC.ThreeAddressCode TAC.Print Nothing (Just temp') Nothing]
     
 -- | Auxiliar for get Iterate var of Loop
 getVarForLoop :: Maybe AST.ASTType -> TACMonad TAC.Value

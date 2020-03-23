@@ -1,13 +1,14 @@
 **/
 Factorial recursivo.
 /**
-track fact(numero: quarter): eighth {
+track factorial(numero: eighth): eighth {
     if (numero = eighth(0)) 1||
-    else numero * play fact with (numero-1)|| -- castea numero en eighth
+    else numero * play factorial with (numero-1)|| -- castea numero en eighth
 }
 
 moderato() {
     n: quarter|
+    |>("Ingrese un número: ")|
     @ (n)|
-    |> (play fact with (n))|
+    |> ("El factorial de ", n, " es ", play factorial with (n), '\n')|
 }

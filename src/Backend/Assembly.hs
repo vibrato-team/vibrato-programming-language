@@ -74,39 +74,45 @@ tacToAssembly (ThreeAddressCode Return Nothing (Just t) Nothing)         =
     returnInst
 
 tacToAssembly (ThreeAddressCode Sbrk (Just t) (Just sz) Nothing) =
-    syscall 9 sz Nothing ++ "\n" ++
+    syscall 9 (Just sz) Nothing ++ "\n" ++
     assemblyInst "add" (Just t) (Just $ returnReg (AST.Simple "quarter")) (Just zeroReg)
 
-tacToAssembly (ThreeAddressCode Print Nothing (Just x) Nothing)
+tacToAssembly (ThreeAddressCode Print Nothing (Just x) maybeSize)
     -- Print integer
-    | getType x `elem` map AST.Simple ["half", "whole", "quarter", "eighth"] =
-        syscall 1 x Nothing
+    | getType x `elem` map AST.Simple ["whole", "quarter", "eighth"] =
+        syscall 1 (Just x) Nothing
     -- Print float
     | getType x == AST.Simple "32th" =
-        syscall 2 x Nothing
+        syscall 2 (Just x) Nothing
     -- Print double
     | getType x == AST.Simple "64th" =
-        syscall 3 x Nothing
+        syscall 3 (Just x) Nothing
+    -- Print character
+    | getType x == AST.Simple "half" = 
+        syscall 11 (Just x) Nothing
     -- Print string
     | otherwise =
-        syscall 4 x Nothing
+        syscall 4 (Just x) maybeSize
 
 tacToAssembly (ThreeAddressCode Read Nothing (Just x) maybeSize)
     -- Read integer
-    | getType x `elem` map AST.Simple ["half", "whole", "quarter", "eighth"] =
-        syscall 5 x Nothing ++ "\n" ++
+    | getType x `elem` map AST.Simple ["whole", "quarter", "eighth"] =
+        syscall 5 Nothing Nothing ++ "\n" ++
         assemblyInst "add" (Just x) (Just $ returnReg $ getType x) (Just zeroReg)
     -- Read float
     | getType x == AST.Simple "32th" =
-        syscall 6 x Nothing ++ "\n" ++
+        syscall 6 Nothing Nothing ++ "\n" ++
         assemblyInst "add" (Just x) (Just $ returnReg $ getType x) (Just zeroReg)
     -- Read double
     | getType x == AST.Simple "64th" =
-        syscall 7 x Nothing ++ "\n" ++
+        syscall 7 Nothing Nothing ++ "\n" ++
         assemblyInst "add" (Just x) (Just $ returnReg $ getType x) (Just zeroReg)
+    -- Read character
+    | getType x == AST.Simple "half" = 
+        syscall 12 Nothing Nothing
     -- Read string
     | otherwise =
-        syscall 8 x maybeSize ++ "\n" ++
+        syscall 8 Nothing maybeSize ++ "\n" ++
         assemblyInst "add" (Just x) (Just $ returnReg $ getType x) (Just zeroReg)
 
 tacToAssembly (ThreeAddressCode Entry Nothing Nothing Nothing)           = ""
@@ -152,11 +158,11 @@ assemblyInst op mayVal1 mayVal2 mayVal3
     | otherwise =    
         "\t" ++ op ++ " " ++ (intercalate ", " $ words $ justMaybeValue mayVal1 ++ " " ++ justMaybeValue mayVal2 ++ " " ++ justMaybeValue mayVal3)
 
-syscall :: Int -> Value -> Maybe Value -> String
-syscall v0 a0 maybeA1=
+syscall :: Int -> Maybe Value -> Maybe Value -> String
+syscall v0 maybeA0 maybeA1=
     assemblyInst "li" (Just $ returnReg (AST.Simple "quarter")) (Just $ toEighthConstant v0) Nothing ++ "\n" ++
-    assemblyInst "add" (Just $ Id $ Reg "$a0" (AST.Simple "quarter")) (Just a0) (Just zeroReg) ++ "\n" ++
-    if isJust maybeA1 then assemblyInst "add" (Just $ Id $ Reg "$a1" (AST.Simple "quarter")) maybeA1 (Just zeroReg) ++ "\n" else "" ++
+    (if isJust maybeA0 then assemblyInst "add" (Just $ Id $ Reg "$a0" (AST.Simple "quarter")) maybeA0 (Just zeroReg) ++ "\n" else "") ++
+    (if isJust maybeA1 then assemblyInst "add" (Just $ Id $ Reg "$a1" (AST.Simple "quarter")) maybeA1 (Just zeroReg) ++ "\n" else "") ++
     assemblyInst "syscall" Nothing Nothing Nothing
 
 justMaybeValue = maybe "" show

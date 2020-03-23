@@ -153,6 +153,7 @@ genEpilProl [] = return ()
 genEpilProl ((idx, inst):tac) = do
     state@LVState{var_reg_map = varRegMap, new_tac = newTac, live_vars_map = liveVarsMap} <- State.get
     case inst of
+        -- TODO corregir spill
         TAC.ThreeAddressCode{TAC.tacOperation=TAC.Call, TAC.tacRvalue2=Just nConstant} -> do
             let liveVarsSet0 = fromJust $ Map.lookup idx liveVarsMap
                 liveVarsSet1 = fromJust $ Map.lookup (idx+1) liveVarsMap
@@ -193,12 +194,37 @@ genRawSpillForEpilProl op (var, reg) =
 genSpillIfNecessary :: TAC.Instruction -> LVMonad ()
 genSpillIfNecessary inst = do
     state@LVState{new_tac=newTac} <- State.get
-    (epilogue, newInst, prologue) <- foldM (\(epil, inst', prol) valuePos -> getRegOrGenSpill valuePos inst' >>= \(epil', inst'', prol') -> return (epil'++epil, inst'', prol'++prol)) ([], inst, []) [0,1,2]
+    regs <- getRegs inst
+    let availableRegsForSpill = take 3 $ Set.toList $ Set.fromList generalPurposeRegs `Set.difference` Set.fromList regs
+        
+    (epilogue, newInst, prologue) <- foldM (\(epil, inst', prol) valuePos -> getRegOrGenSpill valuePos inst' >>= \(epil', inst'', prol') -> return (epil'++epil, inst'', prol'++prol)) ([], inst, []) (zip [0,1,2] availableRegsForSpill)
     State.put $ state{ new_tac = epilogue ++ (newInst : prologue) ++ newTac }
 
+getRegs :: TAC.Instruction -> LVMonad [Int]
+getRegs inst = do
+    maybeRegs <- mapM findReg [TAC.tacLvalue inst, TAC.tacRvalue1 inst, TAC.tacRvalue2 inst]
+    return $ filter (>(-1)) $ catMaybes maybeRegs
+
+findReg :: Maybe TAC.Value -> LVMonad (Maybe Int)
+findReg Nothing = return Nothing
+findReg (Just value) = do
+    state@LVState{var_reg_map=varRegMap} <- State.get
+    let maybeId = TAC.getId value
+    case maybeId of
+        -- if it is not a variable/temp/etc
+        Nothing -> return Nothing
+        -- otherwise
+        Just var -> do
+            let maybeReg = Map.lookup var varRegMap
+            case maybeReg of
+                -- It is never alive. TODO: Check if this line is correct
+                Nothing -> return Nothing
+                Just reg -> return $ Just reg
+
+
 -- | return a tuple (epilogue_of_spill, new_inst, prologue_of_spill)
-getRegOrGenSpill :: Int -> TAC.Instruction -> LVMonad ([TAC.Instruction], TAC.Instruction, [TAC.Instruction])
-getRegOrGenSpill valuePos inst = do
+getRegOrGenSpill :: (Int, Int) -> TAC.Instruction -> LVMonad ([TAC.Instruction], TAC.Instruction, [TAC.Instruction])
+getRegOrGenSpill (valuePos, auxRegInt) inst = do
     state@LVState{var_reg_map=varRegMap} <- State.get
 
     let maybeValue = case valuePos of 
@@ -207,41 +233,31 @@ getRegOrGenSpill valuePos inst = do
                         2 -> TAC.tacRvalue2 inst
         defaultRet = ([], inst, [])
 
-    case maybeValue of
-        -- If it is not a value
+    maybeReg <- findReg maybeValue
+    case maybeReg of
+        -- It is never alive. TODO: Check if this line is correct
         Nothing -> return defaultRet
-        -- otherwise
-        Just value -> do
-            let maybeId = TAC.getId value
-            case maybeId of
-                -- if it is not a variable/temp/etc
-                Nothing -> return defaultRet
-                -- otherwise
-                Just var -> do
-                    let maybeReg = Map.lookup var varRegMap
-                    case maybeReg of
-                        -- It is never alive. TODO: Check if this line is correct
-                        Nothing -> return defaultRet
-                        Just reg ->
-                            if reg == -1
-                                -- If it should generate a spill
-                                then do
-                                    -- base[4], base[8] and base[12] are auxiliars for spills.
-                                    let auxReg = TAC.Id $ TAC.intToReg (valuePos + head colors) (TAC.getType value)
-                                        idxValue = TACMonad.toEighthConstant $ -(2*arqWord + arqWord*valuePos) -- first two words are reserved for linked list of allocated objects and $ra
-                                        -- Spill instructions
-                                        auxStoreProl    = TAC.ThreeAddressCode TAC.Store (Just auxReg) (Just TACMonad.base) (Just idxValue)
-                                        auxLoadProl     = TAC.ThreeAddressCode TAC.Load (Just auxReg) maybeValue Nothing
-                                        newInst         = substituteValueByReg inst valuePos auxReg
-                                        auxStoreEpil    = TAC.ThreeAddressCode TAC.Store (Just auxReg) maybeValue Nothing
-                                        auxLoadEpil     = TAC.ThreeAddressCode TAC.Load (Just auxReg) (Just TACMonad.base) (Just idxValue)
+        Just reg -> do
+            let value = fromJust maybeValue
+            if reg == -1
+                -- If it should generate a spill
+                then do
+                    -- base[4], base[8] and base[12] are auxiliars for spills.
+                    let auxReg = TAC.Id $ TAC.intToReg auxRegInt (TAC.getType value)
+                        idxValue = TACMonad.toEighthConstant $ -(2*arqWord + arqWord*valuePos) -- first two words are reserved for linked list of allocated objects and $ra
+                        -- Spill instructions
+                        auxStoreProl    = TAC.ThreeAddressCode TAC.Store (Just auxReg) (Just TACMonad.base) (Just idxValue)
+                        auxLoadProl     = TAC.ThreeAddressCode TAC.Load (Just auxReg) maybeValue Nothing
+                        newInst         = substituteValueByReg inst valuePos auxReg
+                        auxStoreEpil    = TAC.ThreeAddressCode TAC.Store (Just auxReg) maybeValue Nothing
+                        auxLoadEpil     = TAC.ThreeAddressCode TAC.Load (Just auxReg) (Just TACMonad.base) (Just idxValue)
 
-                                    return ([auxLoadEpil, auxStoreEpil], newInst, [auxLoadProl, auxStoreProl])
-                                
-                                -- otherwise
-                                else do
-                                    let regValue = TAC.Id $ TAC.intToReg reg (TAC.getType value)
-                                    return ([], substituteValueByReg inst valuePos regValue, [])
+                    return ([auxLoadEpil, auxStoreEpil], newInst, [auxLoadProl, auxStoreProl])
+                
+                -- otherwise
+                else do
+                    let regValue = TAC.Id $ TAC.intToReg reg (TAC.getType value)
+                    return ([], substituteValueByReg inst valuePos regValue, [])
                                
 
 
