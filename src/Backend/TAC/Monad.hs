@@ -663,15 +663,18 @@ gen (AST.ForInst inst_id inst_type inst_entry inst_block inst_start inst_end ins
 
     -- Var declare and assign 
     genComment "Loop variable"
-    var <- getVarForLoop inst_type inst_id inst_entry
+    let var = TAC.Id $ TAC.Var inst_entry
+    varTemp <- getVarForLoop inst_type
         
     -- Asignar exp_start a var
     genComment "Assign start to var"
     case inst_start of
-        Nothing -> genRaw [TAC.ThreeAddressCode TAC.Assign (Just var) (Just zeroConstant) Nothing ]
+        Nothing -> genRaw [TAC.ThreeAddressCode TAC.Assign (Just varTemp) (Just zeroConstant) Nothing,
+                            TAC.ThreeAddressCode TAC.Store (Just TAC.zeroReg) (Just var) Nothing ]
         Just start -> do 
             (Just temp, _, _) <- genForExp start
-            genRaw [TAC.ThreeAddressCode TAC.Assign (Just var) (Just temp) Nothing ]
+            genRaw [TAC.ThreeAddressCode TAC.Assign (Just varTemp) (Just temp) Nothing,
+                    TAC.ThreeAddressCode TAC.Store (Just varTemp) (Just var) Nothing ]
     
     -- Generar codigo para Exp_End
     genComment "Code for end"
@@ -683,7 +686,7 @@ gen (AST.ForInst inst_id inst_type inst_entry inst_block inst_start inst_end ins
 
     -- Create If
     genComment "Check if loop var is in range"
-    tempLez <- transformToLez TAC.Lt var tempToCompare
+    tempLez <- transformToLez TAC.Lt varTemp tempToCompare
     nextinstIf <- nextInst
     genRaw [TAC.ThreeAddressCode TAC.Lez (Just tempLez) Nothing Nothing]
     nextinstfalse <- nextInst
@@ -703,11 +706,13 @@ gen (AST.ForInst inst_id inst_type inst_entry inst_block inst_start inst_end ins
     bindContinue labelContinue
 
     case inst_step of
-        Nothing -> genRaw [TAC.ThreeAddressCode TAC.Add (Just var) (Just var) (Just oneConstant) ]
+        Nothing -> genRaw [TAC.ThreeAddressCode TAC.Add (Just varTemp) (Just varTemp) (Just oneConstant),
+                            TAC.ThreeAddressCode TAC.Store (Just varTemp) (Just var) Nothing ]
         Just step -> do
              -- Generar codigo para Exp_step
             (Just tempToStep, _, _) <- genForExp step
-            genRaw [TAC.ThreeAddressCode TAC.Add (Just var) (Just var) (Just tempToStep)]
+            genRaw [TAC.ThreeAddressCode TAC.Add (Just varTemp) (Just varTemp) (Just tempToStep),
+                    TAC.ThreeAddressCode TAC.Store (Just varTemp) (Just var) Nothing]
 
     genRaw [TAC.ThreeAddressCode TAC.GoTo Nothing Nothing (Just label)]
 
@@ -758,13 +763,10 @@ genPrintForTemp temp =
         _ -> genRaw [TAC.ThreeAddressCode TAC.Print Nothing (Just temp) Nothing]
     
 -- | Auxiliar for get Iterate var of Loop
-getVarForLoop :: Maybe AST.ASTType -> AST.Id -> AST.Entry-> TACMonad TAC.Value
-getVarForLoop Nothing inst_id inst_entry= do 
-            (Just var, _, _) <- genForExp (AST.IdExp inst_id (AST.Simple "eighth") (Just inst_entry))
-            return var
-getVarForLoop (Just type_id) inst_id inst_entry = do 
-            (Just var, _, _) <- genForExp (AST.IdExp inst_id type_id (Just inst_entry))
-            return var
+getVarForLoop :: Maybe AST.ASTType -> TACMonad TAC.Value
+getVarForLoop maybeType =
+    newTemp $ fromMaybe (AST.Simple "eighth") maybeType
+
 -- | Generate TAC for assignments
 genForDeepCopy :: TAC.Value -> TACMonad TAC.Value
 genForDeepCopy value1
