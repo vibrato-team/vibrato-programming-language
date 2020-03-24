@@ -6,8 +6,6 @@ import Data.Maybe
 import Data.List
 import qualified AST
 
-returnReg astType = Id $ Reg "$v0" astType
-
 tacToAssembly :: Instruction -> String
 tacToAssembly (ThreeAddressCode Assign (Just x) (Just y@Constant{}) Nothing)        = assemblyInst "li" (Just x) (Just y) Nothing
 tacToAssembly (ThreeAddressCode Assign (Just x) (Just y) Nothing)                   = assemblyInst "add" (Just x) (Just y) (Just zeroReg)
@@ -54,9 +52,12 @@ tacToAssembly (ThreeAddressCode Set (Just x) (Just i) (Just y))          = error
 
 tacToAssembly (ThreeAddressCode NewLabel Nothing (Just label) Nothing)   = show label ++ ":"
 
-tacToAssembly (ThreeAddressCode Call Nothing (Just label) (Just _))      = assemblyInst "jal" (Just label) Nothing Nothing
+tacToAssembly (ThreeAddressCode Call Nothing (Just label) (Just newFrame))      =
+    assemblyInst "sub" (Just base) (Just base) (Just newFrame) ++ "\n" ++
+    assemblyInst "jal" (Just label) Nothing Nothing
 
-tacToAssembly (ThreeAddressCode Call (Just t@(Id Reg{})) (Just label) (Just _))         =
+tacToAssembly (ThreeAddressCode Call (Just t@(Id Reg{})) (Just label) (Just newFrame))         =
+    assemblyInst "sub" (Just base) (Just base) (Just newFrame) ++ "\n" ++
     assemblyInst "jal" (Just label) Nothing Nothing ++ "\n" ++
     -- TODO: Use floating point arithmetic if necessary
     assemblyInst "add" (Just t) (Just $ returnReg (getType t)) (Just zeroReg)
@@ -67,15 +68,14 @@ tacToAssembly (ThreeAddressCode Call (Just t) (Just label) (Just _))         =
         -- TODO: Use floating point arithmetic if necessary
         tacToMoveInstruction "s" (Just v0reg) (Just t) Nothing
 
-tacToAssembly (ThreeAddressCode Return Nothing Nothing Nothing)          = returnInst 
-tacToAssembly (ThreeAddressCode Return Nothing (Just t) Nothing)         =
-    -- TODO: Use floating point arithmetic if necessary
-    assemblyInst "add" (Just $ returnReg (getType t)) (Just t) (Just zeroReg) ++ "\n" ++
+tacToAssembly (ThreeAddressCode Return (Just base') maybeRet Nothing)          = 
+    maybe "" (\ret -> assemblyInst "add" (Just $ returnReg $ getType ret) maybeRet (Just zeroReg)) maybeRet ++ "\n" ++
+    assemblyInst "add" (Just base) (Just base') (Just zeroReg) ++ "\n" ++
     returnInst
 
 tacToAssembly (ThreeAddressCode Sbrk (Just t) (Just sz) Nothing) =
     syscall 9 (Just sz) Nothing ++ "\n" ++
-    assemblyInst "add" (Just t) (Just $ returnReg (AST.Simple "quarter")) (Just zeroReg)
+    assemblyInst "add" (Just t) (Just $ returnReg (AST.Simple "eighth")) (Just zeroReg)
 
 tacToAssembly (ThreeAddressCode Print Nothing (Just x) maybeSize)
     -- Print integer
@@ -161,8 +161,8 @@ assemblyInst op mayVal1 mayVal2 mayVal3
 syscall :: Int -> Maybe Value -> Maybe Value -> String
 syscall v0 maybeA0 maybeA1=
     assemblyInst "li" (Just $ returnReg (AST.Simple "quarter")) (Just $ toEighthConstant v0) Nothing ++ "\n" ++
-    (if isJust maybeA0 then assemblyInst "add" (Just $ Id $ Reg "$a0" (AST.Simple "quarter")) maybeA0 (Just zeroReg) ++ "\n" else "") ++
-    (if isJust maybeA1 then assemblyInst "add" (Just $ Id $ Reg "$a1" (AST.Simple "quarter")) maybeA1 (Just zeroReg) ++ "\n" else "") ++
+    (if isJust maybeA0 then assemblyInst "add" (Just $ Id $ Reg "$a0" (AST.Simple "eighth")) maybeA0 (Just zeroReg) ++ "\n" else "") ++
+    (if isJust maybeA1 then assemblyInst "add" (Just $ Id $ Reg "$a1" (AST.Simple "eighth")) maybeA1 (Just zeroReg) ++ "\n" else "") ++
     assemblyInst "syscall" Nothing Nothing Nothing
 
 justMaybeValue = maybe "" show

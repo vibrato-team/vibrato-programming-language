@@ -6,11 +6,15 @@ moderato() {
 
     epointer2: Sample<eighth> <-> new eighth(9)|
 
-    x: eighth <-> qpointer2!|
+    x: eighth <-> qpointer2!| -- x = 5
+    |>("x es ", x, '\n')|
 
-    qpointer1! <-> quarter(epointer2!)|
-    y: eighth <-> x / qpointer1!|
+    qpointer1! <-> quarter(qpointer2!)| -- qpointer = (quarter(5))
+    |>("qpointer1! es ", qpointer1!, '\n')|
 
-    |>(qpointer2! * epointer2! + y)|
+    y: eighth <-> x / qpointer1!|       -- y = 1
+    |>("y es ", y, '\n')|
+
+    |>(qpointer2! * epointer2! + y)|    -- print: 5*9 + 1 = 46
 
 }

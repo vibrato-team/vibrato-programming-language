@@ -246,6 +246,7 @@ genForLValue exp@AST.IdExp{AST.exp_entry=Just entry} =
 
 genForLValue exp@AST.DereferenceExp{AST.exp_exp=expExp} =
     return $ \rValue -> do
+        genComment "Dereference assignment"
         (Just lexp', _, _) <- genForExp expExp
         lexp <- newTemp $ AST.exp_type expExp
         genRaw [TAC.ThreeAddressCode TAC.Assign (Just lexp) (Just lexp') Nothing]
@@ -254,11 +255,14 @@ genForLValue exp@AST.DereferenceExp{AST.exp_exp=expExp} =
 
 genForLValue exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, AST.exp_type=expType} =
     return $ \rValue -> do
-        (Just temp, _, _) <- genForExp expLeft
+        genComment "Assign to array element"
+        genComment "Calculate base address"
+        (Just temp', _, _) <- genForExp expLeft
         lValue <- newTemp $ AST.exp_type expLeft
-        genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just temp) Nothing]
+        genRaw [TAC.ThreeAddressCode TAC.Assign (Just lValue) (Just temp') Nothing]
 
         -- Calculate offset
+        genComment "Calculate offset"
         (Just temp, _, _) <- genForExp expRight
         w <- getSize expType
         index <- newTemp $ AST.Simple "eighth"
@@ -266,10 +270,12 @@ genForLValue exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, A
         genRaw [TAC.ThreeAddressCode TAC.Mult (Just index) (Just constantTemp) (Just temp) ]
 
         -- Add one word, because first element is the size
+        genComment "Add one word because size is stored on first word"
         index' <- newTemp $ AST.Simple "eighth"
         genRaw [TAC.ThreeAddressCode TAC.Add (Just index') (Just index) (Just arqWordConstant),
-                TAC.ThreeAddressCode TAC.Add (Just index') (Just index') (Just lValue),
-                TAC.ThreeAddressCode TAC.Set (Just index') (Just zeroConstant) (Just rValue)]
+                TAC.ThreeAddressCode TAC.Add (Just index') (Just index') (Just lValue)]
+        genComment "Now, assign"
+        genRaw  [TAC.ThreeAddressCode TAC.Set (Just index') (Just zeroConstant) (Just rValue)]
 
 genForIndexingExp exp@AST.IndexingExp{AST.exp_left=expLeft, AST.exp_right=expRight, AST.exp_type=expType} = do
     genComment "Idexing expression"
@@ -326,7 +332,11 @@ genForExp exp@(AST.LiteralExp expToken expType)
         foldM_ ( pushArrayElement temp 1 ) arqWord charTemps
 
         return (Just temp, [], [])
-
+    | expType == AST.Simple "half" = do
+        let constant = TAC.Constant (show $ ord $ Tokens.token expToken !! 1, expType)
+        temp <- newTemp expType
+        genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp) (Just constant) Nothing]
+        return (Just temp, [], [])
     | otherwise = do
         let constant = TAC.Constant (Tokens.token expToken, expType)
         temp <- newTemp expType
@@ -425,6 +435,7 @@ genForExp exp@AST.NewExp{AST.exp_init=initMaybe, AST.exp_type=AST.Compound{AST.t
             return (Just ptr, [], [])
 
 genForExp exp@AST.DereferenceExp{AST.exp_exp=expExp, AST.exp_type=expType } = do
+    genComment "Dereference"
     (Just lexp', _, _) <- genForExp expExp
     lexp <- newTemp $ AST.exp_type expExp
     genRaw [TAC.ThreeAddressCode TAC.Assign (Just lexp) (Just lexp') Nothing]
@@ -490,18 +501,19 @@ genForExp exp@AST.GreaterEqualExp{} = genForComp exp TAC.Gte
 genForExp exp@AST.CallExp{AST.exp_id=expId, AST.exp_params=params, AST.exp_type=expType , AST.exp_entry=Just entry} = do
     -- Generate TAC to each param
     tempList <- mapM genAndBindExp params
-    genForNewFrame tempList
+    newFrame <- genForNewFrame tempList
 
     -- Call function
     let n = length params
         name = AST.entry_name entry
+    liftIO $ putStrLn $ "\nLLAMAR FUNCION\n" ++ name
     if expType == Parser.voidType
         then do
-            genRaw [TAC.ThreeAddressCode TAC.Call Nothing (Just $ TAC.Label name) (Just $ toEighthConstant n) ]
+            genRaw [TAC.ThreeAddressCode TAC.Call Nothing (Just $ TAC.Label name) (Just newFrame) ]
             return (Nothing, [], [])
         else do
             ret <- newTemp expType
-            genRaw [TAC.ThreeAddressCode TAC.Call (Just ret) (Just $ TAC.Label name) (Just $ toEighthConstant n) ]
+            genRaw [TAC.ThreeAddressCode TAC.Call (Just ret) (Just $ TAC.Label name) (Just newFrame) ]
             return (Just ret, [], [])
 
 -- | Insert a list of raw instructions into final Three Address Code
@@ -580,6 +592,10 @@ gen inst@(AST.AssignInst leftExp rightExp) = do
             (Just rValue, _, _)  <- genForExp rightExp
             genAssignment rValue
             return []
+
+gen AST.CallFuncInst{AST.inst_call=callExp} = do
+    genForExp callExp
+    return []
 
 gen AST.IfInst{AST.inst_exp=instExp, AST.inst_inst=instInst, AST.inst_else=instElse} = do
     genComment "If"
@@ -904,9 +920,8 @@ genForReturn' maybeValue = do
 
     genRaw [TAC.ThreeAddressCode TAC.Get (Just TAC.raReg) (Just base) (Just $ toEighthConstant $ -arqWord),
             TAC.ThreeAddressCode TAC.Get (Just fp) (Just base) (Just offsetConstant),
-            TAC.ThreeAddressCode TAC.Assign (Just base) (Just fp) Nothing]
-    
-    genRaw [TAC.ThreeAddressCode TAC.Return Nothing maybeValue Nothing]
+            -- TAC.ThreeAddressCode TAC.Assign (Just base) (Just fp) Nothing]
+            TAC.ThreeAddressCode TAC.Return (Just fp) maybeValue Nothing]
 
 genForReturn :: Maybe TAC.Value -> TACMonad ()
 genForReturn maybeValue = do
@@ -1297,7 +1312,7 @@ getPrevBase = do
     genRaw [TAC.ThreeAddressCode TAC.Get (Just prevBase) (Just base) (Just minusFour)]
     return prevBase
 
-genForIncrementBase :: TACMonad ()
+genForIncrementBase :: TACMonad TAC.Value
 genForIncrementBase = do
     genComment "Increment Base"
     -- Increment `base` and Store current `base`
@@ -1306,10 +1321,11 @@ genForIncrementBase = do
     currOffsetValue <- toEighthTemp currOffset
     genRaw [TAC.ThreeAddressCode TAC.Add (Just temp) (Just currOffsetValue) (Just arqWordConstant),
             TAC.ThreeAddressCode TAC.Sub (Just currOffsetValue) (Just base) (Just currOffsetValue),
-            TAC.ThreeAddressCode TAC.Set (Just currOffsetValue) (Just zeroConstant) (Just base),
-            TAC.ThreeAddressCode TAC.Sub (Just base) (Just base) (Just temp) ]
+            TAC.ThreeAddressCode TAC.Set (Just currOffsetValue) (Just zeroConstant) (Just base)]
+            -- TAC.ThreeAddressCode TAC.Sub (Just base) (Just base) (Just temp) ]
+    return temp
     
-genForNewFrame :: [TAC.Value] -> TACMonad ()
+genForNewFrame :: [TAC.Value] -> TACMonad TAC.Value
 genForNewFrame params = do
     currOffset <- getOffset
     foldM_ genForParamInst (currOffset + 2*arqWord) params
@@ -1325,8 +1341,9 @@ genForCall "free" param' isRecursive = do
     param <- newTemp $ TAC.getType param'
     tempConstant <- toWholeTemp isRecursive
     genRaw [TAC.ThreeAddressCode TAC.Assign (Just param) (Just param') Nothing]
-    genForNewFrame [param, tempConstant]
-    genRaw [TAC.ThreeAddressCode TAC.Call Nothing (Just $ TAC.Label "free") (Just $ toEighthConstant 2) ]
+    
+    newFrame <- genForNewFrame [param, tempConstant]
+    genRaw [TAC.ThreeAddressCode TAC.Call Nothing (Just $ TAC.Label "free") (Just newFrame) ]
     return Nothing
 
 genForCall "malloc" param' isRecursive = do
@@ -1343,10 +1360,10 @@ genForCall "malloc" param' isRecursive = do
             TAC.ThreeAddressCode TAC.Div (Just temp2) (Just temp1) (Just arqWordTemp),
             TAC.ThreeAddressCode TAC.Mult (Just param) (Just temp2) (Just arqWordTemp)]
 
-    genForNewFrame [param, tempConstant]
+    newFrame <- genForNewFrame [param, tempConstant]
 
     ret <- newTemp $ AST.Simple "eighth"
-    genRaw [TAC.ThreeAddressCode TAC.Call (Just ret) (Just $ TAC.Label "malloc") (Just $ toEighthConstant 2) ]
+    genRaw [TAC.ThreeAddressCode TAC.Call (Just ret) (Just $ TAC.Label "malloc") (Just newFrame) ]
     return $ Just ret
 
 genForParamInst :: Int -> TAC.Value -> TACMonad Int

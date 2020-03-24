@@ -60,12 +60,14 @@ main = do
                         (state, tac) <- foldM acc' (TACMonad.initialState table, []) functionGenerators
                         (state, tac) <- foldM acc (state, tac) functionEntries
 
+
                         -- Backpatching
                         let bpMap = TACMonad.bp_map state
                             preliminarTAC = (TAC.entryNode : TAC.ThreeAddressCode TAC.GoTo Nothing Nothing (Just $ TAC.Label "moderato") : TACMonad.backpatchAll bpMap tac) ++ [TAC.exitNode]
                             (finalTAC, blockLeaders') = FGraph.getBlockLeaders preliminarTAC
                             blockLeaders = Set.insert (length finalTAC - 1) blockLeaders'
 
+                        printTAC preliminarTAC 0 Set.empty print
                         --------------------------------------------------------------------------------------------------
                         putStrLn $ "Block Leaders:\n" ++ show blockLeaders ++ "\n\nThree Address Code:"
 
@@ -87,15 +89,17 @@ main = do
                         -- putStrLn "New TAC:\n"
                         printTAC newTac 0 Set.empty print
                         --------------------------------------------------------------------------------------------------
-                        -- printDelimiter
-                        -- putStrLn "Interference graph:\n"
-                        -- mapM_ (\(var, ady) -> putStrLn $ show var ++ " [$" ++ show (fromJust $ Map.lookup var varRegMap) ++ "] ->\n\t" ++ show (length ady) ++ " " ++ show (Set.toList ady)) $ Map.toList interferenceGraph
+                        printDelimiter
+                        putStrLn "Interference graph:\n"
+                        mapM_ (\(var, ady) -> putStrLn $ show var ++ " [$" ++ show (fromJust $ Map.lookup var varRegMap) ++ "] ->\n\t" ++ show (length ady) ++ " " ++ show (Set.toList ady)) $ Map.toList interferenceGraph
 
                         --------------------------------------------------------------------------------------------------
                         -- printDelimiter
 
                         let ouFileName = fileName ++ ".s"
                         writeFile ouFileName $ As.generateAssembly newTac
+
+                        -- TODO: optimize consecutive `lw $r, addr    sw $r, addr`
 
 
     hClose handle

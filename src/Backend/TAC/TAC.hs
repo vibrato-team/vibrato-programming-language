@@ -49,8 +49,8 @@ instance (Show b) => Show (ThreeAddressCode b) where
   show (ThreeAddressCode Param Nothing (Just p) Nothing)          = "\tparam " ++ show p
   show (ThreeAddressCode Call Nothing (Just l) (Just n))          = "\tcall " ++ show l ++ ", " ++ show n
   show (ThreeAddressCode Call (Just t) (Just l) (Just n))         = "\t" ++ show t ++ " := call " ++ show l ++ ", " ++ show n
-  show (ThreeAddressCode Return Nothing Nothing Nothing)          = "\treturn" 
-  show (ThreeAddressCode Return Nothing (Just t) Nothing)         = "\treturn " ++ show t 
+  show (ThreeAddressCode Return _ Nothing Nothing)          = "\treturn" 
+  show (ThreeAddressCode Return _ (Just t) Nothing)         = "\treturn " ++ show t 
   show (ThreeAddressCode Sbrk (Just t) (Just sz) Nothing)         = "\t" ++ show t ++ " := sbrk(" ++ show sz ++ ")"  
   show (ThreeAddressCode Print Nothing (Just x) Nothing)          = "\tprint(" ++ show x ++ ")"
   show (ThreeAddressCode Print Nothing (Just x) (Just sz))        = "\tprint(" ++ show x ++ ", " ++ show sz ++ ")"
@@ -193,7 +193,7 @@ getDestiny inst
     tacRvalue1 inst
 
 -- Operations that are considerad assignments, without Casting
-assignmentInsts = [Assign, Add, Sub, Minus, Mult, Div, Mod,  Get, Ref, Call, Sbrk, Store]
+assignmentInsts = [Assign, Add, Sub, Minus, Mult, Div, Mod,  Get, Ref, Call, Sbrk, Load] -- TODO: check if Store is necessary to be here
 
 isAnAssignment :: Operation -> Bool
 isAnAssignment op
@@ -207,7 +207,7 @@ getValues :: Instruction -> [Value]
 getValues inst
   | tacOperation inst `elem` conditionalJumpInsts =
     catMaybes [tacLvalue inst, tacRvalue1 inst] 
-  | tacOperation inst `elem` [Set, Store] =
+  | tacOperation inst `elem` [Set, Store, Return] =
     catMaybes [tacLvalue inst, tacRvalue1 inst, tacRvalue2 inst]
   | otherwise =
     catMaybes [tacRvalue1 inst, tacRvalue2 inst]
@@ -272,4 +272,5 @@ intToReg :: Int -> AST.ASTType -> Id
 intToReg num = Reg ("$" ++ show num)
 
 zeroReg = Id $ intToReg 0 (AST.Simple "eighth")
+returnReg astType = Id $ Reg "$v0" astType
 raReg = Id $ Reg "$ra" (AST.Simple "eighth")
