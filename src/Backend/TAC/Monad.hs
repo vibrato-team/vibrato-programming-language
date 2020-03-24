@@ -333,7 +333,8 @@ genForExp exp@(AST.LiteralExp expToken expType)
 
         return (Just temp, [], [])
     | expType == AST.Simple "half" = do
-        let constant = TAC.Constant (show $ ord $ Tokens.token expToken !! 1, expType)
+        -- TODO: Support for spaced characters
+        let constant = TAC.Constant (show $ ord (read (Tokens.token expToken) :: Char), expType)
         temp <- newTemp expType
         genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp) (Just constant) Nothing]
         return (Just temp, [], [])
