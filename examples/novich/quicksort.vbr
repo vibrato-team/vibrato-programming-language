@@ -1,3 +1,12 @@
+track print(arr: Sample<Melody<quarter> >) {
+    tamArr: eighth <-> length(arr!)|
+    loop x {
+        |>(arr![x], ' ') |
+    } in (tamArr)
+    |>('\n')|
+    ||
+}
+
 track swap(arr: Sample< Melody<quarter> >, pos1: quarter, pos2: quarter){
     aux: quarter <-> arr![pos1] |
     arr![pos1] <-> arr![pos2] |
@@ -8,14 +17,12 @@ track swap(arr: Sample< Melody<quarter> >, pos1: quarter, pos2: quarter){
 track partition(arr: Sample< Melody<quarter> >, low: quarter, high: quarter): quarter{
     pivot: quarter <-> arr![high] |
     i: quarter <-> low - 1 |
-
     loop j {
         if (arr![j] < pivot){
             i <-> i + 1 |
             play swap with (arr, i, j) |
         }
-    } in (low, high-1)
-
+    } in (low, high)
     play swap with (arr, i + 1, high) |
     ( i + 1 ) ||
 }
@@ -23,7 +30,7 @@ track partition(arr: Sample< Melody<quarter> >, low: quarter, high: quarter): qu
 
 track quicksort(arr: Sample< Melody<quarter> >, low: quarter , high: quarter ){
     pi : quarter |
-    if( low < high ){
+    if( low <= high ){
         pi <-> play partition with (arr, low, high) |
 
         play quicksort with ( arr, low, pi - 1 ) |
@@ -33,21 +40,11 @@ track quicksort(arr: Sample< Melody<quarter> >, low: quarter , high: quarter ){
 }
 
 moderato(){
-    opt: quarter |
-    tamArr: quarter |
-    
+    tamArr: quarter |    
     loop (maj){
-        --|>("Desea Ordenar por: ") |
-        --|>("1) Enteros ") |
-        --|>("2) Flotantes ") |
-        --|>("3) Caracteres ") |
-        |>("-1) Salir ") |
-        @(opt) |
-
-        if( opt = -1) |] 
-        
-        |>("indique el tamaño: ") |
+        |>("Indique el tamaño (Ingrese -1 para salir): ")|
         @(tamArr) |
+        if(tamArr = -1) |] 
 
         arr: Sample< Melody<quarter> > <-> new Melody<quarter>(tamArr) |
         aux: quarter |
@@ -56,18 +53,10 @@ moderato(){
             arr![x] <-> aux |
         } in ( tamArr )
 
-        |>("Tu arreglo es:")|
-        loop x {
-            |>(' ', arr![x])|
-        } in ( tamArr )
-
-        play quicksort with (arr, 0, tamArr) |
-        |>('\n', "Arreglo: [") |
-        loop x {
-            |>(arr![x], ' ') |
-        } in (tamArr - 1)
-        |> (arr![tamArr-1], "]", '\n') |
-
+        play print with (arr)|
+        play quicksort with (arr, 0, tamArr-1) |
+        |>("El arreglo ordenado es: ")|
+        play print with (arr)|
     }
 
 }

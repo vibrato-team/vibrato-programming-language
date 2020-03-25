@@ -310,7 +310,8 @@ genForExp :: AST.Expression -> TACMonad (Maybe TAC.Value, InstList, InstList)
 
 -- Literal expression
 genForExp exp@(AST.LiteralExp expToken expType)
-    -- if it's a string
+    -- if it's a string7
+    -- TODO: Store literal on stack
     | expType == AST.Compound "Melody" (AST.Simple "half") = do
         genComment "String literal"
         let string = init (tail $ getStringFromExp exp) ++ ['\0']
@@ -954,6 +955,8 @@ genForFunction entry = do
 
     -- Generate TAC for each instruction inside block
     genForList stmts
+
+    --TODO: a void return
     return ()
 
 -- | Add new allocated address to set (linked list, actually) of allocated address by the caller
@@ -1050,27 +1053,31 @@ genForMallocFunction = do
     ---------------------------------------------------------------------
     -- BODY
     -- Check if block is free and its size
+    genComment "Check if block is free and its size is large enough"
     isFree <- newTemp $ AST.Simple "eighth"    -- 0: free, 1: allocated
     tempSize <- newTemp $ AST.Simple "eighth"
+    sizeWithBothMetadataObjects <- newTemp $ AST.Simple "eighth"  
     genRaw [TAC.ThreeAddressCode TAC.Get (Just isFree) (Just iter) (Just arqWordConstant),
-            TAC.ThreeAddressCode TAC.Get (Just tempSize) (Just iter) (Just doubleWordConstant)]
+            TAC.ThreeAddressCode TAC.Get (Just tempSize) (Just iter) (Just doubleWordConstant),
+            -- `sizeWIthBothMetadaObject` takes into account the 3 words of metadata of the two blocks and at least one allocated byte.
+            TAC.ThreeAddressCode TAC.Add (Just sizeWithBothMetadataObjects) (Just size) (Just $ toEighthConstant $ 3*arqWord + 1) ]
 
     -- If it is allocated, move to next block
     isFreeInst <- nextInst
     genRaw [TAC.ThreeAddressCode TAC.Neq (Just isFree) (Just TAC.zeroReg) Nothing]
 
     -- If it's size is not enough, move to next block
-    tempLez <- transformToLez TAC.Lt tempSize size
+    tempLez <- transformToLez TAC.Lt tempSize sizeWithBothMetadataObjects
     sizeInst <- nextInst
     genRaw [TAC.ThreeAddressCode TAC.Lez (Just tempLez) Nothing Nothing]
 
-    -- Split block and return
+    -- Split block or allocate block and return
     nextBlock <- newTemp $ AST.Simple "eighth"
     nextSize <- newTemp $ AST.Simple "eighth"
     genRaw [TAC.ThreeAddressCode TAC.Add (Just nextBlock)   (Just iter)                 (Just size),
             TAC.ThreeAddressCode TAC.Sub (Just nextSize)    (Just tempSize)             (Just size)]
 
-    -- Generate blocks
+    genComment "Split"
     genForBlock nextBlock nextIter TAC.zeroReg nextSize
     oneTemp <- toEighthTemp 1
     genForBlock iter nextBlock oneTemp size
@@ -1371,9 +1378,9 @@ genForParamInst :: Int -> TAC.Value -> TACMonad Int
 genForParamInst offset param = do
     genComment "Insert parameter"
     size <- getSize $ TAC.getType param
-    let offsetValue = toEighthConstant $ -(initialOffset + offset)
+    let offsetValue = toEighthConstant $ -(offset + initialOffset)
     genRaw [TAC.ThreeAddressCode TAC.Set (Just base) (Just offsetValue) (Just param)]
-    return $ offset + size
+    return $ nextWord offset size
 
 genForTrackParam :: AST.Entry -> TACMonad ()
 genForTrackParam e@AST.Entry{AST.entry_type=Just entryType, AST.entry_category=cat} =

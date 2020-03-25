@@ -391,7 +391,8 @@ CallFuncion             : play Id With '(' ListExp ClosePar          {% do
                                                                                 case category of
                                                                                     AST.Function{AST.function_params=params} -> do
                                                                                         -- Verificacion of the list of expressions
-                                                                                        casted_args <- checkParams $4 (reverse $5) params
+                                                                                        casted_args' <- checkParams $4 (reverse $5) params
+                                                                                        let casted_args = reverse casted_args'
                                                                                         return $ AST.CallExp $2 casted_args (fromMaybe voidType $ AST.entry_type entry) maybeEntry
 
                                                                                     _ -> do
