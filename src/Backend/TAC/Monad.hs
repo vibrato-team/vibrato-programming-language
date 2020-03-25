@@ -310,7 +310,6 @@ genForExp :: AST.Expression -> TACMonad (Maybe TAC.Value, InstList, InstList)
 -- Literal expression
 genForExp exp@(AST.LiteralExp expToken expType)
     -- if it's a string7
-    -- TODO: Store literal on stack
     | expType == AST.Compound "Melody" (AST.Simple "half") = do
         genComment "String literal"
         let string = init (tail $ getStringFromExp exp) ++ ['\0']
@@ -332,7 +331,6 @@ genForExp exp@(AST.LiteralExp expToken expType)
 
         return (Just addr, [], [])
     | expType == AST.Simple "half" = do
-        -- TODO: Support for spaced characters
         let constant = TAC.Constant (show $ ord (read (Tokens.token expToken) :: Char), expType)
         temp <- newTemp expType
         genRaw [TAC.ThreeAddressCode TAC.Assign (Just temp) (Just constant) Nothing]
@@ -925,9 +923,10 @@ genForReturn' maybeValue = do
             TAC.ThreeAddressCode TAC.Return (Just fp) maybeValue Nothing]
 
 genForReturn :: Maybe TAC.Value -> TACMonad ()
-genForReturn maybeValue = do
-    collectGarbage
-    genForReturn' maybeValue
+genForReturn =
+    -- TODO: make optional the garbage collection.
+    -- `\maybeValue -> collectGarbage >> genForReturn' maybeValue`
+    genForReturn'
 
 -- | Generate TAC for function
 genForFunction :: AST.Entry -> TACMonad ()
@@ -956,7 +955,7 @@ genForFunction entry = do
     genForList stmts
 
     --TODO: a void return
-    genForReturn Nothing
+    Control.Monad.when (name /= "moderato") $ genForReturn Nothing
 
 -- | Add new allocated address to set (linked list, actually) of allocated address by the caller
 trackNewAddr :: TAC.Value -> TAC.Value -> TACMonad ()
@@ -1340,7 +1339,10 @@ genForNewFrame params = do
 
 ----------------------------------------------------------------------------
 -- | Generate TAC for a call to `malloc` or `free` with Garbage Collector
-genForCallWithGC name param' = genForCall name param' False
+genForCallWithGC name param' = do
+    -- It should be False, but lets keep it this way while we define garbage collection
+    let isRecursive = True
+    genForCall name param' isRecursive
 
 genForCall :: String -> TAC.Value -> Bool -> TACMonad (Maybe TAC.Value)
 genForCall "free" param' isRecursive = do
