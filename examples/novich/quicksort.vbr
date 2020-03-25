@@ -4,14 +4,12 @@ track print(arr: Sample<Melody<quarter> >) {
         |>(arr![x], ' ') |
     } in (tamArr)
     |>('\n')|
-    ||
 }
 
 track swap(arr: Sample< Melody<quarter> >, pos1: quarter, pos2: quarter){
     aux: quarter <-> arr![pos1] |
     arr![pos1] <-> arr![pos2] |
     arr![pos2] <-> aux |
-    ||
 }
 
 track partition(arr: Sample< Melody<quarter> >, low: quarter, high: quarter): quarter{
@@ -39,7 +37,6 @@ track quicksort(arr: Sample< Melody<quarter> >, low: quarter , high: quarter ){
         play quicksort with ( arr, low, pi - 1 ) |
         play quicksort with ( arr, pi + 1, high ) |
     }
-    ||
 }
 
 moderato(){
