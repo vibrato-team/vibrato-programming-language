@@ -53,7 +53,7 @@ initialState = ParserState (AST.Scopes (Set.fromList [1, 0]) [1, 0]) initialMap 
         sampleEntry         =    ("Sample",     [AST.Entry "Sample"     AST.Constructor                 0   Nothing                       Nothing])
         trueEntry           =    ("maj",        [AST.Entry "maj"        AST.Literal                     0   (Just $ AST.Simple "whole")   Nothing])
         falseEntry          =    ("min",        [AST.Entry "min"        AST.Literal                     0   (Just $ AST.Simple "whole")   Nothing])
-        nullEntry           =    ("TT",         [AST.Entry "TT"         AST.Literal                     0   (Just $ AST.Simple "null")    Nothing])
+        nullEntry           =    ("|=",         [AST.Entry "|="         AST.Literal                     0   (Just $ AST.Simple "null")    Nothing])
         initialMap          =    Map.fromList   [wholeEntry, halfEntry, quarterEntry, eighthEntry, thirySecondEntry, 
                                                 sixtyFourthEntry, nullTypeEntry, emptyListEntry, melodyEntry, sampleEntry, 
                                                 trueEntry, falseEntry, nullEntry]
