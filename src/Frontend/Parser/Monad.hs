@@ -158,6 +158,7 @@ pushError err = do
     RWS.put $ state { state_errors = err : errs }
 
 -- | Get current offset and increment it by given width
+-- TODO: Optimize sizes occupy by
 getAndIncOffset :: Int -> ParserMonad Int
 getAndIncOffset width = do
     state@ParserState{state_offset=offset} <- RWS.get

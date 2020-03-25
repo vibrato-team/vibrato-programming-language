@@ -15,6 +15,7 @@ track swap(arr: Sample< Melody<quarter> >, pos1: quarter, pos2: quarter){
 }
 
 track partition(arr: Sample< Melody<quarter> >, low: quarter, high: quarter): quarter{
+    --|>('\t', '\t', "partition -> low: ", low, ", high: ", high, '\n')|
     pivot: quarter <-> arr![high] |
     i: quarter <-> low - 1 |
     loop j {
@@ -29,6 +30,8 @@ track partition(arr: Sample< Melody<quarter> >, low: quarter, high: quarter): qu
 
 
 track quicksort(arr: Sample< Melody<quarter> >, low: quarter , high: quarter ){
+    |>('\t', "quicksort -> low: ", low, ", high: ", high, ", arr: ", '\t', '\t')|
+    play print with (arr)|
     pi : quarter |
     if( low <= high ){
         pi <-> play partition with (arr, low, high) |

@@ -47,7 +47,6 @@ nullConstant    = zeroConstant
 baseReg        = TAC.Reg "$sp" (AST.Simple "eighth")
 base            = TAC.Id baseReg
 
--- TODO: Store head in temp everytime it is used
 memoryHeadGlobal  = TAC.Global "head" (AST.Simple "eighth")
 memoryHead      = TAC.Id memoryHeadGlobal
 
@@ -316,23 +315,22 @@ genForExp exp@(AST.LiteralExp expToken expType)
         genComment "String literal"
         let string = init (tail $ getStringFromExp exp) ++ ['\0']
             len = length string
-            size = arqWord + len -- Allocate one int for size and one byte for NUL
+            size = arqWord + len -- Allocate one int for size
 
         lenValue <- toEighthTemp len
-        sizeValue <- toEighthTemp size
-
-        Just temp <- genForCallWithGC "malloc" sizeValue
-        
+        offsetInt <- getAndIncrementOffsetBy size
+        addr <- newTemp $ AST.Simple "eighth"
+        genRaw [TAC.ThreeAddressCode TAC.Add (Just addr) (Just base) (Just $ toEighthConstant $ nextWord offsetInt 0)]   
         -- Store size
         genComment "Store size at first word"
-        genRaw [TAC.ThreeAddressCode TAC.Set (Just temp) (Just zeroConstant) (Just lenValue ) ]
+        genRaw [TAC.ThreeAddressCode TAC.Set (Just addr) (Just zeroConstant) (Just lenValue ) ]
 
         genComment "Push array elements"
         let chars = map (\c -> TAC.Constant (show $ ord c, AST.Simple "half")) string
         charTemps <- mapM (\c -> newTemp (AST.Simple "half") >>= \t -> genRaw [TAC.ThreeAddressCode TAC.Assign (Just t) (Just c) Nothing] >> return t) chars
-        foldM_ ( pushArrayElement temp 1 ) arqWord charTemps
+        foldM_ ( pushArrayElement addr 1 ) arqWord charTemps
 
-        return (Just temp, [], [])
+        return (Just addr, [], [])
     | expType == AST.Simple "half" = do
         -- TODO: Support for spaced characters
         let constant = TAC.Constant (show $ ord (read (Tokens.token expToken) :: Char), expType)
@@ -346,6 +344,7 @@ genForExp exp@(AST.LiteralExp expToken expType)
         return (Just temp, [], [])
 
 -- Melody literals
+--TODO: Store melody literals on stack.
 genForExp exp@AST.MelodyLiteral{AST.exp_exps=expList, AST.exp_type=expType } = do
     let size = length expList
     sizeValue <- toEighthTemp size
@@ -957,7 +956,7 @@ genForFunction entry = do
     genForList stmts
 
     --TODO: a void return
-    return ()
+    genForReturn Nothing
 
 -- | Add new allocated address to set (linked list, actually) of allocated address by the caller
 trackNewAddr :: TAC.Value -> TAC.Value -> TACMonad ()
