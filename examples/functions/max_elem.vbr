@@ -1,5 +1,5 @@
-track max(v: Melody<quarter>): quarter {
-    m: quarter <-> v[0]|
+track max(v: Melody<eighth>): eighth {
+    m: eighth <-> v[0]|
     loop i {
         if (m < v[i]) {
             m <-> v[i]|
@@ -9,7 +9,17 @@ track max(v: Melody<quarter>): quarter {
 }
 
 moderato() {
-    arr: Melody<quarter> <-> [1, -0, 2, 25, -25 -10, 4]|
-    maximum: quarter <-> play max with (arr)|
-    |>(maximum)|
+    n: eighth|
+    |>("Ingrese tamaño del arreglo: ")|
+    @(n)|
+    arr: Melody<eighth> <-> Melody<eighth>(n)|
+
+    loop i {
+        x: eighth|
+        @(x)|
+        arr[i] <-> x|
+    } in (n)
+
+    maximum: eighth <-> play max with (arr)|
+    |>("El elemento máximo es: ", maximum)|
 }

@@ -47,6 +47,9 @@ nullConstant    = zeroConstant
 baseReg        = TAC.Reg "$sp" (AST.Simple "eighth")
 base            = TAC.Id baseReg
 
+guardReg        = TAC.Reg "$a3" (AST.Simple "eighth")
+guardValue      = TAC.Id guardReg
+
 memoryHeadGlobal  = TAC.Global "head" (AST.Simple "eighth")
 memoryHead      = TAC.Id memoryHeadGlobal
 
@@ -142,12 +145,11 @@ genAndBindLogicalExp exp = do
 
 transformToLez :: TAC.Operation -> TAC.Value -> TAC.Value -> TACMonad TAC.Value
 transformToLez op rValue1 rValue2= do
-    temp <- newTemp $ TAC.getType rValue1
     if op `elem` [TAC.Lt, TAC.Lte]
-        then genRaw [TAC.ThreeAddressCode TAC.Sub (Just temp) (Just rValue1) (Just rValue2)]
-        else genRaw [TAC.ThreeAddressCode TAC.Sub (Just temp) (Just rValue2) (Just rValue1)]
-    Control.Monad.when (op `elem` [TAC.Lt, TAC.Gt]) $ genRaw [TAC.ThreeAddressCode TAC.Add (Just temp) (Just temp) (Just oneConstant)]
-    return temp
+        then genRaw [TAC.ThreeAddressCode TAC.Sub (Just guardValue) (Just rValue1) (Just rValue2)]
+        else genRaw [TAC.ThreeAddressCode TAC.Sub (Just guardValue) (Just rValue2) (Just rValue1)]
+    Control.Monad.when (op `elem` [TAC.Lt, TAC.Gt]) $ genRaw [TAC.ThreeAddressCode TAC.Add (Just guardValue) (Just guardValue) (Just oneConstant)]
+    return guardValue
 
 -- | Generate three address code for comparators
 genForComp :: AST.Expression -> TAC.Operation -> TACMonad (Maybe TAC.Value, InstList, InstList)
