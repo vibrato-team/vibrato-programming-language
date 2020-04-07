@@ -956,7 +956,6 @@ genForFunction entry = do
     -- Generate TAC for each instruction inside block
     genForList stmts
 
-    --TODO: a void return
     Control.Monad.when (name /= "moderato") $ genForReturn Nothing
 
 -- | Add new allocated address to set (linked list, actually) of allocated address by the caller

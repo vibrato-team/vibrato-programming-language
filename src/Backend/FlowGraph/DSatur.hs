@@ -153,7 +153,6 @@ genEpilProl [] = return ()
 genEpilProl ((idx, inst):tac) = do
     state@LVState{var_reg_map = varRegMap, new_tac = newTac, live_vars_map = liveVarsMap} <- State.get
     case inst of
-        -- TODO: Labels reached by spilled conditional jumps should load all their live variables.
         TAC.ThreeAddressCode{TAC.tacOperation=TAC.Call} -> do
             let liveVarsSet0 = fromJust $ Map.lookup idx liveVarsMap
                 liveVarsSet1 = fromJust $ Map.lookup (idx+1) liveVarsMap

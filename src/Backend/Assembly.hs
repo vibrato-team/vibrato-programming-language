@@ -43,7 +43,6 @@ tacToAssembly (ThreeAddressCode Get r@(Just reg@(Id Reg{})) v1@(Just addr@(Id Re
 tacToAssembly (ThreeAddressCode Get v@(Just var) v1@(Just addr) offset@(Just i)) =
     tacToMoveInstruction "s" v offset v1
 
--- TODO: En el tac, los $i($addr) cambiarlos por 0($i + $addr)
 tacToAssembly (ThreeAddressCode Set v1@(Just addr) offset@(Just i@Constant{}) r@(Just feg)) =
     tacToMoveInstruction "s" r offset v1
 
@@ -123,14 +122,14 @@ tacToAssembly (ThreeAddressCode Comment Nothing (Just cmnt) Nothing) = "\t# " ++
 tacToAssembly (ThreeAddressCode Load r@(Just reg) v1@(Just x) Nothing) =
     tacToMoveInstruction "l" r v1 Nothing
 
--- TODO: transform `$x = $i($y)` into `$x = $y + $i    $x = 0($x)`
+-- transform `$x = $i($y)` into `$x = $y + $i    $x = 0($x)`
 tacToAssembly (ThreeAddressCode Load r@(Just reg) v1@(Just addr) offset@(Just _)) =
     tacToMoveInstruction "l" r offset v1
 
 tacToAssembly (ThreeAddressCode Store r@(Just reg) v1@(Just x) Nothing) =
     tacToMoveInstruction "s" r v1 Nothing
 
--- TODO: transform `$i($y) = $x` into `$x = $y + $i    $0($x) = $x`
+-- transform `$i($y) = $x` into `$x = $y + $i    $0($x) = $x`
 tacToAssembly (ThreeAddressCode Store r@(Just reg) v1@(Just addr) offset@(Just _)) =
     tacToMoveInstruction "s" r offset v1
 
