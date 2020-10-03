@@ -431,21 +431,33 @@ genForExp exp@AST.CallExp{AST.exp_id=expId, AST.exp_params=params, AST.exp_type=
             genRaw [TAC.ThreeAddressCode TAC.Call (Just ret) (Just $ TAC.Label name) (Just $ toQuarterConstant n) ]
             return (Just ret, [], [])
 -- Strucs 
-genForExp (AST.ChordLiteral exp_exps exp_type exp_offset) = do
-    -- Reservamos memoria
+genForExp (AST.ChordLiteral exp_exps exp_type) = do
+    -- temporal para la direccion de memoria 
+    temp <- newTemp (AST.Simple "quarter")
     size <- getSize exp_type
+    offset <- getAndIncrementOffsetBy size
+    -- Guardamos la direccion del inicio del chord
+    genRaw [TAC.ThreeAddressCode TAC.Add (Just temp) (Just offset) (Just base)]
 
-    liftIO $ print "Sexo analllllll"
-    foldl (\acc b -> do 
-        x <- getSize $ AST.exp_type b 
-        liftIO $ print x ) 
-        exp_exps exp_exps
-    liftIO $ print "Sexo Vag"
+    -- Obtenemos los temporales 
+    temps <- mapM genAndBindExp exp_exps
 
-    -- liftIO $ print exp_exps
-    liftIO $ print exp_type
-    liftIO $ print exp_offset
-    return (Nothing, [], [])
+    -- obetener los offsets de cada campo
+    ofs <- getOffsets exp_type
+    let offsets = ofs
+    
+    let fields = zip temps offsets
+    -- toQuarterConstant offset
+    -- Agregamos el contenido al espacio reservado
+    foldM_ (\offset (temp, offs) -> genRaw [AST.ThreeAddressCode AST.Set (Just base) (Just offset) (Just temp)] >> return $ offset + offs ) offset fields
+    return (temp, [], [])
+    where 
+        getOffsets type_ = do
+            -- lookup
+            entry <- PMonad.lookup type_
+            -- buscar en tabla 
+            let varDecList = fromJust $ type_fields $ entry_category entry
+            mapM getSize varDecList
 
 genForExp x = do
     liftIO $ print x

@@ -55,8 +55,8 @@ main = do
                         -- Backpatching
                         let bpMap = TACMonad.bp_map state
                             finalTAC = TACMonad.backpatchAll bpMap tac
-                        print "Jejeje"
-                        -- printTAC finalTAC
+                        -- print "Jejeje"
+                        printTAC finalTAC
                 
     
     hClose handle
