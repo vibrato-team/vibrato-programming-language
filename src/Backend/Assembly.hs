@@ -61,8 +61,9 @@ tacToAssembly (ThreeAddressCode Call (Just t@(Id Reg{})) (Just label) (Just newF
     -- TODO: Use floating point arithmetic if necessary
     assemblyInst "add" (Just t) (Just $ returnReg (getType t)) (Just zeroReg)
 
-tacToAssembly (ThreeAddressCode Call (Just t) (Just label) (Just _))         =
+tacToAssembly (ThreeAddressCode Call (Just t) (Just label) (Just newFrame))         =
     let v0reg = returnReg (getType t) in
+        assemblyInst "sub" (Just base) (Just base) (Just newFrame) ++ "\n" ++
         assemblyInst "jal" (Just label) Nothing Nothing ++ "\n" ++
         -- TODO: Use floating point arithmetic if necessary
         tacToMoveInstruction "s" (Just v0reg) (Just t) Nothing

@@ -1,19 +1,20 @@
-track par(n:quarter): whole {
-    if( n = 0 ) maj ||
+track par(n:quarter) {
+    if( n = 0 ) |>("El numero", n," es impar", '\n') |
     else{
-        if( n = 1 ) min ||
+        if( n = 1 ) |>("El numero", n," es impar", '\n') |
         else {
-            play impar with ( n-1 ) ||
+            play impar with ( n-1 )|
         }
     }
 }
 
-track impar(n:quarter): whole {
-    if( n = 0 ) min ||
+track impar(n:quarter) {
+
+    if( n = 0 ) |>("El numero", n," es impar", '\n') |
     else{
-        if( n = 1 ) maj ||
+        if( n = 1 ) |>("El numero", n," es par", '\n') |
         else {
-            play par with ( n-1 ) ||
+            play par with ( n-1 ) |
         }
     }
 }
@@ -25,12 +26,6 @@ moderato(){
         @(num) |
 
         if(num = -1) |] 
-
-        if( play par with(num) ){
-            |>("El numero", num," es par") |
-        }
-        else{
-            |>("El numero", num," es impar") |
-        }
+        play par with (num)|
     }
 }

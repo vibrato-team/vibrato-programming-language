@@ -508,6 +508,7 @@ genForExp exp@AST.CallExp{AST.exp_id=expId, AST.exp_params=params, AST.exp_type=
     let n = length params
         name = AST.entry_name entry
     liftIO $ putStrLn $ "\nLLAMAR FUNCION\n" ++ name
+    genComment $ "Llamar función"
     if expType == Parser.voidType
         then do
             genRaw [TAC.ThreeAddressCode TAC.Call Nothing (Just $ TAC.Label name) (Just newFrame) ]
@@ -919,10 +920,13 @@ genForReturn' maybeValue = do
     let offsetConstant = toEighthConstant arqWord
     fp <- newTemp $ AST.Simple "eighth"
 
-    genRaw [TAC.ThreeAddressCode TAC.Get (Just TAC.raReg) (Just base) (Just $ toEighthConstant $ -arqWord),
-            TAC.ThreeAddressCode TAC.Get (Just fp) (Just base) (Just offsetConstant),
+    genComment "Get Return Address"
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just TAC.raReg) (Just base) (Just $ toEighthConstant $ -arqWord)]
+    genComment "Get Stack Pointer"
+    genRaw [TAC.ThreeAddressCode TAC.Get (Just fp) (Just base) (Just offsetConstant)]
             -- TAC.ThreeAddressCode TAC.Assign (Just base) (Just fp) Nothing]
-            TAC.ThreeAddressCode TAC.Return (Just fp) maybeValue Nothing]
+    genComment "Return Stack Pointer and Returned Value"
+    genRaw  [TAC.ThreeAddressCode TAC.Return (Just fp) maybeValue Nothing]
 
 genForReturn :: Maybe TAC.Value -> TACMonad ()
 genForReturn =
@@ -1310,7 +1314,9 @@ backpatch label l1@(idx:idxs) (inst:insts) i
 ----------------------------------------------------------------------------
 --------------------------- Monadic helpers --------------------------------
 ----------------------------------------------------------------------------
-genComment cmnt = genRaw [TAC.ThreeAddressCode TAC.Comment Nothing (Just $ TAC.Label cmnt) Nothing]
+genComment cmnt = genRaw [tacComment cmnt]
+
+tacComment cmnt = TAC.ThreeAddressCode TAC.Comment Nothing (Just $ TAC.Label cmnt) Nothing
 
 getPrevBase :: TACMonad TAC.Value
 getPrevBase = do

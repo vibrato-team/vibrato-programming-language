@@ -252,8 +252,8 @@ getRegOrGenSpill (valuePos, auxRegInt) inst auxVarRegMap = do
                         -- Check if the base is not modified after this instruction.
                         epil           = if TAC.tacOperation inst == TAC.Return
                                             then []
-                                            else [auxLoadEpil, auxStoreEpil]
-                    return (Map.insert var auxRegInt auxVarRegMap, epil, newInst, [auxLoadProl, auxStoreProl])
+                                            else [auxLoadEpil, TACMonad.tacComment "Load", auxStoreEpil, TACMonad.tacComment "Store", TACMonad.tacComment "EPILOGO"]
+                    return (Map.insert var auxRegInt auxVarRegMap, epil, newInst, [auxLoadProl, TACMonad.tacComment "Load", auxStoreProl, TACMonad.tacComment "Store", TACMonad.tacComment "PROLOGO"])
                 
                 -- otherwise
                 else do
