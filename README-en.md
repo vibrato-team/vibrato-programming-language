@@ -57,7 +57,7 @@ moderato() {
 }
 ```
 
-## Expresiones y tipos de datos
+## Expressions and data types
 ### Whole
 They are the notes that last a full measure and can have the values `maj` or `min`. Supports logical operators. Default value: `min`.
 Example:
